@@ -33,8 +33,8 @@ import java.lang.annotation.Target;
  * <p>
  * Note : {@link EnableDubbo} must base on Spring Framework 4.2 and above
  *
- * @see DubboComponentScan
- * @see EnableDubboConfig
+ * @see DubboComponentScan 处理@service标注的类将其暴露为dubbo方法。处理@reference标注的属性使其引用dubbo服务
+ * @see EnableDubboConfig 将property文件中得配置属性比如dubbo.application 绑定到 配置类ApplicationConfig中
  * @since 2.5.8
  */
 @Target({ElementType.TYPE})

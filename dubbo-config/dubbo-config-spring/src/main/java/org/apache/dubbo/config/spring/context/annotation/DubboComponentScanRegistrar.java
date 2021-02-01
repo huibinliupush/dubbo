@@ -40,7 +40,8 @@ import static org.springframework.beans.factory.support.BeanDefinitionBuilder.ro
 
 /**
  * Dubbo {@link DubboComponentScan} Bean Registrar
- *
+ * ImportBeanDefnitionRegistor类是用来在spring处理Configuration配置类的时候，注册额外的自定义的bean
+ * DubboComponentScanRegistrar类继承ImportBeanDefinitionRegistor类用来处理自定义的注册bean规则
  * @see Service
  * @see DubboComponentScan
  * @see ImportBeanDefinitionRegistrar
@@ -50,6 +51,13 @@ import static org.springframework.beans.factory.support.BeanDefinitionBuilder.ro
  */
 public class DubboComponentScanRegistrar implements ImportBeanDefinitionRegistrar {
 
+    /**
+     * 该方法用来根据定义的注解原信息处理自定义bean的注册
+     * 这里会根据@DubboComponentScan注解中得原信息basePackages（扫描自定义bean所在的包路径）
+     * 扫描指定包路径下标注@service的类并将其暴露为dubbo服务
+     * 处理spring bean中标注@reference的属性 使其引用dubbo服务 注意 该类必须为spring bean.
+     * dubbo并不会将@reference标注的类 提升为spring bean
+     */
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
 
