@@ -38,8 +38,8 @@ import org.springframework.context.annotation.Configuration;
  *
  * @revised 2.7.5
  * @see Configuration
- * @see EnableConfigurationBeanBindings
- * @see EnableConfigurationBeanBinding
+ * @see EnableConfigurationBeanBindings 多个属性绑定
+ * @see EnableConfigurationBeanBinding 外部化配置属性前缀（外部化配置property文件） 和 dubbo配置类 绑定，被绑定的dubbo配置类将被提升为spring bean。
  * @see ApplicationConfig
  * @see ModuleConfig
  * @see RegistryConfig
@@ -54,6 +54,7 @@ public class DubboConfigConfiguration {
 
     /**
      * Single Dubbo {@link AbstractConfig Config} Bean Binding
+     * prefix支持占位符 ${}
      */
     @EnableConfigurationBeanBindings({
             @EnableConfigurationBeanBinding(prefix = "dubbo.application", type = ApplicationConfig.class),

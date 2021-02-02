@@ -30,6 +30,20 @@ import static org.apache.dubbo.config.spring.util.DubboBeanUtils.registerCommonB
 /**
  * Dubbo {@link AbstractConfig Config} {@link ImportBeanDefinitionRegistrar register}, which order can be configured
  *
+
+ *
+ * Spring IoC容器允许BeanFactoryPostProcessor在容器实际实例化任何其它的bean之前读取配置元数据，并有可能修改它。
+ * 如果你愿意，你可以配置多个BeanFactoryPostProcessor。
+ * 你还能通过设置'order'属性来控制BeanFactoryPostProcessor的执行次序
+ *
+ * com.alibaba.spring.beans.factory.annotation.ConfigurationBeanBindingRegistrar#registerConfigurationBindingBeanPostProcessor(org.springframework.beans.factory.support.BeanDefinitionRegistry)
+ * 用BeanPostProcessor来绑定 配置类的属性
+ *
+ * 实现BeanPostProcessor接口可以在Bean(实例化之后)初始化的前后做一些自定义的操作，但是拿到的参数只有BeanDefinition实例和BeanDefinition的名称，也就是无法修改BeanDefinition元数据
+ *
+ * BeanFactoryPostProcessor回调会先于BeanPostProcessor
+ *
+ *
  * @see EnableDubboConfig
  * @see DubboConfigConfiguration
  * @see Ordered
@@ -45,10 +59,16 @@ public class DubboConfigConfigurationRegistrar implements ImportBeanDefinitionRe
 
         boolean multiple = attributes.getBoolean("multiple");
 
-        // Single Config Bindings
+        /**
+         * 为了实现外部化配置中得前缀绑定dubbo配置类
+         * 被@EnableConfigurationBeanBindings标注的dubbo配置bean DubboConfigConfiguration需要注册到spring上下文中
+         * 需要@PropertySource指定外部化配置文件（一般在dubbo应用启动类中加）
+         * */
+        // 注册被 @EnableConfigurationBeanBindings标注的类 触发Single Config Bindings
         registerBeans(registry, DubboConfigConfiguration.Single.class);
 
         if (multiple) { // Since 2.6.6 https://github.com/apache/dubbo/issues/3193
+            //触发 复数config类 绑定
             registerBeans(registry, DubboConfigConfiguration.Multiple.class);
         }
 

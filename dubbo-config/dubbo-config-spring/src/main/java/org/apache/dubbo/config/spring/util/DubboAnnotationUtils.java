@@ -92,12 +92,14 @@ public class DubboAnnotationUtils {
 
         ClassLoader classLoader = defaultInterfaceClass != null ? defaultInterfaceClass.getClassLoader() : Thread.currentThread().getContextClassLoader();
 
+        //@service注解中明确指定了 interfaceClass
         Class<?> interfaceClass = getAttribute(attributes, "interfaceClass");
 
         if (void.class.equals(interfaceClass)) { // default or set void.class for purpose.
 
             interfaceClass = null;
 
+            //@service注解中明确指定了 interfaceName 则根据name 加载interfaceClass
             String interfaceClassName = getAttribute(attributes, "interfaceName");
 
             if (hasText(interfaceClassName)) {
@@ -108,9 +110,17 @@ public class DubboAnnotationUtils {
 
         }
 
+        //如果@service 没有明确指定接口 则从service类一层一层向上查找 取第一个
         if (interfaceClass == null && defaultInterfaceClass != null) {
             // Find all interfaces from the annotated class
             // To resolve an issue : https://github.com/apache/dubbo/issues/3251
+            /*
+            * 如果不在service注解中明确指定interface 那么在2.6.6之前 dubbo不会一层一层向上找 接口
+            * 而是会直接使用service声明的父类 而不是在父类中在一层一层向上找。就会导致下面这种情况的发生
+            * 接口 ---> 抽象类 ---> 服务实现类，@service注解加在服务实现类上
+            *
+            * 递归一层一层往上找所有父类实现的接口，然后聚合成一个list，再取第一个
+            * */
             Class<?>[] allInterfaces = getAllInterfacesForClass(defaultInterfaceClass);
 
             if (allInterfaces.length > 0) {

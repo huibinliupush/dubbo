@@ -83,6 +83,17 @@ import static org.springframework.util.ClassUtils.resolveClassName;
  * {@link BeanFactoryPostProcessor} used for processing of {@link Service @Service} annotated classes. it's also the
  * infrastructure class of XML {@link BeanDefinitionParser} on &lt;dubbbo:annotation /&gt;
  *
+ * BeanDefinitionRegistryPostProcessor
+ * 当spring完成标准的初始化之后，这时候所有普通的bean definition都已经被加载但是还没有实例化
+ * 在这时候这个类还可以去修改application context中得 bean definition。
+ * 可以进一步加载一些自定义的bean definition
+ * 既可以获取和修改BeanDefinition的元数据，也可以实现BeanDefinition的注册、移除等操作。
+ * BeanDefinitionRegistryPostProcessor 接口可以看作是BeanFactoryPostProcessor和ImportBeanDefinitionRegistrar的功能集合，
+ *
+ * 为什么会继承这个类？
+ * 因为service的初始化 是需要其他的dubbo config bean 比如 applicationConfig， protocalConfig等
+ * 所以在注册service bean definition的时候 需要等到所有的 bean definition都已经加载后 在加载service bean
+ *
  * @see AnnotationBeanDefinitionParser
  * @see BeanDefinitionRegistryPostProcessor
  * @since 2.7.7
@@ -125,12 +136,17 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
     @Override
     public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
 
-        // @since 2.7.5
+        // @since 2.7.5 注册spring启动 关闭事件的listener
+        //在事件回调中中调用启动类 DubboBootStrap的start  stop来启动 关闭dubbo应用
         registerBeans(registry, DubboBootstrapApplicationListener.class);
 
+        //解析@EnableDubbo中得basePaclages中的配置 解析占位符 这里支持占位符
+        //得到真正的扫描包路径
         Set<String> resolvedPackagesToScan = resolvePackagesToScan(packagesToScan);
 
         if (!CollectionUtils.isEmpty(resolvedPackagesToScan)) {
+            //将扫描路径下 标注@service的类 提升为 spring bean 后续再DubboBootStrap.start中暴露dubbo服务
+            // 将dubbo服务封装程 即将要暴露用的serverBean
             registerServiceBeans(resolvedPackagesToScan, registry);
         } else {
             if (logger.isWarnEnabled()) {
@@ -155,23 +171,26 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
 
         scanner.setBeanNameGenerator(beanNameGenerator);
 
-        // refactor @since 2.7.7
+        // refactor @since 2.7.7 指定定扫描哪些注解标注的类
         serviceAnnotationTypes.forEach(annotationType -> {
             scanner.addIncludeFilter(new AnnotationTypeFilter(annotationType));
         });
 
         for (String packageToScan : packagesToScan) {
 
-            // Registers @Service Bean first
+            // Registers @Service Bean first 将扫描到得指定类的 bean definition注册
             scanner.scan(packageToScan);
 
             // Finds all BeanDefinitionHolders of @Service whether @ComponentScan scans or not.
+            //解决 同时标注dubbo @service注解 和spring @service注解的类 导致 这个dubbo服务没有暴露
+            //scanner中保存了指定路径下扫描到得指定类的beanDefinition 并将其封装程 beanDefinitionHolder
             Set<BeanDefinitionHolder> beanDefinitionHolders =
                     findServiceBeanDefinitionHolders(scanner, packageToScan, registry, beanNameGenerator);
 
             if (!CollectionUtils.isEmpty(beanDefinitionHolders)) {
 
                 for (BeanDefinitionHolder beanDefinitionHolder : beanDefinitionHolders) {
+                    //填充serviceBean的属性
                     registerServiceBean(beanDefinitionHolder, registry, scanner);
                 }
 
@@ -285,10 +304,13 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
          */
         AnnotationAttributes serviceAnnotationAttributes = getAnnotationAttributes(service, false, false);
 
+        //获取暴露的service接口
         Class<?> interfaceClass = resolveServiceInterfaceClass(serviceAnnotationAttributes, beanClass);
 
+        //获取暴露的服务名称 serviceBean中的ref属性
         String annotatedServiceBeanName = beanDefinitionHolder.getBeanName();
 
+        //填充serviceBean的属性 比如 ref method application registery......
         AbstractBeanDefinition serviceBeanDefinition =
                 buildServiceBeanDefinition(service, serviceAnnotationAttributes, interfaceClass, annotatedServiceBeanName);
 
