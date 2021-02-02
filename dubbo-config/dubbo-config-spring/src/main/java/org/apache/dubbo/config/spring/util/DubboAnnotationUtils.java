@@ -110,7 +110,7 @@ public class DubboAnnotationUtils {
 
         }
 
-        //如果@service 没有明确指定接口 则从service类一层一层向上查找 取第一个
+        //如果@service 没有明确指定接口 则从service类一层一层向上查找 获取其实现的第一个接口
         if (interfaceClass == null && defaultInterfaceClass != null) {
             // Find all interfaces from the annotated class
             // To resolve an issue : https://github.com/apache/dubbo/issues/3251

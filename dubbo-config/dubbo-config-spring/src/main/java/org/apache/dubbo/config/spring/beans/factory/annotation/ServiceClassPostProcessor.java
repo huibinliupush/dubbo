@@ -295,8 +295,9 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
     private void registerServiceBean(BeanDefinitionHolder beanDefinitionHolder, BeanDefinitionRegistry registry,
                                      DubboClassPathBeanDefinitionScanner scanner) {
 
+        //获取dubbo服务impl类
         Class<?> beanClass = resolveClass(beanDefinitionHolder);
-
+        //获取service类上标注的注解 @service
         Annotation service = findServiceAnnotation(beanClass);
 
         /**
@@ -310,11 +311,11 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
         //获取暴露的服务名称 serviceBean中的ref属性
         String annotatedServiceBeanName = beanDefinitionHolder.getBeanName();
 
-        //填充serviceBean的属性 比如 ref method application registery......
+        //通过@service注解上的属性 填充serviceBean的属性 比如 ref method application registery......（如果没有 则不填充 还没到默认填充的时候）
         AbstractBeanDefinition serviceBeanDefinition =
                 buildServiceBeanDefinition(service, serviceAnnotationAttributes, interfaceClass, annotatedServiceBeanName);
 
-        // ServiceBean Bean name
+        // ServiceBean Bean name:ServiceBean:${interfaceClassName}:${version}:${group}
         String beanName = generateServiceBeanName(serviceAnnotationAttributes, interfaceClass);
 
         if (scanner.checkCandidate(beanName, serviceBeanDefinition)) { // check duplicated candidate bean
@@ -413,13 +414,16 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
         BeanDefinitionBuilder builder = rootBeanDefinition(ServiceBean.class);
 
         AbstractBeanDefinition beanDefinition = builder.getBeanDefinition();
-
+        //后续通过MutablePropertyValues 设置serviceBean的 beanDefinition
         MutablePropertyValues propertyValues = beanDefinition.getPropertyValues();
 
+        //在AnnotationPropertyValuesAdapter中忽略下列属性，后续单独设置
         String[] ignoreAttributeNames = of("provider", "monitor", "application", "module", "registry", "protocol",
                 "interface", "interfaceName", "parameters");
-
+        //将@service注解上的属性添加到 beanDefinition中
         propertyValues.addPropertyValues(new AnnotationPropertyValuesAdapter(serviceAnnotation, environment, ignoreAttributeNames));
+
+        //开始单独设置ignoreAttributeNames中的属性
 
         // References "ref" property to annotated-@Service Bean
         addPropertyReference(builder, "ref", annotatedServiceBeanName);
@@ -471,6 +475,8 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
          */
         String[] registryConfigBeanNames = serviceAnnotationAttributes.getStringArray("registry");
 
+        //在解析到serviceBean 依赖的bean的时候 会创建RuntimeBeanReference(这个是一个引用的bean 需要在runtime时候解析)
+        //比如serverBean在暴露的时候是需要依赖 registery 和 protocal
         List<RuntimeBeanReference> registryRuntimeBeanReferences = toRuntimeBeanReferences(registryConfigBeanNames);
 
         if (!registryRuntimeBeanReferences.isEmpty()) {
