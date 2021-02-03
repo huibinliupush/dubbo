@@ -59,19 +59,21 @@ public class DubboComponentScanRegistrar implements ImportBeanDefinitionRegistra
     /**
      * 该方法用来根据定义的注解原信息处理自定义bean的注册
      * 这里会根据@DubboComponentScan注解中得原信息basePackages（扫描自定义bean所在的包路径）
-     * 扫描指定包路径下标注@service的类并将其暴露为dubbo服务
+     * 扫描指定包路径下标注@service的类并将其暴露为dubbo服务 *这里主要是处理@service 不会处理@reference*
      * 处理spring bean中标注@reference的属性 使其引用dubbo服务 注意 该类必须为spring bean.
      * dubbo并不会将@reference标注的类 提升为spring bean
      */
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
 
+        //这个路径只是去处理@service
         Set<String> packagesToScan = getPackagesToScan(importingClassMetadata);
         // 注册ServiceAnnotationBeanPostProcessor类 用来处理 serviceBean的 注册
         registerServiceAnnotationBeanPostProcessor(packagesToScan, registry);
 
         // @since 2.7.6 Register the common beans
         //注册ReferenceAnnotationBeanPostProcessor类 用来处理 referenceBean的注册
+        //在所有注册的bean中 去查找标注@reference的类 创建服务引用 *和扫描路径 packageToScan没关系*
         registerCommonBeans(registry);
     }
 

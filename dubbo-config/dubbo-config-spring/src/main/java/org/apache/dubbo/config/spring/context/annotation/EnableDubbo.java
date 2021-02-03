@@ -50,7 +50,7 @@ public @interface EnableDubbo {
      * <p>
      * Use {@link #scanBasePackageClasses()} for a type-safe alternative to String-based
      * package names.
-     *
+     * 这个只是去扫描@service Bean
      * @return the base packages to scan
      * @see DubboComponentScan#basePackages()
      */
