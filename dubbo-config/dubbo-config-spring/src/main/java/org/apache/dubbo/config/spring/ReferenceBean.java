@@ -83,6 +83,10 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
      * Initializes there Dubbo's Config Beans before @Reference bean autowiring
      */
     private void prepareDubboConfigBeans() {
+
+        //返回指定类型和子类型的所有bean，若该bean factory 是一个继承类型的beanFactory，
+        // 这个方法也会获取ancestorfactory中定义的指定类型的bean。
+        //间接使这些ConfigBeans初始化
         beansOfTypeIncludingAncestors(applicationContext, ApplicationConfig.class);
         beansOfTypeIncludingAncestors(applicationContext, ModuleConfig.class);
         beansOfTypeIncludingAncestors(applicationContext, RegistryConfig.class);
@@ -96,6 +100,7 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         beansOfTypeIncludingAncestors(applicationContext, SslConfig.class);
     }
 
+    //依赖注入@reference引用时 调用该方法
     @Override
     @SuppressWarnings({"unchecked"})
     public void afterPropertiesSet() throws Exception {
@@ -104,12 +109,14 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         prepareDubboConfigBeans();
 
         // lazy init by default.
+        //默认延迟初始化 也就是依赖注入的时候并不初始化（这里的意思是不会创建服务引用代理proxy reference）
         if (init == null) {
             init = false;
         }
 
         // eager init if necessary.
         if (shouldInit()) {
+            //创建服务引用代理proxy reference
             getObject();
         }
     }

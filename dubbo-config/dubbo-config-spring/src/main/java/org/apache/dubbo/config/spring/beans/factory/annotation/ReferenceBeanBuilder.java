@@ -60,6 +60,7 @@ class ReferenceBeanBuilder extends AnnotatedInterfaceConfigBeanBuilder<Reference
         Boolean generic = getAttribute(attributes, "generic");
         if (generic != null && generic) {
             // it's a generic reference
+            // 当泛化调用的时候 @reference注解中的String interfaceName()必须设置
             String interfaceClassName = getAttribute(attributes, "interfaceName");
             Assert.hasText(interfaceClassName,
                     "@Reference interfaceName() must be present when reference a generic service!");
@@ -67,6 +68,7 @@ class ReferenceBeanBuilder extends AnnotatedInterfaceConfigBeanBuilder<Reference
             return;
         }
 
+        //查找被@reference标注的dubbo service类 向上一层一层查找他的第一个实现接口。作为dubbo service的接口
         Class<?> serviceInterfaceClass = resolveServiceInterfaceClass(attributes, interfaceClass);
 
         Assert.isTrue(serviceInterfaceClass.isInterface(),
@@ -105,6 +107,8 @@ class ReferenceBeanBuilder extends AnnotatedInterfaceConfigBeanBuilder<Reference
         Assert.notNull(interfaceClass, "The interface class must set first!");
         DataBinder dataBinder = new DataBinder(referenceBean);
         // Register CustomEditors for special fields
+        //定义属性解析器 比如注解配置中的parameters配置类型是String[]----{key1, value1, key2, value2}
+        //在ReferenceBean中parameters的类型是map类型，所以在构造ReferenceBean的过程中要将String[] 转化为 Map
         dataBinder.registerCustomEditor(String.class, "filter", new StringTrimmerEditor(true));
         dataBinder.registerCustomEditor(String.class, "listener", new StringTrimmerEditor(true));
         dataBinder.registerCustomEditor(Map.class, "parameters", new PropertyEditorSupport() {
@@ -126,6 +130,8 @@ class ReferenceBeanBuilder extends AnnotatedInterfaceConfigBeanBuilder<Reference
         });
 
         // Bind annotation attributes
+        //定义好属性解析器后，将注解中配置的属性 映射到 ReferenceBean中
+        //注解属性的配置支持占位符  @Reference(attribute=${SystemPropertyKey})
         dataBinder.bind(new AnnotationPropertyValuesAdapter(attributes, applicationContext.getEnvironment(), IGNORE_FIELD_NAMES));
 
     }
@@ -155,13 +161,13 @@ class ReferenceBeanBuilder extends AnnotatedInterfaceConfigBeanBuilder<Reference
     protected void postConfigureBean(AnnotationAttributes attributes, ReferenceBean bean) throws Exception {
 
         bean.setApplicationContext(applicationContext);
-
+        //设置服务引用接口
         configureInterface(attributes, bean);
 
         configureConsumerConfig(attributes, bean);
-
+        //将注解中设置的Method[] methods() 转化为MethodConfigs 设置到ReferenceBean中
         configureMethodConfig(attributes, bean);
-
+        //初始化ReferenceBean
         bean.afterPropertiesSet();
 
     }

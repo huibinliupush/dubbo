@@ -42,6 +42,7 @@ public @interface Reference {
 
     /**
      * Interface class name, default value is empty string
+     * 泛化调用时必须设置
      */
     String interfaceName() default "";
 

@@ -72,15 +72,18 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
      */
     private static final int CACHE_SIZE = Integer.getInteger(BEAN_NAME + ".cache.size", 32);
 
+    //缓存referenceBean  key为referenceBeanNmae
     private final ConcurrentMap<String, ReferenceBean<?>> referenceBeanCache =
             new ConcurrentHashMap<>(CACHE_SIZE);
 
+    //缓存需要依赖注入的field和需要注入的referenceBean之间的映射
     private final ConcurrentMap<InjectionMetadata.InjectedElement, ReferenceBean<?>> injectedFieldReferenceBeanCache =
             new ConcurrentHashMap<>(CACHE_SIZE);
-
+    //缓存需要依赖注入的method和需要注入的referenceBean之间的映射
     private final ConcurrentMap<InjectionMetadata.InjectedElement, ReferenceBean<?>> injectedMethodReferenceBeanCache =
             new ConcurrentHashMap<>(CACHE_SIZE);
 
+    //缓存referencedBeanName（本地服务暴露的beanName） 和 用于创建本地serviceBean代理的 invocationHandler之间的映射
     private final ConcurrentMap<String, ReferencedBeanInvocationHandler> referencedBeanInvocationHandlersCache =
             new ConcurrentHashMap<>();
 
@@ -131,21 +134,31 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
         /**
          * The name of bean that annotated Dubbo's {@link Service @Service} in local Spring {@link ApplicationContext}
          */
+        //根据injectedType就是需要注入的DubboService,构造出serviceBeanName，后续会用这个serviceBeanName到spring中去查找
+        //是否存在serviceBean来判断这个DubboService是不是本地暴露的服务，如果是本地暴露的服务就直接调用。
         String referencedBeanName = buildReferencedBeanName(attributes, injectedType);
 
         /**
          * The name of bean that is declared by {@link Reference @Reference} annotation injection
          */
+        //如果引用地不是本地暴露的服务，那么这个就是referenceBean，远程dubboService的代理引用。
+        //构造referenceBeanName
         String referenceBeanName = getReferenceBeanName(attributes, injectedType);
 
+        //根据dubbo引用注解@reference的信息，将注解中配置的信息 构造referenceBean(这里就是dubbo注解驱动外部化配置的地方)
         ReferenceBean referenceBean = buildReferenceBeanIfAbsent(referenceBeanName, attributes, injectedType);
 
+        //判断引用的dubbo服务是否为本地暴露的服务，如果是本地服务后边直接 反射调用服务实例的具体方法
         boolean localServiceBean = isLocalServiceBean(referencedBeanName, referenceBean, attributes);
 
+        //注册ReferenceBean到spring中（远程暴露情况）
+        //用ReferenceBeanName关联本地的serviceBean，真正调用的是本地service方法（本地暴露情况）
         registerReferenceBean(referencedBeanName, referenceBean, attributes, localServiceBean, injectedType);
 
+        //缓存依赖注入的referenceBean 和 依赖注入的点（field,method）之间的关联
         cacheInjectedReferenceBean(referenceBean, injectedElement);
 
+        //创建返回 远程服务引用代理（这里有本地服务和远程服务的区别）
         return getOrCreateProxy(referencedBeanName, referenceBean, localServiceBean, injectedType);
     }
 
@@ -165,6 +178,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
 
         ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 
+        //获取@reference引用的服务beanName(站在服务引用的视角) 这个服务有可能是个本地服务（serviceBean），也可能是远程服务
         String beanName = getReferenceBeanName(attributes, interfaceClass);
 
         if (localServiceBean) {  // If @Service bean is local one
@@ -173,12 +187,18 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
              * Refer to {@link ServiceAnnotationBeanPostProcessor#buildServiceBeanDefinition}
              */
             AbstractBeanDefinition beanDefinition = (AbstractBeanDefinition) beanFactory.getBeanDefinition(referencedBeanName);
+            //获取本地服务引用的服务实例
             RuntimeBeanReference runtimeBeanReference = (RuntimeBeanReference) beanDefinition.getPropertyValues().get("ref");
             // The name of bean annotated @Service
+            //获取本地服务引用的服务实例的BeanName
             String serviceBeanName = runtimeBeanReference.getBeanName();
             // register Alias rather than a new bean name, in order to reduce duplicated beans
+            //在本地暴露的场景下，beanName是在服务引用下的概念 但其实他真正引用的就是本地服务实例serviceBeanName(服务暴露视角)
+            //因为本地暴露，本地本身就存在servicebean（实际调用）但用户看到的其实是beanName(用户是站在服务引用视角)
+            //所以将beanName设置为serviceBeanName的别名
             beanFactory.registerAlias(serviceBeanName, beanName);
         } else { // Remote @Service Bean
+            //如果是远程引用，那就直接将这个referenceBean（里面包含了远程服务代理）注册到spring中
             if (!beanFactory.containsBean(beanName)) {
                 beanFactory.registerSingleton(beanName, referenceBean);
             }
@@ -273,10 +293,12 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
     private Object getOrCreateProxy(String referencedBeanName, ReferenceBean referenceBean, boolean localServiceBean,
                                     Class<?> serviceInterfaceType) {
         if (localServiceBean) { // If the local @Service Bean exists, build a proxy of Service
+            //调用本地暴露的服务时  直接反射调用service类的实现 serviceImpl(代理里直接调用实现类的方法 不走那些invoker链)
             return newProxyInstance(getClassLoader(), new Class[]{serviceInterfaceType},
                     newReferencedBeanInvocationHandler(referencedBeanName));
         } else {
             exportServiceBeanIfNecessary(referencedBeanName); // If the referenced ServiceBean exits, export it immediately
+            //创建远程服务代理
             return referenceBean.get();
         }
     }
@@ -368,7 +390,6 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
     private ReferenceBean buildReferenceBeanIfAbsent(String referenceBeanName, AnnotationAttributes attributes,
                                                      Class<?> referencedType)
             throws Exception {
-
         ReferenceBean<?> referenceBean = referenceBeanCache.get(referenceBeanName);
 
         if (referenceBean == null) {

@@ -121,6 +121,14 @@ public class DubboAnnotationUtils {
             *
             * 递归一层一层往上找所有父类实现的接口，然后聚合成一个list，再取第一个
             * */
+
+            /*
+            * 这里也同时解决了 spring aop功能的支持问题
+            * @Service
+            * @Transactional
+            * 同时增加这两个注解 dubbo service会正确的暴露出来
+            * 否则取到的Interface则为 spring增加的代理类接口
+            * */
             Class<?>[] allInterfaces = getAllInterfacesForClass(defaultInterfaceClass);
 
             if (allInterfaces.length > 0) {
