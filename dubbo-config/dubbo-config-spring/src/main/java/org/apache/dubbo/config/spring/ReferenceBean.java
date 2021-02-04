@@ -109,7 +109,7 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         prepareDubboConfigBeans();
 
         // lazy init by default.
-        //默认延迟初始化 也就是依赖注入的时候并不初始化（这里的意思是不会创建服务引用代理proxy reference）
+        //默认延迟初始化
         if (init == null) {
             init = false;
         }
