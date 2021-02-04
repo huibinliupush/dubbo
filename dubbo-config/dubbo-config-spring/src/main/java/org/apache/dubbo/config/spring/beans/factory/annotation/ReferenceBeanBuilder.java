@@ -167,7 +167,7 @@ class ReferenceBeanBuilder extends AnnotatedInterfaceConfigBeanBuilder<Reference
         configureConsumerConfig(attributes, bean);
         //将注解中设置的Method[] methods() 转化为MethodConfigs 设置到ReferenceBean中
         configureMethodConfig(attributes, bean);
-        //初始化ReferenceBean
+        //初始化ReferenceBean相关的dubbo config beans 并且不会创建服务引用代理proxy reference（后面会创建）
         bean.afterPropertiesSet();
 
     }
