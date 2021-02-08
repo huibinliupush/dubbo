@@ -84,11 +84,11 @@ import static org.springframework.util.ClassUtils.resolveClassName;
  * infrastructure class of XML {@link BeanDefinitionParser} on &lt;dubbbo:annotation /&gt;
  *
  * BeanDefinitionRegistryPostProcessor
- * 当spring完成标准的初始化之后，这时候所有普通的bean definition都已经被加载但是还没有实例化
+ * 当spring的application context完成标准的初始化之后，这时候所有普通的bean definition都已经被加载但是还没有实例化
  * 在这时候这个类还可以去修改application context中得 bean definition。
  * 可以进一步加载一些自定义的bean definition
  * 既可以获取和修改BeanDefinition的元数据，也可以实现BeanDefinition的注册、移除等操作。
- * BeanDefinitionRegistryPostProcessor 接口可以看作是BeanFactoryPostProcessor和ImportBeanDefinitionRegistrar的功能集合，
+ * 先触发BeanDefinitionRegistryPostProcessor后触发BeanFactoryPostProcessor
  *
  * 为什么会继承这个类？
  * 因为service的初始化 是需要其他的dubbo config bean 比如 applicationConfig， protocalConfig等
