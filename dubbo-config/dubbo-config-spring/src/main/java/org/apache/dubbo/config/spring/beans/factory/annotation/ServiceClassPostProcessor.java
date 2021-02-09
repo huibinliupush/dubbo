@@ -178,19 +178,20 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
 
         for (String packageToScan : packagesToScan) {
 
-            // Registers @Service Bean first 将扫描到得指定类的 bean definition注册
+            // Registers @Service Bean first 将扫描到得指定类的 bean definition注册（@DubboService标注的类）
+            // 提升dubbo服务类为spring bean的地方
             scanner.scan(packageToScan);
 
             // Finds all BeanDefinitionHolders of @Service whether @ComponentScan scans or not.
             //解决 同时标注dubbo @service注解 和spring @service注解的类 导致 这个dubbo服务没有暴露
-            //scanner中保存了指定路径下扫描到得指定类的beanDefinition 并将其封装程 beanDefinitionHolder
+            //scanner中保存了指定路径下扫描到得指定类的beanDefinition 并将其封装成 beanDefinitionHolder
             Set<BeanDefinitionHolder> beanDefinitionHolders =
                     findServiceBeanDefinitionHolders(scanner, packageToScan, registry, beanNameGenerator);
 
             if (!CollectionUtils.isEmpty(beanDefinitionHolders)) {
 
                 for (BeanDefinitionHolder beanDefinitionHolder : beanDefinitionHolders) {
-                    //填充serviceBean的属性
+                    //构造ServerBean的bean definition，并注册到spting中
                     registerServiceBean(beanDefinitionHolder, registry, scanner);
                 }
 
@@ -266,7 +267,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
     private Set<BeanDefinitionHolder> findServiceBeanDefinitionHolders(
             ClassPathBeanDefinitionScanner scanner, String packageToScan, BeanDefinitionRegistry registry,
             BeanNameGenerator beanNameGenerator) {
-
+        //得到指定路径下 被@DubboService等注解标注的类的bean definition
         Set<BeanDefinition> beanDefinitions = scanner.findCandidateComponents(packageToScan);
 
         Set<BeanDefinitionHolder> beanDefinitionHolders = new LinkedHashSet<>(beanDefinitions.size());
