@@ -253,7 +253,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
 
     /**
      * Is Local Service bean or not?
-     *
+     * 是否为本地暴露服务的依据是：1. serviceBean是否存在当前springContext中。2.暴露协议不能是inJvm
      * @param referencedBeanName the bean name to the referenced bean
      * @return If the target referenced bean is existed, return <code>true</code>, or <code>false</code>
      * @since 2.7.6
@@ -297,6 +297,8 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
             return newProxyInstance(getClassLoader(), new Class[]{serviceInterfaceType},
                     newReferencedBeanInvocationHandler(referencedBeanName));
         } else {
+            //暴露协议为inJvm的的时候需要立马暴露，调用服务虽然也是本地，但是需要走filter链
+            //https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-call/#%E9%85%8D%E7%BD%AE
             exportServiceBeanIfNecessary(referencedBeanName); // If the referenced ServiceBean exits, export it immediately
             //创建远程服务代理
             return referenceBean.get();
