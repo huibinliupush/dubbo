@@ -135,7 +135,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
          * The name of bean that annotated Dubbo's {@link Service @Service} in local Spring {@link ApplicationContext}
          */
         //根据injectedType就是需要注入的DubboService,构造出serviceBeanName，后续会用这个serviceBeanName到spring中去查找
-        //是否存在serviceBean来判断这个DubboService是不是本地暴露的服务，如果是本地暴露的服务就直接调用。
+        //是否存在serviceBean来判断这个DubboService是不是本地暴露的服务，如果是本地暴露的服务并且协议不是inJvm就直接调用。
         String referencedBeanName = buildReferencedBeanName(attributes, injectedType);
 
         /**
