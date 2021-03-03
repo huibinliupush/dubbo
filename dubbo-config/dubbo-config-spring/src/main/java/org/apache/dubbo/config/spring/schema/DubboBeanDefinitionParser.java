@@ -81,28 +81,36 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
 
     @SuppressWarnings("unchecked")
     private static BeanDefinition parse(Element element, ParserContext parserContext, Class<?> beanClass, boolean required) {
+        //创建beanClass对应的beanDefinition
         RootBeanDefinition beanDefinition = new RootBeanDefinition();
         beanDefinition.setBeanClass(beanClass);
         beanDefinition.setLazyInit(false);
         String id = resolveAttribute(element, "id", parserContext);
+        //如果标签元素element中没有定义id属性，并且required=true 则为beanDefintion自动生成id属性
         if (StringUtils.isEmpty(id) && required) {
+            //取出标签中的name属性
             String generatedBeanName = resolveAttribute(element, "name", parserContext);
             if (StringUtils.isEmpty(generatedBeanName)) {
+                //对于<protocal>标签来说默认的beanName为dubbo
                 if (ProtocolConfig.class.equals(beanClass)) {
                     generatedBeanName = "dubbo";
                 } else {
+                    //其他标签用interface属性作为beanName
                     generatedBeanName = resolveAttribute(element, "interface", parserContext);
                 }
             }
             if (StringUtils.isEmpty(generatedBeanName)) {
+                //标签中没有指定interface属性则用标签对应的beanClassName作为beanName
                 generatedBeanName = beanClass.getName();
             }
             id = generatedBeanName;
             int counter = 2;
+            //避免注册重复的beanDefinition
             while (parserContext.getRegistry().containsBeanDefinition(id)) {
                 id = generatedBeanName + (counter++);
             }
         }
+        //注册beanClass的beanDefinition,并且设置id属性
         if (StringUtils.isNotEmpty(id)) {
             if (parserContext.getRegistry().containsBeanDefinition(id)) {
                 throw new IllegalStateException("Duplicate spring bean id " + id);
@@ -111,10 +119,19 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
             beanDefinition.getPropertyValues().addPropertyValue("id", id);
         }
         if (ProtocolConfig.class.equals(beanClass)) {
+            //主要处理这种情况，标签<dubbo:service> 先引用到<dubbo:protocol>对应的bean,先解析<dubbo:service>标签但是对应的
+            //ServiceBean属性protocol应该引用的是ProtocolConfig，但这时<dubbo:protocol>还没有被解析，那么就占时将字面值“dubbo”存起来
+            //等到后续解析标签<dubbo:protocol>时候 在将ServiceBeanDefinition中的protocol替换成RuntimeBeanReference引用。
+            //<dubbo:service interface="org.apache.dubbo.demo.DemoService" protocol="dubbo" ref="demoService"/>
+            //<dubbo:protocol id="dubbo" name="dubbo" port="20880"/>
+            //这里的逻辑主要针对老版本的处理，2.7.7版本这块逻辑不会走到，新版本protocol支持多协议，protocol属性处理在下边
+            //新版本的protocol是存放在BeanDefinition中的protocolIds属性中。
             for (String name : parserContext.getRegistry().getBeanDefinitionNames()) {
+                //遍历Spring中注册的所有BeanDefinition，查看BeanDefinition是否具有Protocol属性
                 BeanDefinition definition = parserContext.getRegistry().getBeanDefinition(name);
                 PropertyValue property = definition.getPropertyValues().getPropertyValue("protocol");
                 if (property != null) {
+                    //如果该bean先于protocol加载并且配置了protocol的字面值，那么在这里就会将Protocol的字面值替换成引用RuntimeBeanReference
                     Object value = property.getValue();
                     if (value instanceof ProtocolConfig && id.equals(((ProtocolConfig) value).getName())) {
                         definition.getPropertyValues().addPropertyValue("protocol", new RuntimeBeanReference(id));
@@ -122,12 +139,19 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                 }
             }
         } else if (ServiceBean.class.equals(beanClass)) {
+            //处理<dubbo:service>标签中配置class这种特殊情况
+            //<dubbo:service interface="org.apache.dubbo.demo.DemoService" class="org.apache.dubbo.demo.provider.DemoServiceImpl"/>
+            //获取标签中配置的class属性
             String className = resolveAttribute(element, "class", parserContext);
             if (StringUtils.isNotEmpty(className)) {
+                //创建DemoServiceImpl类的BeanDefinition
                 RootBeanDefinition classDefinition = new RootBeanDefinition();
                 classDefinition.setBeanClass(ReflectUtils.forName(className));
                 classDefinition.setLazyInit(false);
+                //解析<property>标签中的属性,将标签中配置的name value(ref) 添加到DemoServiceImpl类的BeanDefinition中。
+                //设置classDefinition属性 这里需要注意的是<dubbo:service>中的<property>标签设置的是class类的属性并不是ServceBean的属性
                 parseProperties(element.getChildNodes(), classDefinition, parserContext);
+                //自动配置<dubbo:service>标签的ref属性，并添加到标签对应的dubbo config beanDefinition中
                 beanDefinition.getPropertyValues().addPropertyValue("ref", new BeanDefinitionHolder(classDefinition, id + "Impl"));
             }
         }  else if (ProviderConfig.class.equals(beanClass)) {
@@ -275,6 +299,13 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
         }
     }
 
+    /**
+     * 解析<property></property>标签中的属性
+     * <property name="demoDAO" value="demoDAO" /
+     * 当配置的是value时，则向BeanDefinition中添加name value(字面值)
+     * <property name="demoDAO" ref="demoDAO" /
+     * 当配置的是ref时，则向BeanDefinition中添加name new RuntimeBeanReference(ref)
+     * */
     private static void parseProperties(NodeList nodeList, RootBeanDefinition beanDefinition, ParserContext parserContext) {
         if (nodeList == null) {
             return;
@@ -396,6 +427,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
     @Override
     public BeanDefinition parse(Element element, ParserContext parserContext) {
         // Register DubboConfigAliasPostProcessor
+        //用AbstractConfig#getId()作为dubbo config bean 的别名
         registerDubboConfigAliasPostProcessor(parserContext.getRegistry());
 
         return parse(element, parserContext, beanClass, required);
