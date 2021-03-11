@@ -313,6 +313,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
         String annotatedServiceBeanName = beanDefinitionHolder.getBeanName();
 
         //通过@service注解上的属性 填充serviceBean的属性 比如 ref method application registery......（如果没有 则不填充 还没到默认填充的时候）
+        //属性的默认填充还有根据配置源优先级获取最终的配置在dubbo服务暴露的时候进行，这里只是填充默认的属性配置。org.apache.dubbo.config.ServiceConfig.checkAndUpdateSubConfigs
         AbstractBeanDefinition serviceBeanDefinition =
                 buildServiceBeanDefinition(service, serviceAnnotationAttributes, interfaceClass, annotatedServiceBeanName);
 

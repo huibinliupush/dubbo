@@ -202,14 +202,18 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
     }
 
     public void checkProtocol() {
+        //先用provider的配置作为默认配置
         if (CollectionUtils.isEmpty(protocols) && provider != null) {
             setProtocols(provider.getProtocols());
         }
+        //
         convertProtocolIdsToProtocols();
     }
 
     public void completeCompoundConfigs() {
+        //根据优先级设置默认的配置
         super.completeCompoundConfigs(provider);
+        //如果配置了<dubbo:provider />,则根据provider的配置作为默认配置
         if (provider != null) {
             if (protocols == null) {
                 setProtocols(provider.getProtocols());
@@ -227,14 +231,19 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
     }
 
     private void convertProtocolIdsToProtocols() {
+        //默认采用provider配置中的protocol属性
         computeValidProtocolIds();
+        //<dubbo:service interface="org.apache.dubbo.demo.DemoService"  ref="demoService"/>
+        // 如果service没有配置protocol属性，则采用全局procotol属性<dubbo:protocol id="dubbo" name="dubbo" port="20880"/>
         if (StringUtils.isEmpty(protocolIds)) {
             if (CollectionUtils.isEmpty(protocols)) {
                 List<ProtocolConfig> protocolConfigs = ApplicationModel.getConfigManager().getDefaultProtocols();
                 if (protocolConfigs.isEmpty()) {
+                    //如果全局也没有配置<dubbo:protocol />则从不同的配置源中按照优先级加载protocol配置
                     protocolConfigs = new ArrayList<>(1);
                     ProtocolConfig protocolConfig = new ProtocolConfig();
                     protocolConfig.setDefault(true);
+                    //根据不同配置数据源的优先级 加载配置
                     protocolConfig.refresh();
                     protocolConfigs.add(protocolConfig);
                     ApplicationModel.getConfigManager().addProtocol(protocolConfig);
@@ -242,10 +251,14 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
                 setProtocols(protocolConfigs);
             }
         } else {
+            //<dubbo:service interface="org.apache.dubbo.demo.DemoService" protocol="dubbo" ref="demoService"/>
+            //service配置了protocol，则通过configManager加载全局配置<dubbo:protocol id="dubbo" name="dubbo" port="20880"/>
             String[] arr = COMMA_SPLIT_PATTERN.split(protocolIds);
             List<ProtocolConfig> tmpProtocols = new ArrayList<>();
             Arrays.stream(arr).forEach(id -> {
                 if (tmpProtocols.stream().noneMatch(prot -> prot.getId().equals(id))) {
+                    // <dubbo:protocol id="dubbo" name="dubbo" port="20880"/>
+                    //通过configManager获取全局protocol配置
                     Optional<ProtocolConfig> globalProtocol = ApplicationModel.getConfigManager().getProtocol(id);
                     if (globalProtocol.isPresent()) {
                         tmpProtocols.add(globalProtocol.get());
@@ -404,6 +417,10 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         return URL.buildKey(interfaceName, group, version);
     }
 
+    /**
+     * 如果<dubbo:service /> 没有配置protocol，则默认护采用Provider中的配置
+     * getProtocolIds() 获取<dubbo:service />中的配置的protocol
+     * */
     private void computeValidProtocolIds() {
         if (StringUtils.isEmpty(getProtocolIds())) {
             if (getProvider() != null && StringUtils.isNotEmpty(getProvider().getProtocolIds())) {

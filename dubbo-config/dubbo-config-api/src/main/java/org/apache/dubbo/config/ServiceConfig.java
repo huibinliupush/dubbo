@@ -181,6 +181,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     }
 
     public synchronized void export() {
+        //根据<dubbo:service export=".."> 和 <dubbo:provider export="...">配置决定是否暴露服务
         if (!shouldExport()) {
             return;
         }
@@ -189,10 +190,14 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             bootstrap = DubboBootstrap.getInstance();
             bootstrap.init();
         }
-
+        //设置默认配置，并根据配置的优先级顺序依次覆盖得到最终配置
+        //校验ServiceConfig各种配置的有效性
+        //之前加载XML或者注解配置的时候，只是单纯装载我们配置了的属性，没有配置的属性不管
+        //在这里就是对没有只配置的属性 做 缺省配置填充
         checkAndUpdateSubConfigs();
 
         //init serviceMetadata
+        //设置服务元信息，后续会在dubbo自省架构中详细论述
         serviceMetadata.setVersion(version);
         serviceMetadata.setGroup(group);
         serviceMetadata.setDefaultGroup(group);
@@ -200,12 +205,14 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         serviceMetadata.setServiceInterfaceName(getInterface());
         serviceMetadata.setTarget(getRef());
 
+        //根据<dubbo:service delay=".."> 和 <dubbo:provider delay="...">配置决定是否延迟暴露服务
         if (shouldDelay()) {
             DELAY_EXPORT_EXECUTOR.schedule(this::doExport, getDelay(), TimeUnit.MILLISECONDS);
         } else {
+            //暴露服务
             doExport();
         }
-
+        //发布服务暴露事件ServiceConfigExportedEvent
         exported();
     }
 
@@ -214,26 +221,43 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         dispatch(new ServiceConfigExportedEvent(this));
     }
 
+    /**
+     * 设置默认配置，并根据配置的优先级顺序依次覆盖得到最终配置
+     * 配置优先级：-D 系统变量 > 环境变量 > 外部化配置 > XML，注解，API设置的配置 > 本地配置文件 dubbo.properties
+     * */
     private void checkAndUpdateSubConfigs() {
         // Use default configs defined explicitly with global scope
+        //设置默认配置，缺省配置 按照配置的provider配置设置。优先级<dubbo:method> > <dubbo:service> > <dubbo:provider> > <dubbo:module> > <dubbo:appliction>
+        //服务消费者配置的优先级 > 服务提供者
         completeCompoundConfigs();
+        //设置默认provider配置
         checkDefault();
+        //设置protocolConfig（按照配置源的优先级加载）
         checkProtocol();
         // init some null configuration.
+        // 回调配置处理前置处理器
+        // dubbo框架没有默认实现，用户可自定义扩展。
+        // 实现ConfigInitializer.class接口，定义SPI文件
         List<ConfigInitializer> configInitializers = ExtensionLoader.getExtensionLoader(ConfigInitializer.class)
                 .getActivateExtension(URL.valueOf("configInitializer://"), (String[]) null);
         configInitializers.forEach(e -> e.initServiceConfig(this));
 
         // if protocol is not injvm checkRegistry
         if (!isOnlyInJvm()) {
+            //检查<dubbo:service />中的registry（值为注册中心<dubbo:registry />中的id或者name
+            //将配置的中的registryIds转换成为RegistryConfig
             checkRegistry();
         }
+        //根据属性配置优先级，重新按照优先级获取属性配置，设置ServiceBean的属性
         this.refresh();
 
         if (StringUtils.isEmpty(interfaceName)) {
             throw new IllegalStateException("<dubbo:service interface=\"\" /> interface not allow null!");
         }
 
+        //处理泛化实现配置(泛化实现是需要向客户端提供API的，客户端正常API调用，服务端用泛化的方式实现)
+        //https://dubbo.apache.org/zh/docs/v2.7/user/examples/generic-service/
+        //与泛化实现对应的泛化调用，在服务引用的时候会分析
         if (ref instanceof GenericService) {
             interfaceClass = GenericService.class;
             if (StringUtils.isEmpty(generic)) {
@@ -246,10 +270,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
+            //检查如果dubbo配置了Method相关：<dubbo:method />，检查method配置的合理性
             checkInterfaceAndMethods(interfaceClass, getMethods());
+            //检查ref是否实现了interfaceClass接口
             checkRef();
             generic = Boolean.FALSE.toString();
         }
+        //已废弃
         if (local != null) {
             if ("true".equals(local)) {
                 local = interfaceName + "Local";
@@ -264,23 +291,34 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceName);
             }
         }
+        //https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-stub/
+        //检查本地存根相关配置，检查stub实现类
         if (stub != null) {
             if ("true".equals(stub)) {
                 stub = interfaceName + "Stub";
             }
             Class<?> stubClass;
             try {
+                //stub实现类是否存在
                 stubClass = ClassUtils.forNameWithThreadContextClassLoader(stub);
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
+            //stub实现类是否继承了InterfaceClass
             if (!interfaceClass.isAssignableFrom(stubClass)) {
                 throw new IllegalStateException("The stub implementation class " + stubClass.getName() + " not implement interface " + interfaceName);
             }
         }
+        //stub实现类是否实现了interfaceClass接口，并且是否包含可传入Proxy（消费者端会传入service的远程代理）的构造函数，构造器参数为interfaceClass
+        //stub由服务端实现，打包放在api jar包中 然后在客户端执行。客户端创建远程服务代理proxy通过 stub实现类的构造函数传递给stub实现类。
+        //客户端实际引用的就是stub实现类，然后stub实现类包装了远程服务代理proxy。
         checkStubAndLocal(interfaceClass);
+        //https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-mock/
+        //检查Mock配置的有效性
         ConfigValidationUtils.checkMock(interfaceClass, this);
+        //检查ServiceConfig 也就是<dubbo:service />中相关配置的有效性
         ConfigValidationUtils.validateServiceConfig(this);
+        //回调配置后置处理器（用户可通过SPI自定义扩展 配置后置处理器）
         postProcessConfig();
     }
 
@@ -302,8 +340,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
+        //服务元数据存储
         ServiceRepository repository = ApplicationModel.getServiceRepository();
+        //注册服务的元数据
         ServiceDescriptor serviceDescriptor = repository.registerService(getInterfaceClass());
+        //注册providerModel元数据
         repository.registerProvider(
                 getUniqueServiceName(),
                 ref,
@@ -706,6 +747,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     }
 
     private void postProcessConfig() {
+        //dubbo框架没有默认实现，用户可自定义扩展。
+        //实现ConfigPostProcessor.class接口，定义SPI文件
         List<ConfigPostProcessor> configPostProcessors =ExtensionLoader.getExtensionLoader(ConfigPostProcessor.class)
                 .getActivateExtension(URL.valueOf("configPostProcessor://"), (String[]) null);
         configPostProcessors.forEach(component -> component.postProcessServiceConfig(this));

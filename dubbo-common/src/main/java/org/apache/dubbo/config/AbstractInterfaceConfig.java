@@ -310,6 +310,10 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
     }
 
+    /**
+     * 根据优先级设置默认的配置
+     * 配置优先级<dubbo:provider> > <dubbo:module> > <dubbo:appliction>
+     * */
     public void completeCompoundConfigs(AbstractInterfaceConfig interfaceConfig) {
         if (interfaceConfig != null) {
             if (application == null) {

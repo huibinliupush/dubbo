@@ -455,17 +455,23 @@ public abstract class AbstractConfig implements Serializable {
     }
 
     public void refresh() {
+        //管理属性配置
         Environment env = ApplicationModel.getEnvironment();
         try {
+            //加载系统变量，环境变量，dubbo config bean->ServiceBean ReferenceBean(由XML,注解，API提供配置数据)
             CompositeConfiguration compositeConfiguration = env.getPrefixedConfiguration(this);
             // loop methods, get override value and set the new value back to method
+            //获取ConfigBean的所有方法，用来根据属性配置的优先级 设置属性
             Method[] methods = getClass().getMethods();
             for (Method method : methods) {
+                //set方法的参数必须是基础类型（dubbo 配置）
                 if (MethodUtils.isSetter(method)) {
                     try {
+                        //根据属性配置的优先级来获得属性配置
                         String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                         // isTypeMatch() is called to avoid duplicate and incorrect update, for example, we have two 'setGeneric' methods in ReferenceConfig.
                         if (StringUtils.isNotEmpty(value) && ClassUtils.isTypeMatch(method.getParameterTypes()[0], value)) {
+                            //将最终得到的属性设置到ConfigBean中（这里就是按照属性优先级来覆盖）
                             method.invoke(this, ClassUtils.convertPrimitive(method.getParameterTypes()[0], value));
                         }
                     } catch (NoSuchMethodException e) {
@@ -473,7 +479,7 @@ public abstract class AbstractConfig implements Serializable {
                                 this.getClass().getSimpleName() +
                                 ", please make sure every property has getter/setter method provided.");
                     }
-                } else if (isParametersSetter(method)) {
+                } else if (isParametersSetter(method)) {//处理paramers属性设置
                     String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                     if (StringUtils.isNotEmpty(value)) {
                         Map<String, String> map = invokeGetParameters(getClass(), this);

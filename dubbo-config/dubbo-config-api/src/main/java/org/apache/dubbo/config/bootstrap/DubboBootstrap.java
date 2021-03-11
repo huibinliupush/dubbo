@@ -153,9 +153,9 @@ public class DubboBootstrap extends GenericEventListener {
     private volatile boolean referAsync;
 
     private AtomicBoolean initialized = new AtomicBoolean(false);
-
+    //dubbo服务是否正在启动
     private AtomicBoolean started = new AtomicBoolean(false);
-
+    //dubbo服务是否启动完毕
     private AtomicBoolean ready = new AtomicBoolean(true);
 
     private AtomicBoolean destroyed = new AtomicBoolean(false);
@@ -165,7 +165,7 @@ public class DubboBootstrap extends GenericEventListener {
     private volatile MetadataService metadataService;
 
     private volatile MetadataServiceExporter metadataServiceExporter;
-
+    //缓存所有暴露的服务
     private List<ServiceConfigBase<?>> exportedServices = new ArrayList<>();
 
     private List<Future<?>> asyncExportingFutures = new ArrayList<>();
@@ -740,7 +740,10 @@ public class DubboBootstrap extends GenericEventListener {
      */
     public DubboBootstrap start() {
         if (started.compareAndSet(false, true)) {
+            //是否启动完毕
             ready.set(false);
+            //初始化配置管理configManager等dubboLifeCycleComponent,配置中心，dubbo自省元数据，事件监听等组件以及检查全局配置的有效性
+            //这些内容我们会在后续论述dubbo自省架构系列文章中去详细讲解。
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
@@ -927,12 +930,14 @@ public class DubboBootstrap extends GenericEventListener {
     }
 
     private void exportServices() {
+        //configManger用于管理所有加载的dubbo config bean,后续介绍dubbo配置中心的时候会详细介绍
+        //这里从configManager中获取所有加载的ServiceConfig(dubbo中是以服务接口为粒度暴露服务的 一个服务接口在dubbo框架中对应一个ServiceConfig)
         configManager.getServices().forEach(sc -> {
             // TODO, compatible with ServiceConfig.export()
             ServiceConfig serviceConfig = (ServiceConfig) sc;
             serviceConfig.setBootstrap(this);
 
-            if (exportAsync) {
+            if (exportAsync) {//异步暴露
                 ExecutorService executor = executorRepository.getServiceExporterExecutor();
                 Future<?> future = executor.submit(() -> {
                     sc.export();
@@ -940,7 +945,9 @@ public class DubboBootstrap extends GenericEventListener {
                 });
                 asyncExportingFutures.add(future);
             } else {
+                //同步暴露
                 sc.export();
+                //缓存暴露的服务
                 exportedServices.add(sc);
             }
         });

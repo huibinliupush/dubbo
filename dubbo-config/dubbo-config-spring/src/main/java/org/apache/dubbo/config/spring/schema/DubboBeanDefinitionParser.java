@@ -80,6 +80,12 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * 这里只会解析XML配置文件中配置的属性。没有配置的属性则不处理。
+     * 后续会在dubbo服务暴露或者引用的过程中，去按照不同配置数据源的优先级填充最终的配置
+     * 也包括对配置中的protocolIds,registryIds转化为相应的dubbo config bean
+     * org.apache.dubbo.config.ServiceConfig.checkAndUpdateSubConfigs
+     */
     private static BeanDefinition parse(Element element, ParserContext parserContext, Class<?> beanClass, boolean required) {
         //创建beanClass对应的beanDefinition
         RootBeanDefinition beanDefinition = new RootBeanDefinition();
@@ -242,7 +248,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                                  * 2. API, directly use id to find configs defined in remote Config Center; if all config instances are defined locally, please use {@link ServiceConfig#setRegistries(List)}
                                  */
                                 //针对标签中设置的属性为provider,registry,protocol情况的处理。这里需要注意在XML配置中 这三个属性配置的值必须是对应标签的id或者name
-                                //这三种标签在对应的dubbo config bean中的属性名称是providerIds，registryIds，protocolIds
+                                //这三种标签在对应的dubbo config bean中的属性名称是providerIds，registryIds，protocolIds(后续id到config bean的转换是在服务暴露或者引用的时候进行)
                                 //dubbo支持多提供者，多注册中心，多协议
                                 beanDefinition.getPropertyValues().addPropertyValue(beanProperty + "Ids", value);
                             } else {

@@ -293,13 +293,19 @@ public class ConfigValidationUtils {
         checkName("stub", config.getStub());
         checkMultiName("owner", config.getOwner());
 
+        //如果配置了相关的扩展，就检查对应的扩展是否通过SPI加载进来
         checkExtension(ProxyFactory.class, PROXY_KEY, config.getProxy());
         checkExtension(Cluster.class, CLUSTER_KEY, config.getCluster());
         checkMultiExtension(Filter.class, FILE_KEY, config.getFilter());
+        //检查配置的引用监听器是否存在
+        //<dubbo:reference /> 配置中的listener 用于SPI加载自定义的服务引用监听器 需要实现InvokerListener.class
+        //https://dubbo.apache.org/zh/docs/v2.7/dev/impls/invoker-listener/
         checkMultiExtension(InvokerListener.class, LISTENER_KEY, config.getListener());
+        //检查服务提供者所在分层配置的格式
         checkNameHasSymbol(LAYER_KEY, config.getLayer());
 
         List<MethodConfig> methods = config.getMethods();
+        //检查服务方法级别的参数配置是否有效
         if (CollectionUtils.isNotEmpty(methods)) {
             methods.forEach(ConfigValidationUtils::validateMethodConfig);
         }
@@ -311,10 +317,15 @@ public class ConfigValidationUtils {
         checkName(TOKEN_KEY, config.getToken());
         checkPathName(PATH_KEY, config.getPath());
 
+        //<dubbo:service />配置中的listener，用于SPI加载自定义的服务暴露监听器，需要实现ExporterListener.class
+        //检查listener指定的服务暴露监听器是否配置了SPI文件
+        //https://dubbo.apache.org/zh/docs/v2.7/dev/impls/exporter-listener/
         checkMultiExtension(ExporterListener.class, "listener", config.getListener());
 
+        //检查interface层的配置有效性
         validateAbstractInterfaceConfig(config);
 
+        //检查 <dubbo:service />中registry配置的有效性
         List<RegistryConfig> registries = config.getRegistries();
         if (registries != null) {
             for (RegistryConfig registry : registries) {
@@ -322,6 +333,7 @@ public class ConfigValidationUtils {
             }
         }
 
+        //检查 <dubbo:service />中protocol配置的有效性
         List<ProtocolConfig> protocols = config.getProtocols();
         if (protocols != null) {
             for (ProtocolConfig protocol : protocols) {
@@ -437,12 +449,14 @@ public class ConfigValidationUtils {
 
 
             if (DUBBO_PROTOCOL.equals(name)) {
+                //在dubbo协议中，如果配置中配置了相关扩展，检查相关扩展是否存在。定义SPI文件
                 checkMultiExtension(Codec.class, CODEC_KEY, config.getCodec());
                 checkMultiExtension(Serialization.class, SERIALIZATION_KEY, config.getSerialization());
                 checkMultiExtension(Transporter.class, SERVER_KEY, config.getServer());
                 checkMultiExtension(Transporter.class, CLIENT_KEY, config.getClient());
             }
 
+            //如果配置中配置了相关扩展，检查相关扩展是否存在。
             checkMultiExtension(TelnetHandler.class, TELNET, config.getTelnet());
             checkMultiExtension(StatusChecker.class, "status", config.getStatus());
             checkExtension(Transporter.class, TRANSPORTER_KEY, config.getTransporter());
@@ -480,10 +494,14 @@ public class ConfigValidationUtils {
     }
 
     public static void validateMethodConfig(MethodConfig config) {
+        //如果<dubbo:method />配置了loadbalance扩展，检查SPI是否存在这样的扩展
         checkExtension(LoadBalance.class, LOADBALANCE_KEY, config.getLoadbalance());
+        //如果method配置了<dubbo:paramers key="" value="">子标签,检查key的格式和长度
         checkParameterName(config.getParameters());
+        //检查method名称的格式
         checkMethodName("name", config.getName());
 
+        //如果<dubbo:method mock="..."> 配置Mock,则检查Mock内容的合法性
         String mock = config.getMock();
         if (StringUtils.isNotEmpty(mock)) {
             if (mock.startsWith(RETURN_PREFIX) || mock.startsWith(THROW_PREFIX + " ")) {
@@ -519,6 +537,7 @@ public class ConfigValidationUtils {
     public static void checkMultiExtension(Class<?> type, String property, String value) {
         checkMultiName(property, value);
         if (StringUtils.isNotEmpty(value)) {
+            //多个SPI扩展 用逗号分隔
             String[] values = value.split("\\s*[,]+\\s*");
             for (String v : values) {
                 if (v.startsWith(REMOVE_VALUE_PREFIX)) {
