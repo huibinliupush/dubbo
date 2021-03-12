@@ -24,10 +24,10 @@
     <dubbo:application metadata-type="remote" name="demo-provider"/>
     <dubbo:metadata-report address="zookeeper://127.0.0.1:2181"/>
 
-    <dubbo:registry address="zookeeper://127.0.0.1:2181"/>
+    <dubbo:registry id ="zookeeper" address="zookeeper://127.0.0.1:2181"/>
     <dubbo:protocol id="dubbo" name="dubbo" port="20880"/>
     <bean id="demoService" class="org.apache.dubbo.demo.provider.DemoServiceImpl"/>
 
-    <dubbo:service interface="org.apache.dubbo.demo.DemoService" protocol="dubbo" ref="demoService"/>
+    <dubbo:service interface="org.apache.dubbo.demo.DemoService" registry="zookeeper" ref="demoService"/>
    <!-- <dubbo:service interface="org.apache.dubbo.demo.DemoService" class="org.apache.dubbo.demo.provider.DemoServiceImpl"/>-->
 </beans>

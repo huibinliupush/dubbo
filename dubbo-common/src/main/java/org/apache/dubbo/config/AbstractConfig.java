@@ -459,6 +459,8 @@ public abstract class AbstractConfig implements Serializable {
         Environment env = ApplicationModel.getEnvironment();
         try {
             //加载系统变量，环境变量，dubbo config bean->ServiceBean ReferenceBean(由XML,注解，API提供配置数据)
+            //CompositeConfiguration是一个配置的聚合类按照配置优先级聚合了下列配置：
+            // 系统变量  环境变量  外部化配置 >XML，注解，API设置的配置  本地配置文件 dubbo.properties
             CompositeConfiguration compositeConfiguration = env.getPrefixedConfiguration(this);
             // loop methods, get override value and set the new value back to method
             //获取ConfigBean的所有方法，用来根据属性配置的优先级 设置属性

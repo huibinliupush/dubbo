@@ -178,9 +178,11 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
      * Check whether the registry config is exists, and then conversion it to {@link RegistryConfig}
      */
     public void checkRegistry() {
+        //根据配置优先级加载registryConfig。
         convertRegistryIdsToRegistries();
 
         for (RegistryConfig registryConfig : registries) {
+            //必须配置address
             if (!registryConfig.isValid()) {
                 throw new IllegalStateException("No registry config found or it's not a valid config! " +
                         "The registry config is: " + registryConfig);
@@ -224,7 +226,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
                             "<dubbo:service interface=\"" + interfaceClass.getName() + "\" ... >" +
                             "<dubbo:method name=\"\" ... /></<dubbo:reference>");
                 }
-
+                //校验interfaceClass是否存在这样的method
                 boolean hasMethod = Arrays.stream(interfaceClass.getMethods()).anyMatch(method -> method.getName().equals(methodName));
                 if (!hasMethod) {
                     throw new IllegalStateException("The interface " + interfaceClass.getName()
@@ -263,6 +265,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
         try {
             //Check if the localClass a constructor with parameter who's type is interfaceClass
+            //是否包含可传入Proxy（消费者端会传入service的远程代理）的构造函数，构造器参数为interfaceClass
             ReflectUtils.findConstructor(localClass, interfaceClass);
         } catch (NoSuchMethodException e) {
             throw new IllegalStateException("No such constructor \"public " + localClass.getSimpleName() +
@@ -271,29 +274,42 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     }
 
     private void convertRegistryIdsToRegistries() {
+        //根据配置优先级获取默认配置
         computeValidRegistryIds();
+        //<dubbo:registry id ="zookeeper" address="zookeeper://127.0.0.1:2181"/>
+        //<dubbo:service interface="org.apache.dubbo.demo.DemoService" ref="demoService"/>
+        //<dubbo:service>中没有配置registry，或者配置了application,但<dubbo:appliction/>中没有配置registry则采用全局配置<dubbo:registry>
         if (StringUtils.isEmpty(registryIds)) {
             if (CollectionUtils.isEmpty(registries)) {
+                //获取全局配置<dubbo:registyy>
                 List<RegistryConfig> registryConfigs = ApplicationModel.getConfigManager().getDefaultRegistries();
+                //如果<dubbo:registry>也没有配置 则从不同配置源中按照优先级加载registry配置
                 if (registryConfigs.isEmpty()) {
                     registryConfigs = new ArrayList<>();
                     RegistryConfig registryConfig = new RegistryConfig();
+                    //从不同配置源中按照优先级加载registry配置
                     registryConfig.refresh();
                     registryConfigs.add(registryConfig);
                 }
+                //采用全局配置<dubbo:registry>
                 setRegistries(registryConfigs);
             }
         } else {
+            //<dubbo:registry id ="zookeeper" address="zookeeper://127.0.0.1:2181"/>
+            //<dubbo:service interface="org.apache.dubbo.demo.DemoService" registry="zookeeper" ref="demoService"/>
+            //如果<dubbo:service/>配置了registry，或者<dubbo:application/>中配置了registry则根据配置优先级采用指定的配置
             String[] ids = COMMA_SPLIT_PATTERN.split(registryIds);
             List<RegistryConfig> tmpRegistries = new ArrayList<>();
             Arrays.stream(ids).forEach(id -> {
                 if (tmpRegistries.stream().noneMatch(reg -> reg.getId().equals(id))) {
+                    //获取全局配置<dubbo:registyy>
                     Optional<RegistryConfig> globalRegistry = ApplicationModel.getConfigManager().getRegistry(id);
                     if (globalRegistry.isPresent()) {
                         tmpRegistries.add(globalRegistry.get());
                     } else {
                         RegistryConfig registryConfig = new RegistryConfig();
                         registryConfig.setId(id);
+                        //从不同配置源中按照优先级加载registry配置
                         registryConfig.refresh();
                         tmpRegistries.add(registryConfig);
                     }
@@ -346,7 +362,10 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
             }
         }
     }
-    
+    /**
+     * <dubbo:service/>中没有配置registry属性，但配置了appliction属性，并且<dubbo:appliction/>中配置了registry属性
+     * 则使用<dubbo:appliction/>中的配置作为默认配置
+     * */
     protected void computeValidRegistryIds() {
         if (StringUtils.isEmpty(getRegistryIds())) {
             if (getApplication() != null && StringUtils.isNotEmpty(getApplication().getRegistryIds())) {

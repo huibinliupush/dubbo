@@ -310,7 +310,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             }
         }
         //stub实现类是否实现了interfaceClass接口，并且是否包含可传入Proxy（消费者端会传入service的远程代理）的构造函数，构造器参数为interfaceClass
-        //stub由服务端实现，打包放在api jar包中 然后在客户端执行。客户端创建远程服务代理proxy通过 stub实现类的构造函数传递给stub实现类。
+        //stub由服务端实现，打包放在api jar包中 (客户端提供也可以)然后在客户端执行。客户端创建远程服务代理proxy通过 stub实现类的构造函数传递给stub实现类。
         //客户端实际引用的就是stub实现类，然后stub实现类包装了远程服务代理proxy。
         checkStubAndLocal(interfaceClass);
         //https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-mock/

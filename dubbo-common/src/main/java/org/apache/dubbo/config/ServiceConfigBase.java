@@ -202,11 +202,11 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
     }
 
     public void checkProtocol() {
-        //先用provider的配置作为默认配置
+        //如果<dubbo:service/>中没有配置protocols 但配置了provider,则先用provider中的Protocols配置作为默认配置
         if (CollectionUtils.isEmpty(protocols) && provider != null) {
             setProtocols(provider.getProtocols());
         }
-        //
+        //按照配置优先级加载Protocol配置，并将protocolIds转为ProtocolConfig
         convertProtocolIdsToProtocols();
     }
 
@@ -236,7 +236,9 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         //<dubbo:service interface="org.apache.dubbo.demo.DemoService"  ref="demoService"/>
         // 如果service没有配置protocol属性，则采用全局procotol属性<dubbo:protocol id="dubbo" name="dubbo" port="20880"/>
         if (StringUtils.isEmpty(protocolIds)) {
+            //<dubbo:service/>中没有配置protocol,也没有配置provider。或者配置了provider，但provider没有配置protocol
             if (CollectionUtils.isEmpty(protocols)) {
+                //查询<dubbo:protocol>全局配置
                 List<ProtocolConfig> protocolConfigs = ApplicationModel.getConfigManager().getDefaultProtocols();
                 if (protocolConfigs.isEmpty()) {
                     //如果全局也没有配置<dubbo:protocol />则从不同的配置源中按照优先级加载protocol配置
@@ -248,6 +250,7 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
                     protocolConfigs.add(protocolConfig);
                     ApplicationModel.getConfigManager().addProtocol(protocolConfig);
                 }
+                //这种情况下 如果配置了<dubbo:protocol/> 则使用全局配置
                 setProtocols(protocolConfigs);
             }
         } else {
@@ -265,6 +268,7 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
                     } else {
                         ProtocolConfig protocolConfig = new ProtocolConfig();
                         protocolConfig.setId(id);
+                        ////根据不同配置数据源的优先级 加载配置
                         protocolConfig.refresh();
                         tmpProtocols.add(protocolConfig);
                     }
@@ -418,7 +422,7 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
     }
 
     /**
-     * 如果<dubbo:service /> 没有配置protocol，则默认护采用Provider中的配置
+     * 如果<dubbo:service /> 没有配置protocol，并且配置了provider 则默认护采用Provider中的配置
      * getProtocolIds() 获取<dubbo:service />中的配置的protocol
      * */
     private void computeValidProtocolIds() {
