@@ -179,21 +179,34 @@ public class ConfigValidationUtils {
                 }
                 if (!RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(address)) {
                     Map<String, String> map = new HashMap<String, String>();
+                    //将配置类ApplicationConfig和RegistryConfig中的属性解析出来添加到map中（根据@parameter注解中的key或者get方法获取属性名称Key）
+                    //以及设置configBean中的parameters到url参数中
                     AbstractConfig.appendParameters(map, application);
                     AbstractConfig.appendParameters(map, config);
+                    //添加url path代表 使用的服务
                     map.put(PATH_KEY, RegistryService.class.getName());
+                    //Url中添加dubbo-version release,timestamp, pid等 运行时信息
                     AbstractInterfaceConfig.appendRuntimeParameters(map);
+                    //默认协议为dubbo协议
                     if (!map.containsKey(PROTOCOL_KEY)) {
                         map.put(PROTOCOL_KEY, DUBBO_PROTOCOL);
                     }
+                    //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&metadata-type=remote&pid=2044&qos.port=22222&timestamp=1615790840656
                     List<URL> urls = UrlUtils.parseURLs(address, map);
 
                     for (URL url : urls) {
 
                         url = URLBuilder.from(url)
+                                //设置注册中心的实现（使用什么注册中心）
                                 .addParameter(REGISTRY_KEY, url.getProtocol())
+                                //从URL中的parameters中获取registry-type参数，值为service-discovery-registry或者registry
+                                //设置协议头用于SPI动态加载protocol扩展，这里会加载RegistryProtocol扩展
                                 .setProtocol(extractRegistryType(url))
                                 .build();
+                        //是否添加url到registryList（需要注册的dubbo服务）
+                        //添加条件：是服务提供者并且url参数parameters中register为true或者为空
+                        //         是服务消费者并且url参数Parameters中subscribe为true或者为空
+                        //<dubbo:service interface="org.apache.dubbo.demo.DemoService" register="true" registry="zookeeper" ref="demoService"/>
                         if ((provider && url.getParameter(REGISTER_KEY, true))
                                 || (!provider && url.getParameter(SUBSCRIBE_KEY, true))) {
                             registryList.add(url);
@@ -202,6 +215,7 @@ public class ConfigValidationUtils {
                 }
             }
         }
+        //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&metadata-type=remote&pid=2044&qos.port=22222&registry=zookeeper&timestamp=1615790840656
         return registryList;
     }
 

@@ -23,26 +23,49 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Parameter
+ * Parameter 用于将config bean中的属性添加到URL中
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
 public @interface Parameter {
 
+    /**
+     * 属性添加到URL中的Key 如果没有则从get方法中提取属性名称
+     * */
     String key() default "";
 
     boolean required() default false;
 
+    /**
+     * 等于true的话 则该属性 不会添加到Url中。
+     * */
     boolean excluded() default false;
 
+    /**
+     *    if (parameter != null && parameter.escaped()) {
+     *         str = URL.encode(str);
+     *    }
+     * */
     boolean escaped() default false;
 
     boolean attribute() default false;
 
+    /**
+     *      if (parameter != null && parameter.append()) {
+     *          String pre = parameters.get(key);
+     *          if (pre != null && pre.length() > 0) {
+     *              str = pre + "," + str;
+     *          }
+     *      }
+     *      属性值要加上前缀key
+     * */
     boolean append() default false;
 
     /**
+     * 解析该注解方法
+     * org.apache.dubbo.config.AbstractConfig#appendParameters(java.util.Map, java.lang.Object, java.lang.String)
+     *
      * if {@link #key()} is specified, it will be used as the key for the annotated property when generating url.
      * by default, this key will also be used to retrieve the config value:
      * <pre>

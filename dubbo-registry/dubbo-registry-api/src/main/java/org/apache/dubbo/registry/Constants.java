@@ -19,9 +19,9 @@ package org.apache.dubbo.registry;
 
 public interface Constants {
     String REGISTER_IP_KEY = "register.ip";
-
+    //是否注册服务到注册中心
     String REGISTER_KEY = "register";
-
+    //是否从注册中心订阅服务
     String SUBSCRIBE_KEY = "subscribe";
 
     String DEFAULT_REGISTRY = "dubbo";
