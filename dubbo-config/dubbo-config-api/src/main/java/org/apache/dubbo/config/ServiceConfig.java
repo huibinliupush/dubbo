@@ -403,7 +403,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
 
         /**
-     *         将<dubbo:method />配置写入URL,接下来主要用来处理如下这种配置方式
+         *     将<dubbo:method />配置写入URL,接下来主要用来处理如下这种配置方式
          *     <dubbo:service interface="org.apache.dubbo.samples.callback.api.CallbackService" ref="callbackService"
          *                    connections="1" callbacks="1000">
          *         <dubbo:method name="addListener">
@@ -510,7 +510,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             token = provider.getToken();
         }
 
-        // token配置值为true或者default时 token默认为UUID
+        // token配置值为true或者default时 token默认为随机UUID
         // token配置了具体的字符串，就将配置的字符串作为token
         if (!ConfigUtils.isEmpty(token)) {
             if (ConfigUtils.isDefault(token)) {
@@ -544,7 +544,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
          * <dubbo:service scope="..." />
          * scope可选值：local remote none 默认为Null
          * null：既要远程发布（注册到注册中心）也要本地发布（不注册服务，consumer不可直连，本地调用也需要走invoker链）
-         * none：不进行发布。相当于只是本地起了个普通service服务。自然本地调用也不会走Invoker链
+         * none：不进行发布。相当于只是本地起了个普通service服务。自然调用也不会走Invoker链
          * !remote: 本地发布
          * !local：远程发布
          * */
@@ -588,7 +588,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         }
                         //通过prroxyFactory创建invoker，服务发布proxy层入口
                         //为服务实现类的对象ref创建相应的Invoker
-                        //将服务URL添加到RegistryUrl中的export参数中（用于后续的服务发布）
+                        //将服务URL添加到RegistryUrl中的export参数中（用于后续在regitry层进行服务发布）
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         //包装关联invoker和serviceConfig
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
@@ -607,7 +607,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                     }
                     Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, url);
                     DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
-
+                    //通过PROTOCOL接口适配器加载DubboProtocol直接发布dubbo服务
                     Exporter<?> exporter = PROTOCOL.export(wrapperInvoker);
                     exporters.add(exporter);
                 }
