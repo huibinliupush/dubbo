@@ -27,6 +27,15 @@ import java.util.concurrent.CompletableFuture;
 public class DemoServiceImpl implements DemoService {
     private static final Logger logger = LoggerFactory.getLogger(DemoServiceImpl.class);
 
+    private String wrapperField;
+
+    public String getWrapperField() {
+        return wrapperField;
+    }
+
+    public void setWrapperField(String wrapperField) {
+        this.wrapperField = wrapperField;
+    }
     @Override
     public String sayHello(String name) {
         logger.info("Hello " + name + ", request from consumer: " + RpcContext.getContext().getRemoteAddress());
@@ -49,5 +58,16 @@ public class DemoServiceImpl implements DemoService {
             return "async result";
         });
         return cf;
+    }
+
+    @Override
+    public void wrapperReturnVoid(String warpperField) {
+        logger.info("test wrapper return type void");
+    }
+
+    @Override
+    public DemoService wrapperReturnVoid(Integer warpperField) {
+        logger.info("test wrapper OverWrite method");
+        return new DemoServiceImpl();
     }
 }

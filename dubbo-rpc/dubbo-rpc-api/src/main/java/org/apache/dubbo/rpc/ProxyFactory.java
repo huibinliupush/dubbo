@@ -29,7 +29,7 @@ import static org.apache.dubbo.rpc.Constants.PROXY_KEY;
 public interface ProxyFactory {
 
     /**
-     * create proxy.
+     * create proxy.将invoker转换为服务接口代理  用于服务引用 用户透明调用远程服务
      *
      * @param invoker
      * @return proxy
@@ -48,7 +48,7 @@ public interface ProxyFactory {
 
     /**
      * create invoker.
-     *
+     * 将服务实现类ref转换为invoker, 用于服务暴露
      * @param <T>
      * @param proxy
      * @param type

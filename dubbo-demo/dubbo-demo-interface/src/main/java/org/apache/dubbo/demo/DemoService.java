@@ -22,6 +22,10 @@ public interface DemoService {
 
     String sayHello(String name);
 
+    void wrapperReturnVoid(String warpperField);
+
+    DemoService wrapperReturnVoid(Integer warpperField);
+
     default CompletableFuture<String> sayHelloAsync(String name) {
         return CompletableFuture.completedFuture(sayHello(name));
     }

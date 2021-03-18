@@ -43,7 +43,9 @@ public class JdkProxyFactory extends AbstractProxyFactory {
             protected Object doInvoke(T proxy, String methodName,
                                       Class<?>[] parameterTypes,
                                       Object[] arguments) throws Throwable {
+                //proxy这里是服务的实现类
                 Method method = proxy.getClass().getMethod(methodName, parameterTypes);
+                //jdkProxy创建的invoker通过反射调用目标服务方法
                 return method.invoke(proxy, arguments);
             }
         };

@@ -121,6 +121,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      * A {@link ProxyFactory} implementation that will generate a exported service proxy,the JavassistProxyFactory is its
      * default implementation
      */
+    //ProxyFactory接口的适配器
     private static final ProxyFactory PROXY_FACTORY = ExtensionLoader.getExtensionLoader(ProxyFactory.class).getAdaptiveExtension();
 
     /**

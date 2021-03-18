@@ -29,12 +29,12 @@
     <bean id="demoService" class="org.apache.dubbo.demo.provider.DemoServiceImpl"/>
     <bean id="callbackService" class="org.apache.dubbo.demo.provider.impl.CallbackServiceImpl"/>
 
-    <dubbo:service interface="org.apache.dubbo.demo.provider.api.CallbackService" ref="callbackService"
+<!--    <dubbo:service interface="org.apache.dubbo.demo.provider.api.CallbackService" ref="callbackService"
                    connections="1" callbacks="1000">
         <dubbo:method name="addListener">
             <dubbo:argument index="1" type="org.apache.dubbo.demo.provider.api.CallbackListener" callback="true"/>
         </dubbo:method>
-    </dubbo:service>
-   <!--<dubbo:service interface="org.apache.dubbo.demo.DemoService" path="servicePath"  ref="demoService"/>-->
+    </dubbo:service>-->
+   <dubbo:service interface="org.apache.dubbo.demo.DemoService"  ref="demoService"/>
    <!-- <dubbo:service interface="org.apache.dubbo.demo.DemoService" class="org.apache.dubbo.demo.provider.DemoServiceImpl"/>-->
 </beans>
