@@ -81,7 +81,10 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         try {
+            //Javassit代理：该方法调用代理给wrapper.invokeMethod方法，在wrapper中直接调用服务实现类ref的目标方法
+            //JdkProxy代理：该方法中直接反射调用服务实现类ref中的目标方法
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
+            //将方法返回结果包装成CompletableFuture<AppResponse>
 			CompletableFuture<Object> future = wrapWithFuture(value);
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {
                 AppResponse result = new AppResponse();
@@ -96,6 +99,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
                 }
                 return result;
             });
+            //返回RpcResult
             return new AsyncRpcResult(appResponseFuture, invocation);
         } catch (InvocationTargetException e) {
             if (RpcContext.getContext().isAsyncStarted() && !RpcContext.getContext().stopAsync()) {

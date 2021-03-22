@@ -36,6 +36,7 @@ import java.util.regex.Matcher;
  * Wrapper.
  */
 public abstract class Wrapper {
+    //Wrapper的缓存 key:要进行包装的类（服务实现类ref） value：包装类Wrapper
     private static final Map<Class<?>, Wrapper> WRAPPER_MAP = new ConcurrentHashMap<Class<?>, Wrapper>(); //class wrapper map
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
     private static final String[] OBJECT_METHODS = new String[]{"getClass", "hashCode", "toString", "equals"};
@@ -104,15 +105,19 @@ public abstract class Wrapper {
      * @return Wrapper instance(not null).
      */
     public static Wrapper getWrapper(Class<?> c) {
+        //是否继承ClassGenerator.DC.class接口
+        //ClassGenerator.DC.class 动态类的标识
         while (ClassGenerator.isDynamicClass(c)) // can not wrapper on dynamic class.
         {
             c = c.getSuperclass();
         }
 
+        //如果需要包装的对象为Object.class 则返回Object的包装类（不重要）
         if (c == Object.class) {
             return OBJECT_WRAPPER;
         }
 
+        //缓存里获取Wrapper类，如果没有则调用makeWrapper创建并缓存
         return WRAPPER_MAP.computeIfAbsent(c, key -> makeWrapper(key));
     }
 
@@ -123,6 +128,7 @@ public abstract class Wrapper {
 
         //org.apache.dubbo.demo.provider.DemoServiceImpl
         String name = c.getName();
+        //获取classloader
         ClassLoader cl = ClassUtils.getClassLoader(c);
 
         //构建setPropertyValue方法体 负责设置类中public字段的值 参数1：具体实现类 ，参数2：设置的public字段名字 ，参数3：设置public属性值
@@ -392,11 +398,11 @@ public abstract class Wrapper {
         long id = WRAPPER_CLASS_COUNTER.getAndIncrement();
         //创建类生成器
         ClassGenerator cc = ClassGenerator.newInstance(cl);
-        //设置类名
+        //设置类名org.apache.dubbo.common.bytecode.Wrapper1
         cc.setClassName((Modifier.isPublic(c.getModifiers()) ? Wrapper.class.getName() : c.getName() + "$sw") + id);
         //设置父类
         cc.setSuperClass(Wrapper.class);
-        //添加构造器
+        //是否为代理类生成的默认构造方法
         cc.addDefaultConstructor();
         //设置类的字段信息
         cc.addField("public static String[] pns;"); // property name array.
