@@ -334,6 +334,7 @@ public class ConfigValidationUtils {
         //<dubbo:service />配置中的listener，用于SPI加载自定义的服务暴露监听器，需要实现ExporterListener.class
         //检查listener指定的服务暴露监听器是否配置了SPI文件
         //https://dubbo.apache.org/zh/docs/v2.7/dev/impls/exporter-listener/
+        //ProtocolListenerWrapper#export进行调用
         checkMultiExtension(ExporterListener.class, "listener", config.getListener());
 
         //检查interface层的配置有效性

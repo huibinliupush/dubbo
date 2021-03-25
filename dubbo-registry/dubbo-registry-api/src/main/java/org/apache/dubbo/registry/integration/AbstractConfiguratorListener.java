@@ -37,14 +37,23 @@ import java.util.List;
 public abstract class AbstractConfiguratorListener implements ConfigurationListener {
     private static final Logger logger = LoggerFactory.getLogger(AbstractConfiguratorListener.class);
 
+    //存放从配置中心加载到的"override://" url 转换的configurator（用于根据 override Url 覆盖 providerUrl）
     protected List<Configurator> configurators = Collections.emptyList();
+
+    //服务治理规则存储仓库（其实是对配置中心的一个代理）底层会调用到具体的配置中心 DynamicConfiguration -> ZookeeperDynamicConfiguration
     protected GovernanceRuleRepository ruleRepository = ExtensionLoader.getExtensionLoader(
             GovernanceRuleRepository.class).getDefaultExtension();
 
     protected final void initWith(String key) {
+        //根据key构造配置在配置中心的存储路径
+        //cacheListener中缓存 配置存储路径 -> 配置listener,当配置发生变化时 配置中心会通知过来，根据路径 取出Listener执行process配置处理逻辑
+        //provider config 配置路径 : /dubbo/config/dubbo/demo-provider.configurators
+        //service  config 配置路径 : /dubbo/config/dubbo/org.apache.dubbo.demo.DemoService::.configurators
         ruleRepository.addListener(key, this);
+        //从配置中心获取 对应的规则 "override://" URL
         String rawConfig = ruleRepository.getRule(key, DynamicConfiguration.DEFAULT_GROUP);
         if (!StringUtils.isEmpty(rawConfig)) {
+            //将覆盖规则"override://" URL 转换为对应的configurator
             genConfiguratorsFromRawRule(rawConfig);
         }
     }
@@ -53,6 +62,9 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
         ruleRepository.removeListener(key, this);
     }
 
+    /**
+     * 配置发生变更时 配置中心ZookeeperDynamicConfiguration会回调该方法
+     * */
     @Override
     public void process(ConfigChangedEvent event) {
         if (logger.isInfoEnabled()) {
@@ -67,7 +79,7 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
                 return;
             }
         }
-
+        //回调子类方法 进行具体的配置处理
         notifyOverrides();
     }
 
@@ -75,6 +87,7 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
         boolean parseSuccess = true;
         try {
             // parseConfigurators will recognize app/service config automatically.
+            //将覆盖规则"override://" URL 转换为对应的configurator
             configurators = Configurator.toConfigurators(ConfigParser.parseConfigurators(rawConfig))
                     .orElse(configurators);
         } catch (Exception e) {

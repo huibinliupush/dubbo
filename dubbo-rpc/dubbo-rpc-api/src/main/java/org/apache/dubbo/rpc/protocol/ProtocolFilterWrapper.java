@@ -39,7 +39,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.SERVICE_FILTER_K
  * ListenerProtocol
  */
 public class ProtocolFilterWrapper implements Protocol {
-
+    //自适应Protocol扩展
     private final Protocol protocol;
 
     public ProtocolFilterWrapper(Protocol protocol) {
@@ -147,9 +147,12 @@ public class ProtocolFilterWrapper implements Protocol {
 
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
+        //如果invoke中URL的协议头为registry或者service-discovery-registry则直接调用下一个ProtocolWrapper
         if (UrlUtils.isRegistry(invoker.getUrl())) {
+            //调用Protocol自适应扩展
             return protocol.export(invoker);
         }
+        //构建拦截器Filter链，将构建后的filer链的头部invoker传入Protocol自适应扩展export方法中执行对应扩展的服务暴露逻辑
         return protocol.export(buildInvokerChain(invoker, SERVICE_FILTER_KEY, CommonConstants.PROVIDER));
     }
 

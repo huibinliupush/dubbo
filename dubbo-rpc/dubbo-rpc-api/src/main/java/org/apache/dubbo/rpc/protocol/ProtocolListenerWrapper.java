@@ -37,9 +37,11 @@ import static org.apache.dubbo.common.constants.CommonConstants.INVOKER_LISTENER
 
 /**
  * ListenerProtocol
+ * org.apache.dubbo.config.utils.ConfigValidationUtils#validateServiceConfig(org.apache.dubbo.config.ServiceConfig)
  */
 public class ProtocolListenerWrapper implements Protocol {
 
+    //ProtocolFilterWrapper
     private final Protocol protocol;
 
     public ProtocolListenerWrapper(Protocol protocol) {
@@ -56,7 +58,9 @@ public class ProtocolListenerWrapper implements Protocol {
 
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
+        //如果invoke中URL的协议头为registry或者service-discovery-registry则直接调用下一个ProtocolWrapper
         if (UrlUtils.isRegistry(invoker.getUrl())) {
+            //调用ProtocolFilterWrapper#export
             return protocol.export(invoker);
         }
         return new ListenerExporterWrapper<T>(protocol.export(invoker),

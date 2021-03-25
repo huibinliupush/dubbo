@@ -567,6 +567,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
                             continue;
                         }
+                        //dynamic为true自动注册服务，下线服务
+                        //dynamic为false人工手动注册服务，下线服务
                         url = url.addParameterIfAbsent(DYNAMIC_KEY, registryURL.getParameter(DYNAMIC_KEY));
                         //根据monitorConfig配置加载monitorUrl，加载过程类似loadRegistries
                         URL monitorUrl = ConfigValidationUtils.loadMonitor(this, registryURL);

@@ -27,7 +27,9 @@ import java.util.List;
 public class ListenerRegistryWrapper implements Registry {
     private static final Logger logger = LoggerFactory.getLogger(ListenerRegistryWrapper.class);
 
+    //注册中心实例
     private final Registry registry;
+    //registry监听器集合（SPI加载）
     private final List<RegistryServiceListener> listeners;
 
 

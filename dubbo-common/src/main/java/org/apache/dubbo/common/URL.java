@@ -375,6 +375,7 @@ class URL implements Serializable {
     public static URL valueOf(URL url, String[] reserveParams, String[] reserveParamPrefixs) {
         Map<String, String> newMap = new HashMap<>();
         Map<String, String> oldMap = url.getParameters();
+        //如果参数 key 中 包含 需要保留的参数前缀，则参数保留
         if (reserveParamPrefixs != null && reserveParamPrefixs.length != 0) {
             for (Map.Entry<String, String> entry : oldMap.entrySet()) {
                 for (String reserveParamPrefix : reserveParamPrefixs) {
@@ -385,6 +386,7 @@ class URL implements Serializable {
             }
         }
 
+        //保留指定的参数
         if (reserveParams != null) {
             for (String reserveParam : reserveParams) {
                 String tmp = oldMap.get(reserveParam);
@@ -393,6 +395,7 @@ class URL implements Serializable {
                 }
             }
         }
+        //最终根据需要保留的参数 重新生成URL
         return newMap.isEmpty() ? new URL(url.getProtocol(), url.getUsername(), url.getPassword(), url.getHost(), url.getPort(), url.getPath())
                 : new URL(url.getProtocol(), url.getUsername(), url.getPassword(), url.getHost(), url.getPort(), url.getPath(), newMap);
     }

@@ -88,8 +88,11 @@ public class ProviderModel {
     }
 
     public static class RegisterStatedURL {
+        //注册中心协议  zookeeper://....
         private volatile URL registryUrl;
+        //服务注册到注册中心的providerUrl
         private volatile URL providerUrl;
+        //服务注册状态 是否已经注册到注册中心
         private volatile boolean registered;
 
         public RegisterStatedURL(URL providerUrl,

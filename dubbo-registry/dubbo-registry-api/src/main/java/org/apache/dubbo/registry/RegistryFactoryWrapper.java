@@ -25,6 +25,7 @@ import java.util.Collections;
 public class RegistryFactoryWrapper implements RegistryFactory {
     private RegistryFactory registryFactory;
 
+    //SPI注入
     public RegistryFactoryWrapper(RegistryFactory registryFactory) {
         this.registryFactory = registryFactory;
     }

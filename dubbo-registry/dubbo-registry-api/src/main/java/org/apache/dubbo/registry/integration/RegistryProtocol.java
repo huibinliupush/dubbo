@@ -126,11 +126,14 @@ public class RegistryProtocol implements Protocol {
     };
 
     private final static Logger logger = LoggerFactory.getLogger(RegistryProtocol.class);
+    //overrideSubscribeUrl -> OverrideListener的映射
     private final Map<URL, NotifyListener> overrideListeners = new ConcurrentHashMap<>();
+    //serviceKey：{group}/{interfaceName}:{version}  ->   serviceConfigurationListener 映射
     private final Map<String, ServiceConfigurationListener> serviceConfigurationListeners = new ConcurrentHashMap<>();
     private final ProviderConfigurationListener providerConfigurationListener = new ProviderConfigurationListener();
     //To solve the problem of RMI repeated exposure port conflicts, the services that have been exposed are no longer exposed.
     //providerurl <--> exporter
+    //providerUrl（去除dynamic enable参数） -> ExporterChangeableWrapper映射
     private final ConcurrentMap<String, ExporterChangeableWrapper<?>> bounds = new ConcurrentHashMap<>();
     private Cluster cluster;
     private Protocol protocol;
@@ -192,41 +195,52 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        //获取具体注册协议的registryUrl。将"registry://"协议转换为具体的协议比如"zookeeper://"协议。
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
+        //获取服务提供者的URL（存放在invoker中URL的export参数中）
         URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
+        //获取服务提供者provider在注册中心的覆盖配置URL。该URL中存放的是要对provider配置进行覆盖的一些配置数据。
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
+        //创建覆盖配置URL的监听器，当注册中心中的provider对应的覆盖配置URL的配置数据发生变化的时候，监听器会受到通知，覆盖invoker中的当前providerUrl
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
+        //将provider对应的覆盖配置URL与相应的配置监听器映射起来
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
-
+        //在服务暴露之前，加载配置中心中关于provider应用级的配置 和 service级的配置 对providerUrl进行一次覆盖（配置中心配置源优先级）
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         //export invoker
+        //protocol层服务暴露入口，进行本地dubbo协议的暴露
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
+        //根据RegistryUrl创建注册中心实例
         final Registry registry = getRegistry(originInvoker);
+        //获取将要注册到注册中心上的providerUrl（）
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
-
+        //dubbo://172.19.208.1:20880/servicePathPrefix/org.apache.dubbo.demo.DemoService?anyhost=true&application=demo-provider&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&metadata-type=remote&methods=sayHello,wrapperReturnVoid,sayHelloAsync&pid=2304&release=&side=provider&timestamp=1616644463254
         // decide if we need to delay publish
+        //<dubbo:registry register = '...'>中的register配置决定是否向注册中心注册服务
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
             register(registryUrl, registeredProviderUrl);
         }
 
         // register stated url on provider model
+        //将服务的注册状态信息 添加到 ApplicationModel（存储dubbo应用元信息）中ProviderModel里（存储provider相关元信息）
         registerStatedUrl(registryUrl, registeredProviderUrl, register);
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        //订阅provider端的override数据。监听configurators 节点下的配置变更
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
         exporter.setRegisterUrl(registeredProviderUrl);
         exporter.setSubscribeUrl(overrideSubscribeUrl);
-
+        //回调RegistryProtocolListener监听器的onExport方法
         notifyExport(exporter);
         //Ensure that a new exporter instance is returned every time export
         return new DestroyableExporter<>(exporter);
@@ -243,18 +257,28 @@ public class RegistryProtocol implements Protocol {
     }
 
     private URL overrideUrlWithConfig(URL providerUrl, OverrideListener listener) {
+        //应用级配置监听器 监听配置中心中 provider对应application应用级别的配置
+        //利用从配置中心加载到的application级别的配置 覆盖 providerUrl
         providerUrl = providerConfigurationListener.overrideUrl(providerUrl);
+        //创建接口服务级别监听器，监听配置中心中 对应 dubbo服务的配置
         ServiceConfigurationListener serviceConfigurationListener = new ServiceConfigurationListener(providerUrl, listener);
+        //serviceKey：{group}/{interfaceName}:{version}  ->   serviceConfigurationListener 映射
         serviceConfigurationListeners.put(providerUrl.getServiceKey(), serviceConfigurationListener);
+        //利用从配置中心加载到的service级别配置覆盖providerUrl
         return serviceConfigurationListener.overrideUrl(providerUrl);
     }
 
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
+        //key：providerUrl（去除dynamic enable参数）
+        //dubbo://10.52.38.28:20880/servicePathPrefix/org.apache.dubbo.demo.DemoService?anyhost=true&application=demo-provider&bind.ip=10.52.38.28&bind.port=20880&deprecated=false&dubbo=2.0.2&generic=false&interface=org.apache.dubbo.demo.DemoService&metadata-type=remote&methods=sayHello,wrapperReturnVoid,sayHelloAsync&pid=17056&qos.port=22222&release=&side=provider&timestamp=1616575134099
         String key = getCacheKey(originInvoker);
 
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
+            //用invokeDelegate包装DelegateProviderMetaDataInvoker和providerUrl
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
+            //这里注意传递给protocol层的invoke是invokeDelegate
+            //ExporterChangeableWrapper包装procotol层暴露返回的exporter和DelegateProviderMetaDataInvoker
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }
@@ -353,14 +377,20 @@ public class RegistryProtocol implements Protocol {
      * @return
      */
     protected Registry getRegistry(final Invoker<?> originInvoker) {
+        //重新获取registryUrl（因为前边对URL进行了一些配置的覆盖 所以现在要重新获取）
         URL registryUrl = getRegistryUrl(originInvoker);
+        //通过RegistryFactory创建注册中心
+        //RegistryFactory$Adaptive -> RegsitryFactoryWrapper -> AbstractRegistryFactory -> ZookeeperRegsitoryFactory -> ZookeeperRegsitry
+        //最终ZookeeperRegsitry会在RegsitryFactoryWrapper中用ListenerRegistryWrapper装饰返回
         return registryFactory.getRegistry(registryUrl);
     }
 
     protected URL getRegistryUrl(Invoker<?> originInvoker) {
         URL registryUrl = originInvoker.getUrl();
         if (REGISTRY_PROTOCOL.equals(registryUrl.getProtocol())) {
+            //获取URL中的registry参数得到具体的注册中心协议zookeeper
             String protocol = registryUrl.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY);
+            //重新设置URL协议为zookeeper并删除registry参数
             registryUrl = registryUrl.setProtocol(protocol).removeParameter(REGISTRY_KEY);
         }
         return registryUrl;
@@ -382,29 +412,40 @@ public class RegistryProtocol implements Protocol {
      */
     private URL getUrlToRegistry(final URL providerUrl, final URL registryUrl) {
         //The address you see at the registry
+        //<dubbo:registry simplified="false"/> simplified参数默认为false
+        //注册到注册中心的URL是否采用精简模式(simplified)
         if (!registryUrl.getParameter(SIMPLIFIED_KEY, false)) {
             return providerUrl.removeParameters(getFilteredKeys(providerUrl)).removeParameters(
                     MONITOR_KEY, BIND_IP_KEY, BIND_PORT_KEY, QOS_ENABLE, QOS_HOST, QOS_PORT, ACCEPT_FOREIGN_IP, VALIDATION_KEY,
                     INTERFACES);
         } else {
+            //<dubbo:registry id ="zookeeper" address="zookeeper://127.0.0.1:2181" simplified="true" extra-keys=""/>
+            //在精简模式下 extraKeys指定了 providerUrl中除了必须保留的默认参数外额外需要保留的参数
             String extraKeys = registryUrl.getParameter(EXTRA_KEYS_KEY, "");
             // if path is not the same as interface name then we should keep INTERFACE_KEY,
             // otherwise, the registry structure of zookeeper would be '/dubbo/path/providers',
             // but what we expect is '/dubbo/interface/providers'
+
+            // providerUrl#path = servicePathPrefix/org.apache.dubbo.demo.DemoService
+            // providerUrl#interface = org.apache.dubbo.demo.DemoService
+            //如果不一样的话 需要在url中保留interface参数，否则在注册中心中的目录结构就不符合规范了 目录规范'/dubbo/interface/providers'
             if (!providerUrl.getPath().equals(providerUrl.getParameter(INTERFACE_KEY))) {
                 if (StringUtils.isNotEmpty(extraKeys)) {
                     extraKeys += ",";
                 }
                 extraKeys += INTERFACE_KEY;
             }
+            //将默认保留参数 和 指定的保留参数 聚合在一起 得到最终在providerUrl中要保留的参数
             String[] paramsToRegistry = getParamsToRegistry(DEFAULT_REGISTER_PROVIDER_KEYS
                     , COMMA_SPLIT_PATTERN.split(extraKeys));
+            //dubbo://172.19.208.1:20880/servicePathPrefix/org.apache.dubbo.demo.DemoService?application=demo-provider&deprecated=false&dubbo=2.0.2&interface=org.apache.dubbo.demo.DemoService&timestamp=1616654159563
             return URL.valueOf(providerUrl, paramsToRegistry, providerUrl.getParameter(METHODS_KEY, (String[]) null));
         }
 
     }
 
     private URL getSubscribedOverrideUrl(URL registeredProviderUrl) {
+        //配置覆盖url就是将providerUrl的协议头改为provider，URL中增加category=configurators(配置类目) check=false
         return registeredProviderUrl.setProtocol(PROVIDER_PROTOCOL)
                 .addParameters(CATEGORY_KEY, CONFIGURATORS_CATEGORY, CHECK_KEY, String.valueOf(false));
     }
@@ -416,6 +457,7 @@ public class RegistryProtocol implements Protocol {
      * @return
      */
     private URL getProviderUrl(final Invoker<?> originInvoker) {
+        //通过URL中的export参数取出服务提供者的URL并用UTF-8解码
         String export = originInvoker.getUrl().getParameterAndDecoded(EXPORT_KEY);
         if (export == null || export.length() == 0) {
             throw new IllegalArgumentException("The registry export url is null! registry: " + originInvoker.getUrl());
@@ -568,6 +610,7 @@ public class RegistryProtocol implements Protocol {
          * @param url     invoker.getUrl return this value
          */
         public InvokerDelegate(Invoker<T> invoker, URL url) {
+            //DelegateProviderMetaDataInvoker,providerUrl
             super(invoker, url);
             this.invoker = invoker;
         }
@@ -607,7 +650,9 @@ public class RegistryProtocol implements Protocol {
      * 3.The invoker passed by the export method , would better to be the invoker of exporter
      */
     private class OverrideListener implements NotifyListener {
+        //覆盖配置URL
         private final URL subscribeUrl;
+        //要进行覆盖的providerUrl
         private final Invoker originInvoker;
 
 
@@ -695,13 +740,22 @@ public class RegistryProtocol implements Protocol {
         public ServiceConfigurationListener(URL providerUrl, OverrideListener notifyListener) {
             this.providerUrl = providerUrl;
             this.notifyListener = notifyListener;
+            // key :org.apache.dubbo.demo.DemoService::.configurators
+            // {interfaceName}:[version]:[group].configurators
+            // service  config 配置路径 : /dubbo/config/dubbo/org.apache.dubbo.demo.DemoService::.configurators
+            // 1.添加对service配置的监听  2.从配置中心获取override:// URL 转换为 configurators
             this.initWith(DynamicConfiguration.getRuleKey(providerUrl) + CONFIGURATORS_SUFFIX);
         }
 
+        //通过从配置中心获取的 override:// URL 转化的 configurators（配置覆盖逻辑处理）
         private <T> URL overrideUrl(URL providerUrl) {
             return RegistryProtocol.getConfigedInvokerUrl(configurators, providerUrl);
         }
 
+        /**
+         * 监听的service配置发生变更时，配置中心会通知过来 回调该方法
+         *
+         * */
         @Override
         protected void notifyOverrides() {
             notifyListener.doOverrideIfNecessary();
@@ -711,12 +765,16 @@ public class RegistryProtocol implements Protocol {
     private class ProviderConfigurationListener extends AbstractConfiguratorListener {
 
         public ProviderConfigurationListener() {
+            // key : demo-provider.configurators
+            // <dubbo:application name = "demo-provider"/>
+            // provider config 配置路径 : /dubbo/config/dubbo/demo-provider.configurators
+            // 1.添加对provider配置的监听  2.从配置中心获取override:// URL 转换为 configurators
             this.initWith(ApplicationModel.getApplication() + CONFIGURATORS_SUFFIX);
         }
 
         /**
          * Get existing configuration rule and override provider url before exporting.
-         *
+         * 通过从配置中心获取的 override:// URL 转化的 configurators（配置覆盖逻辑处理）
          * @param providerUrl
          * @param <T>
          * @return
@@ -725,6 +783,10 @@ public class RegistryProtocol implements Protocol {
             return RegistryProtocol.getConfigedInvokerUrl(configurators, providerUrl);
         }
 
+        /**
+         * 监听的provider配置发生变更时，配置中心会通知过来 回调该方法
+         *
+         * */
         @Override
         protected void notifyOverrides() {
             overrideListeners.values().forEach(listener -> ((OverrideListener) listener).doOverrideIfNecessary());
@@ -740,10 +802,13 @@ public class RegistryProtocol implements Protocol {
     private class ExporterChangeableWrapper<T> implements Exporter<T> {
 
         private final ExecutorService executor = newSingleThreadExecutor(new NamedThreadFactory("Exporter-Unexport", true));
-
+        //DelegateProviderMetaDataInvoker
         private final Invoker<T> originInvoker;
+        //protocol层暴露后返回的exporter
         private Exporter<T> exporter;
+        //overrideSubscribeUrl
         private URL subscribeUrl;
+        //registeredProviderUrl
         private URL registerUrl;
 
         public ExporterChangeableWrapper(Exporter<T> exporter, Invoker<T> originInvoker) {

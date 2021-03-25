@@ -40,6 +40,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.PATH_SEPARATOR;
 public class CacheListener implements DataListener {
     private static final int MIN_PATH_DEPTH = 5;
 
+    //key: 配置中心path   value: 监听该path下配置的监听器集合
     private Map<String, Set<ConfigurationListener>> keyListeners = new ConcurrentHashMap<>();
     private CountDownLatch initializedLatch;
     private String rootPath;
@@ -50,6 +51,8 @@ public class CacheListener implements DataListener {
     }
 
     public void addListener(String key, ConfigurationListener configurationListener) {
+        //provider config 配置路径 : /dubbo/config/dubbo/demo-provider.configurators
+        //service  config 配置路径 : /dubbo/config/dubbo/org.apache.dubbo.demo.DemoService::.configurators
         Set<ConfigurationListener> listeners = this.keyListeners.computeIfAbsent(key, k -> new CopyOnWriteArraySet<>());
         listeners.add(configurationListener);
     }
