@@ -408,7 +408,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     }
 
     @Override
-    protected void recover() throws Exception {
+    protected void  recover() throws Exception {
         // register
         Set<URL> recoverRegistered = new HashSet<URL>(getRegistered());
         if (!recoverRegistered.isEmpty()) {

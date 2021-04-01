@@ -293,7 +293,7 @@ public class RegistryProtocol implements Protocol {
 
     /**
      * Reexport the invoker of the modified url
-     *
+     * 当invoker中的providerUrl发生变化的时候，需要重新发布dubbo服务 并且重新注册
      * @param originInvoker
      * @param newInvokerUrl
      * @param <T>

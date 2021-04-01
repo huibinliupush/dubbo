@@ -26,10 +26,11 @@ import org.apache.dubbo.common.URL;
  * @see org.apache.dubbo.registry.support.AbstractRegistry
  */
 public interface Registry extends Node, RegistryService {
+    //重新注册dubbo服务（当invoker中的ProviderUrl发生变化的时候）
     default void reExportRegister(URL url) {
         register(url);
     }
-
+    //当要重新注册Dubbo服务的时候   需要调用该方法将老的Url取消掉（unregister old url）
     default void reExportUnregister(URL url) {
         unregister(url);
     }

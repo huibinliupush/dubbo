@@ -519,6 +519,7 @@ class URL implements Serializable {
         } else {
             host = address;
         }
+        //将原有URL中的address替换成指定的address并重新生成URL
         return new URL(protocol, username, password, host, port, path, getParameters());
     }
 
@@ -538,12 +539,20 @@ class URL implements Serializable {
         return address.toString();
     }
 
+    /**
+     * 获取注册中心配置的所有地址，分别生成对应address的RegistryUrl
+     * <dubbo:registry address="zookeeper://10.20.153.10:2181?backup=10.20.153.11:2181,10.20.153.12:2181" />
+     * <dubbo:registry protocol="zookeeper" address="10.20.153.10:2181,10.20.153.11:2181,10.20.153.12:2181" />
+     *
+     * */
     public List<URL> getBackupUrls() {
         List<URL> urls = new ArrayList<>();
         urls.add(this);
+        //获取URL中的backup参数获取 注册中心的其他节点(serviceConfig中生成的RegistryUrL中的address默认为主节点地址 配置参数中的第一个地址)
         String[] backups = getParameter(RemotingConstants.BACKUP_KEY, new String[0]);
         if (backups != null && backups.length > 0) {
             for (String backup : backups) {
+                //将其他节点转化为registryUrl
                 urls.add(this.setAddress(backup));
             }
         }

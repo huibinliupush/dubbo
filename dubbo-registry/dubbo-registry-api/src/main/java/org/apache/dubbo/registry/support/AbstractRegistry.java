@@ -79,6 +79,17 @@ public abstract class AbstractRegistry implements Registry {
     // Log output
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     // Local disk cache, where the special key value.registries records the list of registry centers, and the others are the list of notified service providers
+    /**
+     * properties 是一个 KV 结构，其中 Key 是当前节点URL的serviceKey:{group}/{interfaceName}:{version}，
+     * Value 是对应的订阅category（providers,configurators,routers）分类下的URL列表(用空格分隔)
+     * 包含了所有 Category（例如，providers、routes、configurators 等） 下的 URL 这些Url用空格分隔。
+     * properties 中有一个特殊的 Key 值为 org.apache.dubbo.registry.RegistryService，对应的 Value 是注册中心URL列表(用空格分隔)。
+     *
+     * 订阅者（向注册中心订阅了监听数据）都会有本地缓存文件，用来缓存注册中心中订阅的数据
+     * 这里需要广义的理解订阅者，只要像注册中心订阅了数据就是订阅者，不止是consumer会订阅provider端URL
+     * provider端也会订阅数据  比如 订阅configurators目录下的动态配置数据。provider端也是订阅者 也会有本地文件缓存 存放configurators目录下的动态配置URL
+     * consumer端 订阅的数据就比较多 包括providers目录下的服务提供者URL。 routers目录下的路由规则URL 。 configurators目录下的动态配置URL
+     * */
     private final Properties properties = new Properties();
     // File cache timing writing
     private final ExecutorService registryCacheExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
@@ -86,7 +97,10 @@ public abstract class AbstractRegistry implements Registry {
     private boolean syncSaveFile;
     private final AtomicLong lastCacheChanged = new AtomicLong();
     private final AtomicInteger savePropertiesRetryTimes = new AtomicInteger();
+    //注册过的URL缓存集合
     private final Set<URL> registered = new ConcurrentHashSet<>();
+    //缓存订阅的URL和其对应的监听器（该URL是条件URL，表示需要订阅符合条件的URL）
+    //key：订阅的URL条件 value: 相应URL的监听器
     private final ConcurrentMap<URL, Set<NotifyListener>> subscribed = new ConcurrentHashMap<>();
     private final ConcurrentMap<URL, Map<String, List<URL>>> notified = new ConcurrentHashMap<>();
     private URL registryUrl;
@@ -94,25 +108,33 @@ public abstract class AbstractRegistry implements Registry {
     private File file;
 
     public AbstractRegistry(URL url) {
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&extra-keys=interface,key1,key2&interface=org.apache.dubbo.registry.RegistryService&metadata-type=remote&pid=16904&qos.port=22222&simplified=true&timestamp=1617176178590
         setUrl(url);
         if (url.getParameter(REGISTRY__LOCAL_FILE_CACHE_ENABLED, true)) {
             // Start file save timer
             syncSaveFile = url.getParameter(REGISTRY_FILESAVE_SYNC_KEY, false);
+            //C:\Users\liuhuibin/.dubbo/dubbo-registry-demo-provider-127.0.0.1-2181.cache
             String defaultFilename = System.getProperty("user.home") + "/.dubbo/dubbo-registry-" + url.getParameter(APPLICATION_KEY) + "-" + url.getAddress().replaceAll(":", "-") + ".cache";
+            //<dubbo:registry file = ""> 指定缓存文件名称 两个注册中心不能使用同一文件存储
             String filename = url.getParameter(FILE_KEY, defaultFilename);
             File file = null;
             if (ConfigUtils.isNotEmpty(filename)) {
+                //创建缓存文件
                 file = new File(filename);
+                //parentFile: C:\Users\liuhuibin\.dubbo
                 if (!file.exists() && file.getParentFile() != null && !file.getParentFile().exists()) {
                     if (!file.getParentFile().mkdirs()) {
                         throw new IllegalArgumentException("Invalid registry cache file " + file + ", cause: Failed to create directory " + file.getParentFile() + "!");
                     }
                 }
             }
+            //C:\Users\liuhuibin\.dubbo\dubbo-registry-demo-provider-127.0.0.1-2181.cache
             this.file = file;
             // When starting the subscription center,
             // we need to read the local cache file for future Registry fault tolerance processing.
+            //加载注册中心的缓存文件到JVM内存中
             loadProperties();
+            //通知订阅注册中心URL的监听器，notify registry event
             notify(url.getBackupUrls());
         }
     }
@@ -215,6 +237,7 @@ public abstract class AbstractRegistry implements Registry {
             InputStream in = null;
             try {
                 in = new FileInputStream(file);
+                //将缓存文件加载进内存中
                 properties.load(in);
                 if (logger.isInfoEnabled()) {
                     logger.info("Load registry cache file " + file + ", data: " + properties);
@@ -335,6 +358,7 @@ public abstract class AbstractRegistry implements Registry {
 
     protected void recover() throws Exception {
         // register
+        // 将注册过的URL重新在注册一遍
         Set<URL> recoverRegistered = new HashSet<>(getRegistered());
         if (!recoverRegistered.isEmpty()) {
             if (logger.isInfoEnabled()) {
@@ -345,6 +369,7 @@ public abstract class AbstractRegistry implements Registry {
             }
         }
         // subscribe
+        // 将订阅过的URL 重新在订阅一遍 恢复对订阅URL的监听
         Map<URL, Set<NotifyListener>> recoverSubscribed = new HashMap<>(getSubscribed());
         if (!recoverSubscribed.isEmpty()) {
             if (logger.isInfoEnabled()) {
@@ -359,14 +384,19 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /**
+     * 参数为需要通知的Url变动内容
+     * */
     protected void notify(List<URL> urls) {
         if (CollectionUtils.isEmpty(urls)) {
             return;
         }
-
+        //遍历订阅的URL集合
         for (Map.Entry<URL, Set<NotifyListener>> entry : getSubscribed().entrySet()) {
             URL url = entry.getKey();
-
+            //将传入的urls（需要通知的URL内容） 与 已经订阅的Url进行匹配，如果匹配成功说明传入的Url就是我们订阅的url
+            //匹配成功的话  说明我们订阅的url内容发生了变化  变化的信息存放在参数urls里。
+            //匹配不成功，说明我们没有订阅相关的Url
             if (!UrlUtils.isMatch(url, urls.get(0))) {
                 continue;
             }
@@ -375,6 +405,7 @@ public abstract class AbstractRegistry implements Registry {
             if (listeners != null) {
                 for (NotifyListener listener : listeners) {
                     try {
+                        //通知订阅url的监听器，传入订阅信息变更的内容（参数urls）
                         notify(url, listener, filterEmpty(url, urls));
                     } catch (Throwable t) {
                         logger.error("Failed to notify registry event, urls: " + urls + ", cause: " + t.getMessage(), t);
