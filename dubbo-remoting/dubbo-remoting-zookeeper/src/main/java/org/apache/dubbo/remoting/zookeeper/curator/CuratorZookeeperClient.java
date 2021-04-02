@@ -290,6 +290,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
             }
 
             if (childListener != null) {
+                //全量拉取
                 childListener.childChanged(path, client.getChildren().usingWatcher(this).forPath(path));
             }
         }

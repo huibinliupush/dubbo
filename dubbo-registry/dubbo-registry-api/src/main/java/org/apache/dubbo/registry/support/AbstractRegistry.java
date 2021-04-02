@@ -93,6 +93,7 @@ public abstract class AbstractRegistry implements Registry {
      * */
     private final Properties properties = new Properties();
     // File cache timing writing
+    //异步更新本地文件缓存 线程池
     private final ExecutorService registryCacheExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
     // Is it synchronized to save the file
     private boolean syncSaveFile;
@@ -449,11 +450,11 @@ public abstract class AbstractRegistry implements Registry {
             logger.info("Notify urls for subscribe url " + url + ", urls: " + urls);
         }
         // keep every provider's category.
-        //对通知urls的整理，按照category分类
+        //对通知urls的整理，按照category分类。key:url对应的category  value: 分类下urls列表
         Map<String, List<URL>> result = new HashMap<>();
         for (URL u : urls) {
-            //判断订阅端订阅的URL分类 是否 包含 注册中心通知来的URL所属分类
-            //比如 订阅端的是providers分类  通知过来的是routers分类 那么就忽略（不是订阅端订阅的内容）
+            //判断订阅端订阅的URL是否订阅了注册中心通知来的URL所属分类
+            //比如 订阅端订阅的是providers分类  通知过来的是routers分类 那么就忽略（不是订阅端订阅的内容）
             if (UrlUtils.isMatch(url, u)) {
                 String category = u.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY);
                 List<URL> categoryList = result.computeIfAbsent(category, k -> new ArrayList<>());
@@ -472,7 +473,7 @@ public abstract class AbstractRegistry implements Registry {
             List<URL> categoryList = entry.getValue();
             //订阅URL的变动数据按照分类缓存起来
             categoryNotified.put(category, categoryList);
-            //通知监听器相应的变动URL
+            //按照分类 通知监听器相应的变动URL
             listener.notify(categoryList);
             // We will update our cache file after each notification.
             // When our Registry has a subscribe failure due to network jitter, we can return at least the existing cache URL.
