@@ -378,32 +378,49 @@ public class UrlUtils {
                 + (version == null ? "" : "&" + VERSION_KEY + "=" + version));
     }
 
+    /**
+     * categories 订阅端订阅的URL分类
+     * category 注册中心通知来的URL所属分类
+     * */
     public static boolean isMatchCategory(String category, String categories) {
         if (categories == null || categories.length() == 0) {
             return DEFAULT_CATEGORY.equals(category);
         } else if (categories.contains(ANY_VALUE)) {
+            //订阅的是所有分类
             return true;
         } else if (categories.contains(REMOVE_VALUE_PREFIX)) {
+            //  - 号代表删除  如果订阅的分类中包含 -providers 代表 不会订阅providers分类
             return !categories.contains(REMOVE_VALUE_PREFIX + category);
         } else {
+            //订阅的分类全集包含 注册中心通知来的URL分类
             return categories.contains(category);
         }
     }
 
     public static boolean isMatch(URL consumerUrl, URL providerUrl) {
+        //consumerUrl:consumer://10.52.38.28/org.apache.dubbo.demo.DemoService?application=demo-consumer&category=providers,configurators,routers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync,wrapperReturnVoid&pid=12832&qos.port=33333&side=consumer&sticky=false&timestamp=1617334489877
+        //providerUrl:dubbo://172.19.208.1:20880/servicePathPrefix/org.apache.dubbo.demo.DemoService?application=demo-provider&deprecated=false&dubbo=2.0.2&interface=org.apache.dubbo.demo.DemoService&timestamp=1617334370317
         String consumerInterface = consumerUrl.getServiceInterface();
         String providerInterface = providerUrl.getServiceInterface();
         //FIXME accept providerUrl with '*' as interface name, after carefully thought about all possible scenarios I think it's ok to add this condition.
+        //如果comsumer订阅的是所有接口
+        //如果 provider是所有接口
+        //consumer订阅的接口 和 provider提供的接口是一致的
         if (!(ANY_VALUE.equals(consumerInterface)
                 || ANY_VALUE.equals(providerInterface)
                 || StringUtils.isEquals(consumerInterface, providerInterface))) {
             return false;
         }
 
+        //providerUrl的分类providers
+        //consumerUrl订阅的分类是providers,configurators,routers
         if (!isMatchCategory(providerUrl.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY),
                 consumerUrl.getParameter(CATEGORY_KEY, DEFAULT_CATEGORY))) {
             return false;
         }
+        //判断订阅Url是否订阅所有enabled状态的URl
+        //如果订阅的是所有enabled状态的URl 那么providerUrl无论是什么enbaled状态都可以
+        //否则订阅的enabled状态 必须和 providerUrl的enabled状态一致
         if (!providerUrl.getParameter(ENABLED_KEY, true)
                 && !ANY_VALUE.equals(consumerUrl.getParameter(ENABLED_KEY))) {
             return false;
@@ -416,6 +433,8 @@ public class UrlUtils {
         String providerGroup = providerUrl.getParameter(GROUP_KEY);
         String providerVersion = providerUrl.getParameter(VERSION_KEY);
         String providerClassifier = providerUrl.getParameter(CLASSIFIER_KEY, ANY_VALUE);
+        //如果consumerURl中订阅的相关 参数比如 group version classifier 不是 *（匹配所有值）
+        //那么providerUrl中的参数值必须 与 consumerUrl中的相关参数值一致 否则忽略
         return (ANY_VALUE.equals(consumerGroup) || StringUtils.isEquals(consumerGroup, providerGroup) || StringUtils.isContains(consumerGroup, providerGroup))
                 && (ANY_VALUE.equals(consumerVersion) || StringUtils.isEquals(consumerVersion, providerVersion))
                 && (consumerClassifier == null || ANY_VALUE.equals(consumerClassifier) || StringUtils.isEquals(consumerClassifier, providerClassifier));
