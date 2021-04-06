@@ -270,6 +270,7 @@ public abstract class AbstractRegistry implements Registry {
 
     public List<URL> getCacheUrls(URL url) {
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+            //{group}/{interfaceName}:{version}
             String key = (String) entry.getKey();
             String value = (String) entry.getValue();
             if (StringUtils.isNotEmpty(key) && key.equals(url.getServiceKey())
@@ -557,6 +558,9 @@ public abstract class AbstractRegistry implements Registry {
         AbstractRegistryFactory.removeDestroyedRegistry(this);
     }
 
+    /**
+    * <dubbo:registry accepts = ''> 参数accepts指定 注册中心可以接受注册的协议列表 用逗号分隔
+    * */
     protected boolean acceptable(URL urlToRegistry) {
         String pattern = registryUrl.getParameter(ACCEPTS_KEY);
         if (StringUtils.isEmpty(pattern)) {
