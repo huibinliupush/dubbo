@@ -65,13 +65,17 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     private final int retryPeriod;
 
     // Timer for failure retry, regular check if there is a request for failure, and if there is, an unlimited retry
+    //定时执行失败重试操作的时间轮
     private final HashedWheelTimer retryTimer;
 
     public FailbackRegistry(URL url) {
+        //加载本地缓存
         super(url);
+        //URL中获取重试间隔事件retry.period 默认5s重试间隔
         this.retryPeriod = url.getParameter(REGISTRY_RETRY_PERIOD_KEY, DEFAULT_REGISTRY_RETRY_PERIOD);
 
         // since the retry task will not be very much. 128 ticks is enough.
+        //创建执行定时重试任务的时间轮
         retryTimer = new HashedWheelTimer(new NamedThreadFactory("DubboRegistryRetryTimer", true), retryPeriod, TimeUnit.MILLISECONDS, 128);
     }
 
@@ -266,6 +270,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             // If the startup detection is opened, the Exception is thrown directly.
             //是否需要检查注册中心连通性，如果需要检查 注册失败时会直接抛出异常IllegalStateException
             //不需要检查 则会在后台自动重试
+            //<dubbo:registry check=''>
             boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                     && url.getParameter(Constants.CHECK_KEY, true)
                     && !CONSUMER_PROTOCOL.equals(url.getProtocol());
@@ -324,6 +329,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             // If the startup detection is opened, the Exception is thrown directly.
             //是否需要检查注册中心连通性，如果需要检查 注册失败时会直接抛出异常IllegalStateException
             //不需要检查 则会在后台自动重试
+            //<dubbo:registry check=''>
             boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                     && url.getParameter(Constants.CHECK_KEY, true)
                     && !CONSUMER_PROTOCOL.equals(url.getProtocol());
@@ -363,6 +369,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         //缓存订阅的URL与监听器
         super.subscribe(url, listener);
         //如果有正在重试订阅URL的任务 则取消掉
+        //该方法会清理FailedSubscribedTask、FailedUnsubscribedTask、FailedNotifiedTask三类定时任务
         removeFailedSubscribed(url, listener);
         try {
             // Sending a subscription request to the server side
@@ -379,6 +386,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             } else {
                 // If the startup detection is opened, the Exception is thrown directly.
                 //是否检查注册中心的连通性
+                //<dubbo:registry check=''>  <dubbp:reference check=''>
                 boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                         && url.getParameter(Constants.CHECK_KEY, true);
                 //是否跳过失败重试
@@ -405,6 +413,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         //订阅缓存中删除URL中对应的监听器
         super.unsubscribe(url, listener);
         //取消订阅失败重试任务
+        //该方法会清理FailedSubscribedTask、FailedUnsubscribedTask、FailedNotifiedTask三类定时任务
         removeFailedSubscribed(url, listener);
         try {
             // Sending a canceling subscription request to the server side

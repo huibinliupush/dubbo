@@ -19,6 +19,7 @@ package org.apache.dubbo.common.timer;
 /**
  * A handle associated with a {@link TimerTask} that is returned by a
  * {@link Timer}.
+ * 包装了定时任务TimerTask和执行定时任务的事件轮Timer
  */
 public interface Timeout {
 
