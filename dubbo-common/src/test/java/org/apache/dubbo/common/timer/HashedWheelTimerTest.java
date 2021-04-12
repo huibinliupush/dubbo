@@ -31,8 +31,23 @@ public class HashedWheelTimerTest {
         @Override
         public void run(Timeout timeout) {
             final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            System.out.println("task :" + LocalDateTime.now().format(formatter));
+            System.out.println("任务执行时间 :" + LocalDateTime.now().format(formatter));
         }
+    }
+
+    @Test
+    public void test() {
+        System.out.printf("&操作：%d  取模操作：%d", 3 & 7,3 % 8);
+    }
+
+    @Test
+    public void wokerTickTest() throws InterruptedException{
+        final Timer timer = newTimer();
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        System.out.println("添加任务时间:" + LocalDateTime.now().format(formatter));
+        timer.newTimeout(new PrintTask(), 1, TimeUnit.SECONDS);
+        timer.newTimeout(new PrintTask(), 5, TimeUnit.SECONDS);
+        Thread.sleep(10000);
     }
 
     @Test
@@ -66,7 +81,7 @@ public class HashedWheelTimerTest {
     private Timer newTimer() {
         return new HashedWheelTimer(
                 new NamedThreadFactory("dubbo-future-timeout", true),
-                100,
-                TimeUnit.MILLISECONDS);
+                1,
+                TimeUnit.SECONDS,8);
     }
 }
