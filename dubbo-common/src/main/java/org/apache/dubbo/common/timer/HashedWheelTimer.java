@@ -118,9 +118,9 @@ public class HashedWheelTimer implements Timer {
     //用于定位延时任务对应的环形数组中的位置  tick & mask = index
     private final int mask;
     private final CountDownLatch startTimeInitialized = new CountDownLatch(1);
-    //调用newTimeOut向时间轮新增延迟任务 会放到这个缓冲队列中
+    //调用newTimeOut向时间轮新增延迟任务 会放到这个缓冲队列中，时间轮执行延时任务的时候，会将该队列中的任务加入时间轮
     private final Queue<HashedWheelTimeout> timeouts = new LinkedBlockingQueue<>();
-    //所有被取消的延时任务都会加入到该队列中
+    //所有被取消的延时任务都会加入到该队列中，会在时间轮执行延时任务的时候被清理
     private final Queue<HashedWheelTimeout> cancelledTimeouts = new LinkedBlockingQueue<>();
     private final AtomicLong pendingTimeouts = new AtomicLong(0);
     // 最大允许等待任务数
@@ -355,7 +355,7 @@ public class HashedWheelTimer implements Timer {
         // 等待时间轮worker线程的启动
         while (startTime == 0) {
             try {
-                //worker线程启动后，会在worker线程里执行countDown，接触这里的阻塞
+                //worker线程启动后，会在worker线程里执行countDown，解除这里的阻塞
                 startTimeInitialized.await();
             } catch (InterruptedException ignore) {
                 // Ignore - it will be ready very soon.
@@ -393,12 +393,13 @@ public class HashedWheelTimer implements Timer {
             boolean interrupted = false;
             //在其他线程中 停止 worker线程 （通过workerState字段 控制worker线程的启动，停止）
             while (workerThread.isAlive()) {
-                workerThread.interrupt();
+                workerThread.interrupt();//如果worker线程正在sleep等待下一个tick 则中断
                 try {
                     //等待workerThread结束 worker状态现在是shutdown状态 会退出do-while循环 执行清理动作(获取还没来得及执行的延时任务)
                     //此处 等待worker线程 清理动作执行完毕
                     workerThread.join(100);
                 } catch (InterruptedException ignored) {
+                    //走到这里代表 worker线程正在sleep等待下一个tick时，调用了stop停止时间轮
                     interrupted = true;
                 }
             }
@@ -654,8 +655,23 @@ public class HashedWheelTimer implements Timer {
 
                 try {
                     //worker线程睡眠sleepTimeMs 等待时间达到下一个tick
-                    Thread.sleep(sleepTimeMs);
+                   /**
+                     * 中断阻塞状态下的线程
+                     * 如果线程阻塞，将不会去检查中断信号量stop变量，所 以thread.interrupt()
+                     * 会使阻塞线程从阻塞的地方抛出异常，让阻塞线程从阻塞状态逃离出来，并
+                     * 进行异常块进行 相应的处理
+                     *
+                     * 中断非阻塞状态下的线程
+                     * 因为线程是非阻塞的，所以线程要响应中断，必须不停的去调用Thread.currentThread().isInterrupted()(不会清除中断标记)
+                     * 判断是否已经被中断 如果已经中断  则线程退出即可或者 抛出异常（线程自己决定）
+                     * Thread.currentThread().interrupted()每次调用会清除中断标记  谨慎调用。
+                     *
+                     * 死锁状态下的线程是无法被中断的
+                     *
+                     */
+                    Thread.sleep(sleepTimeMs);// 线程阻塞，如果线程收到中断操作信号将抛出异常
                 } catch (InterruptedException ignored) {
+                    //stop()方法会调用workerThread.interrupt() 来中断正在sleep的worker线程
                     if (WORKER_STATE_UPDATER.get(HashedWheelTimer.this) == WORKER_STATE_SHUTDOWN) {
                         return Long.MIN_VALUE;
                     }
@@ -736,6 +752,7 @@ public class HashedWheelTimer implements Timer {
             // So this means that we will have a GC latency of max. 1 tick duration which is good enough. This way
             // we can make again use of our MpscLinkedQueue and so minimize the locking / overhead as much as possible.
             //将取消的延时任务放入 cancelledTimeouts队列中
+            // cancelledTimeouts队列会在时间轮执行延时任务的时候被清理
             timer.cancelledTimeouts.add(this);
             return true;
         }

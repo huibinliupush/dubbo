@@ -23,6 +23,9 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class HashedWheelTimerTest {
 
@@ -37,7 +40,7 @@ public class HashedWheelTimerTest {
 
     @Test
     public void test() {
-        System.out.printf("&操作：%d  取模操作：%d", 3 & 7,3 % 8);
+        System.out.printf("&操作：%d  取模操作：%d", 12 & 7,3 % 8);
     }
 
     @Test
