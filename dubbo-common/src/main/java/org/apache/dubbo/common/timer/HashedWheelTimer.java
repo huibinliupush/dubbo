@@ -383,6 +383,7 @@ public class HashedWheelTimer implements Timer {
         if (!WORKER_STATE_UPDATER.compareAndSet(this, WORKER_STATE_STARTED, WORKER_STATE_SHUTDOWN)) {
             // workerState can be 0 or 2 at this moment - let it always be 2.
             if (WORKER_STATE_UPDATER.getAndSet(this, WORKER_STATE_SHUTDOWN) != WORKER_STATE_SHUTDOWN) {
+                //init状态时 执行stop
                 INSTANCE_COUNTER.decrementAndGet();
             }
 
@@ -392,6 +393,7 @@ public class HashedWheelTimer implements Timer {
         try {
             boolean interrupted = false;
             //在其他线程中 停止 worker线程 （通过workerState字段 控制worker线程的启动，停止）
+            // 循环一直等待worker线程执行完 清理任务操作。
             while (workerThread.isAlive()) {
                 workerThread.interrupt();//如果worker线程正在sleep等待下一个tick 则中断
                 try {
@@ -399,7 +401,7 @@ public class HashedWheelTimer implements Timer {
                     //此处 等待worker线程 清理动作执行完毕
                     workerThread.join(100);
                 } catch (InterruptedException ignored) {
-                    //走到这里代表 worker线程正在sleep等待下一个tick时，调用了stop停止时间轮
+                    //workerThread被其他线程中断
                     interrupted = true;
                 }
             }
