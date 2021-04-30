@@ -40,6 +40,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
  */
 public abstract class AbstractZookeeperTransporter implements ZookeeperTransporter {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperTransporter.class);
+    //zk客户端的缓存  key:节点地址ip:port  value:对应的zkClient
     private final Map<String, ZookeeperClient> zookeeperClientMap = new ConcurrentHashMap<>();
 
     /**
@@ -52,23 +53,29 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
      */
     @Override
     public ZookeeperClient connect(URL url) {
+        //封装具体的zk客户端
         ZookeeperClient zookeeperClient;
         // address format: {[username:password@]address}
+        // 获取配置的所有zk节点地址 形式： username:password@ip:port
         List<String> addressList = getURLBackupAddress(url);
         // The field define the zookeeper server , including protocol, host, port, username, password
+        // 缓存中已经存在对应的有效zkClient直接返回，不需要再进行创建
         if ((zookeeperClient = fetchAndUpdateZookeeperClientCache(addressList)) != null && zookeeperClient.isConnected()) {
             logger.info("find valid zookeeper client from the cache for address: " + url);
             return zookeeperClient;
         }
         // avoid creating too many connections， so add lock
         synchronized (zookeeperClientMap) {
+            //双重校验
             if ((zookeeperClient = fetchAndUpdateZookeeperClientCache(addressList)) != null && zookeeperClient.isConnected()) {
                 logger.info("find valid zookeeper client from the cache for address: " + url);
                 return zookeeperClient;
             }
 
+            //创建具体的zkClient
             zookeeperClient = createZookeeperClient(url);
             logger.info("No valid zookeeper client found from cache, therefore create a new client for url. " + url);
+            //更新缓存
             writeToClientMap(addressList, zookeeperClient);
         }
         return zookeeperClient;
@@ -78,6 +85,8 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
      * @param url the url that will create zookeeper connection .
      *            The url in AbstractZookeeperTransporter#connect parameter is rewritten by this one.
      *            such as: zookeeper://127.0.0.1:2181/org.apache.dubbo.remoting.zookeeper.ZookeeperTransporter
+     *
+     *            version2.7.7版本  curator变为zk客户端的唯一默认实现
      * @return
      */
     protected abstract ZookeeperClient createZookeeperClient(URL url);
@@ -87,18 +96,22 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
      * <p>
      * It is not private method for unit test.
      *
+     * 有效的zkClient缓存
+     *
      * @param addressList
      * @return
      */
     ZookeeperClient fetchAndUpdateZookeeperClientCache(List<String> addressList) {
 
         ZookeeperClient zookeeperClient = null;
+        //查找有效的zkClient客户端  一个节点地址对应一个zkClient
         for (String address : addressList) {
             if ((zookeeperClient = zookeeperClientMap.get(address)) != null && zookeeperClient.isConnected()) {
                 break;
             }
         }
         if (zookeeperClient != null && zookeeperClient.isConnected()) {
+            //将配置的zk节点对应的zkClient客户端 统一更新为缓存中有效的zkClient
             writeToClientMap(addressList, zookeeperClient);
         }
         return zookeeperClient;
@@ -107,14 +120,19 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
     /**
      * get all zookeeper urls (such as :zookeeper://127.0.0.1:2181?127.0.0.1:8989,127.0.0.1:9999)
      *
+     *   <dubbo:registry id ="zookeeper" address="zookeeper://127.0.0.1:2181?127.0.0.1:8989,127.0.0.1:9999"/>
+     *
+     *
      * @param url such as:zookeeper://127.0.0.1:2181?127.0.0.1:8989,127.0.0.1:9999
      * @return such as 127.0.0.1:2181,127.0.0.1:8989,127.0.0.1:9999
      */
     List<String> getURLBackupAddress(URL url) {
+        //获取所有zk节点
         List<String> addressList = new ArrayList<String>();
         addressList.add(url.getAddress());
         addressList.addAll(url.getParameter(RemotingConstants.BACKUP_KEY, Collections.EMPTY_LIST));
 
+        //如果配置了userName和password则将他们作为节点地址的前缀 -> username:password@
         String authPrefix = null;
         if (StringUtils.isNotEmpty(url.getUsername())) {
             StringBuilder buf = new StringBuilder();
@@ -127,6 +145,7 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
             authPrefix = buf.toString();
         }
 
+        //在配置了username和password的情况下 返回的节点地址形式 -> username:password@ip:port
         if (StringUtils.isNotEmpty(authPrefix)) {
             List<String> authedAddressList = new ArrayList<>(addressList.size());
             for (String addr : addressList) {
@@ -135,7 +154,7 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
             return authedAddressList;
         }
 
-
+        //没有配置username和password的情况下 直接返回节点地址 ip:port
         return addressList;
     }
 

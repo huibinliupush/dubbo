@@ -55,26 +55,43 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     private static final String ZK_SESSION_EXPIRE_KEY = "zk.session.expire";
 
     static final Charset CHARSET = Charset.forName("UTF-8");
+    //curator框架实现的zk客户端
     private final CuratorFramework client;
+    //path节点数据监听器缓存
     private Map<String, TreeCache> treeCacheMap = new ConcurrentHashMap<>();
 
     public CuratorZookeeperClient(URL url) {
         super(url);
         try {
+            //获取连接超时时间 默认5s
             int timeout = url.getParameter(TIMEOUT_KEY, DEFAULT_CONNECTION_TIMEOUT_MS);
+            //获取session 过期时间 默认60s
+            /**
+             * 设置客户端会话的超时时间（sessionTimeout），
+             * 当服务器压力太大、网络故障或是客户端主动断开连接等原因导致连接断开时，
+             * 只要客户端在 sessionTimeout 规定的时间内能够重新连接到 ZooKeeper 集群中任意一个实例，
+             * 那么之前创建的会话仍然有效。ZooKeeper 通过 sessionID 唯一标识 Session，
+             * 所以在 ZooKeeper 集群中，sessionID 需要保证全局唯一。 由于 ZooKeeper 会将 Session 信息存放到硬盘中，
+             * 即使节点重启，之前未过期的 Session 仍然会存在。
+             *
+             * */
             int sessionExpireMs = url.getParameter(ZK_SESSION_EXPIRE_KEY, DEFAULT_SESSION_TIMEOUT_MS);
+            //创建curator框架的zk客户端
             CuratorFrameworkFactory.Builder builder = CuratorFrameworkFactory.builder()
-                    .connectString(url.getBackupAddress())
+                    .connectString(url.getBackupAddress())//指定所有zk节点地址
                     .retryPolicy(new RetryNTimes(1, 1000))
                     .connectionTimeoutMs(timeout)
                     .sessionTimeoutMs(sessionExpireMs);
+            //username:password
             String authority = url.getAuthority();
             if (authority != null && authority.length() > 0) {
                 builder = builder.authorization("digest", authority.getBytes());
             }
             client = builder.build();
+            //添加具体的客户端框架curator实现中的 连接状态监听器对 连接状态进行监听
             client.getConnectionStateListenable().addListener(new CuratorConnectionStateListener(url));
             client.start();
+            //同步启动
             boolean connected = client.blockUntilConnected(timeout, TimeUnit.MILLISECONDS);
             if (!connected) {
                 throw new IllegalStateException("zookeeper not connected");
@@ -100,6 +117,8 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
         try {
             client.create().withMode(CreateMode.EPHEMERAL).forPath(path);
         } catch (NodeExistsException e) {
+            //这里主要是用来处理session过期后 重新注册相关数据
+            //因为在session过期后。 zk服务端可能还没来得及删除这个临时节点，所以这里重新删除，并创建即可
             logger.warn("ZNode " + path + " already exists, since we will only try to recreate a node on a session expiration" +
                     ", this duplication might be caused by a delete delay from the zk server, which means the old expired session" +
                     " may still holds this ZNode and the server just hasn't got time to do the deletion. In this case, " +
@@ -147,6 +166,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     @Override
     protected void deletePath(String path) {
         try {
+            //级联删除path下的子节点
             client.delete().deletingChildrenIfNeeded().forPath(path);
         } catch (NoNodeException e) {
         } catch (Exception e) {
@@ -207,6 +227,8 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     @Override
     public List<String> addTargetChildListener(String path, CuratorWatcherImpl listener) {
         try {
+            // 注意这个CuratorWatcher 是一次性的，触发后就没了 需要重新注册
+            // 因为dubbo在每次变更通知时 都是全量通知，需要重新全量拉取，在重新拉取的过程中在对CuratorWatcher进行注册
             return client.getChildren().usingWatcher(listener).forPath(path);
         } catch (NoNodeException e) {
             return null;
@@ -228,10 +250,14 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     @Override
     protected void addTargetDataListener(String path, CuratorZookeeperClient.CuratorWatcherImpl treeCacheListener, Executor executor) {
         try {
+            //创建path节点的监听器实现对节点数据的监听（treeCache为curator客户端框架本地对zk服务端数据的缓存）
+            // treeCache相当于zk服务端数据  在 本地的 缓存视图
             TreeCache treeCache = TreeCache.newBuilder(client, path).setCacheData(false).build();
+            //path节点数据监听器缓存
             treeCacheMap.putIfAbsent(path, treeCache);
 
             if (executor == null) {
+                //向treeCache添加监听器
                 treeCache.getListenable().addListener(treeCacheListener);
             } else {
                 treeCache.getListenable().addListener(treeCacheListener, executor);
@@ -260,8 +286,11 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     static class CuratorWatcherImpl implements CuratorWatcher, TreeCacheListener {
 
         private CuratorFramework client;
+        //包装dubbo内部子节点监听模型
         private volatile ChildListener childListener;
+        //包装dubbo内部节点数据监听模型
         private volatile DataListener dataListener;
+        // 监听节点的Path
         private String path;
 
         public CuratorWatcherImpl(CuratorFramework client, ChildListener listener, String path) {
@@ -285,18 +314,20 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
         public void process(WatchedEvent event) throws Exception {
             // if client connect or disconnect to server, zookeeper will queue
             // watched event(Watcher.Event.EventType.None, .., path = null).
+            //CuratorWatcher回调  用来响应 子节点变化
             if (event.getType() == Watcher.Event.EventType.None) {
                 return;
             }
 
             if (childListener != null) {
-                //全量拉取
+                //全量拉取，并且重新在path上注册该CuratorWatcher
                 childListener.childChanged(path, client.getChildren().usingWatcher(this).forPath(path));
             }
         }
 
         @Override
         public void childEvent(CuratorFramework client, TreeCacheEvent event) throws Exception {
+            //treeCache回调 TreeCacheListener  用来响应节点变化
             if (dataListener != null) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("listen the zookeeper changed. The changed data:" + event.getData());
@@ -324,12 +355,15 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
                         eventType = EventType.INITIALIZED;
                         break;
                     case CONNECTION_LOST:
+                        //连接session到期
                         eventType = EventType.CONNECTION_LOST;
                         break;
                     case CONNECTION_RECONNECTED:
+                        //连接丢失后，重连成功
                         eventType = EventType.CONNECTION_RECONNECTED;
                         break;
                     case CONNECTION_SUSPENDED:
+                        //连接丢失
                         eventType = EventType.CONNECTION_SUSPENDED;
                         break;
 
@@ -341,8 +375,9 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
 
     private class CuratorConnectionStateListener implements ConnectionStateListener {
         private final long UNKNOWN_SESSION_ID = -1L;
-
+        // 缓存最近一次sessionId,用于重连时判断session是否失效
         private long lastSessionId;
+        // registryURL
         private URL url;
 
         public CuratorConnectionStateListener(URL url) {
@@ -362,22 +397,29 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
             }
 
             if (state == ConnectionState.LOST) {
+                //session 过期
                 logger.warn("Curator zookeeper session " + Long.toHexString(lastSessionId) + " expired.");
+                // 通知dubbo内部 连接状态监听器
                 CuratorZookeeperClient.this.stateChanged(StateListener.SESSION_LOST);
             } else if (state == ConnectionState.SUSPENDED) {
+                //连接丢失
                 logger.warn("Curator zookeeper connection of session " + Long.toHexString(sessionId) + " timed out. " +
                         "connection timeout value is " + timeout + ", session expire timeout value is " + sessionExpireMs);
                 CuratorZookeeperClient.this.stateChanged(StateListener.SUSPENDED);
             } else if (state == ConnectionState.CONNECTED) {
+                //ZK客户端第一次连接成功服务端时触发
+                // 缓存最近一次sessionId,用于重连时判断session是否失效
                 lastSessionId = sessionId;
                 logger.info("Curator zookeeper client instance initiated successfully, session id is " + Long.toHexString(sessionId));
                 CuratorZookeeperClient.this.stateChanged(StateListener.CONNECTED);
             } else if (state == ConnectionState.RECONNECTED) {
                 if (lastSessionId == sessionId && sessionId != UNKNOWN_SESSION_ID) {
+                    //连接短暂丢失，在session过期之前，客户端又重连成功。这时和session相关的watcher以及临时znode没有被删除
                     logger.warn("Curator zookeeper connection recovered from connection lose, " +
                             "reuse the old session " + Long.toHexString(sessionId));
                     CuratorZookeeperClient.this.stateChanged(StateListener.RECONNECTED);
                 } else {
+                    //连接丢失的比较久，客户端重连成功，但是session已经过期，这时和session相关的watcher以及临时znode已经被删除。
                     logger.warn("New session created after old session lost, " +
                             "old session " + Long.toHexString(lastSessionId) + ", new session " + Long.toHexString(sessionId));
                     lastSessionId = sessionId;
