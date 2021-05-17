@@ -67,7 +67,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
 
     //zookeeper中的根目录 默认:/dubbo  通过不同的根目录实现服务分组 环境隔离
     private final String root;
-    //用于全量订阅场景，保存现有所有的service
+    //用于全量订阅场景，缓存订阅过的所有service
     private final Set<String> anyServices = new ConcurrentHashSet<>();
     //订阅URL 与 监听器的映射。
     //业务自定义监听器NotifyListener 与 dubbo内部监听模型的映射
@@ -170,7 +170,12 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 ChildListener zkListener = listeners.computeIfAbsent(listener, k -> (parentPath, currentChilds) -> {
                     for (String child : currentChilds) {
                         child = URL.decode(child);
+                        //如果服务的数量规模特别大，有几百万个服务，服务每次上线，下线都会全量通知。
+                        //currentChilds每次的数据量会特别的大，这样在遍历查找，性能会特别的低。
+                        //需要改进
                         if (!anyServices.contains(child)) {
+                            //如果是新注册的service，之前没有订阅过，则订阅
+                            //全量订阅的时候，新注册的service自动订阅
                             anyServices.add(child);
                             subscribe(url.setPath(child).addParameters(INTERFACE_KEY, child,
                                     Constants.CHECK_KEY, String.valueOf(false)), k);

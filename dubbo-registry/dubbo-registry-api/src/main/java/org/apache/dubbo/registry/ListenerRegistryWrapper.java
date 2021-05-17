@@ -63,6 +63,7 @@ public class ListenerRegistryWrapper implements Registry {
                 for (RegistryServiceListener listener : listeners) {
                     if (listener != null) {
                         try {
+                            //触发注册事件
                             listener.onRegister(url);
                         } catch (RuntimeException t) {
                             logger.error(t.getMessage(), t);
@@ -87,6 +88,7 @@ public class ListenerRegistryWrapper implements Registry {
                 for (RegistryServiceListener listener : listeners) {
                     if (listener != null) {
                         try {
+                            //触发取消注册事件
                             listener.onUnregister(url);
                         } catch (RuntimeException t) {
                             logger.error(t.getMessage(), t);
@@ -111,6 +113,7 @@ public class ListenerRegistryWrapper implements Registry {
                 for (RegistryServiceListener registryListener : listeners) {
                     if (registryListener != null) {
                         try {
+                            //触发订阅事件
                             registryListener.onSubscribe(url);
                         } catch (RuntimeException t) {
                             logger.error(t.getMessage(), t);
@@ -135,6 +138,7 @@ public class ListenerRegistryWrapper implements Registry {
                 for (RegistryServiceListener registryListener : listeners) {
                     if (registryListener != null) {
                         try {
+                            //触发取消订阅事件
                             registryListener.onUnsubscribe(url);
                         } catch (RuntimeException t) {
                             logger.error(t.getMessage(), t);

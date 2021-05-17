@@ -63,9 +63,9 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     public CuratorZookeeperClient(URL url) {
         super(url);
         try {
-            //获取连接超时时间 默认5s
+            //获取连接超时时间 默认5s <dubbo:registry timeout=" ">
             int timeout = url.getParameter(TIMEOUT_KEY, DEFAULT_CONNECTION_TIMEOUT_MS);
-            //获取session 过期时间 默认60s
+            //获取session 过期时间 默认60s <dubbo:registry session=" ">
             /**
              * 设置客户端会话的超时时间（sessionTimeout），
              * 当服务器压力太大、网络故障或是客户端主动断开连接等原因导致连接断开时，

@@ -40,7 +40,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
  */
 public abstract class AbstractZookeeperTransporter implements ZookeeperTransporter {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperTransporter.class);
-    //zk客户端的缓存  key:节点地址ip:port  value:对应的zkClient
+    //zk客户端的缓存  key:节点地址ip:port  value:对应的zkClient 缓存多集群的client
     private final Map<String, ZookeeperClient> zookeeperClientMap = new ConcurrentHashMap<>();
 
     /**

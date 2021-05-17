@@ -105,11 +105,13 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
             return DEFAULT_NOP_REGISTRY;
         }
 
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&extra-keys=interface,key1,key2&interface=org.apache.dubbo.registry.RegistryService&metadata-type=remote&pid=12048&qos.port=22222&simplified=true&timestamp=1620980913198
         url = URLBuilder.from(url)
                 .setPath(RegistryService.class.getName())
                 .addParameter(INTERFACE_KEY, RegistryService.class.getName())
                 .removeParameters(EXPORT_KEY, REFER_KEY)
                 .build();
+        //zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService
         String key = createRegistryCacheKey(url);
         // Lock the registry access process to ensure a single instance of the registry
         LOCK.lock();

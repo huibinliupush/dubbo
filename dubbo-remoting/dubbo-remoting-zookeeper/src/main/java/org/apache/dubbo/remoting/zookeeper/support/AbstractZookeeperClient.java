@@ -42,7 +42,9 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
 
     protected static final Logger logger = LoggerFactory.getLogger(AbstractZookeeperClient.class);
 
+    //连接超时时间
     protected int DEFAULT_CONNECTION_TIMEOUT_MS = 5 * 1000;
+    //session过期时间
     protected int DEFAULT_SESSION_TIMEOUT_MS = 60 * 1000;
     // regsitryUrl
     private final URL url;
@@ -199,10 +201,13 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
         if (checkExists(path)) {
             delete(path);
         }
+        //url路径：/root/service/category/url
         int i = path.lastIndexOf('/');
         if (i > 0) {
+            //持久节点路径：/root/service/category
             create(path.substring(0, i), false);
         }
+        //创建url路径
         if (ephemeral) {
             createEphemeral(path, content);
         } else {
