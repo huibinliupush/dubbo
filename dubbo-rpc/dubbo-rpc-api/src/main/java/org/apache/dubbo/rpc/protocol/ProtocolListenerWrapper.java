@@ -44,6 +44,7 @@ public class ProtocolListenerWrapper implements Protocol {
     //ProtocolFilterWrapper
     private final Protocol protocol;
 
+    //spi自动注入ProtocolFilterWrapper
     public ProtocolListenerWrapper(Protocol protocol) {
         if (protocol == null) {
             throw new IllegalArgumentException("protocol == null");

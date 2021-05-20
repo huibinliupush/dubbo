@@ -42,11 +42,13 @@ public class ListenerExporterWrapper<T> implements Exporter<T> {
         }
         this.exporter = exporter;
         this.listeners = listeners;
+        //这时服务已经暴露完毕，构造器中执行ExporterListener
         if (CollectionUtils.isNotEmpty(listeners)) {
             RuntimeException exception = null;
             for (ExporterListener listener : listeners) {
                 if (listener != null) {
                     try {
+                        //回调exported方法
                         listener.exported(this);
                     } catch (RuntimeException t) {
                         logger.error(t.getMessage(), t);
@@ -75,6 +77,7 @@ public class ListenerExporterWrapper<T> implements Exporter<T> {
                 for (ExporterListener listener : listeners) {
                     if (listener != null) {
                         try {
+                            //回调unexported方法
                             listener.unexported(this);
                         } catch (RuntimeException t) {
                             logger.error(t.getMessage(), t);

@@ -278,7 +278,7 @@ public class RegistryProtocol implements Protocol {
             //用invokeDelegate包装DelegateProviderMetaDataInvoker和providerUrl
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
             //这里注意传递给protocol层的invoke是invokeDelegate
-            //ExporterChangeableWrapper包装procotol层暴露返回的exporter和DelegateProviderMetaDataInvoker
+            //ExporterChangeableWrapper包装procotol层暴露返回的exporter(ProtocolListenerWrapper)和DelegateProviderMetaDataInvoker
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }
