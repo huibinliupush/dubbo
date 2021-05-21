@@ -47,10 +47,11 @@ public interface Filter {
      */
     Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException;
 
+    //对整个filter链调用过程进行监听 对invoker方法的执行情况进行监听
     interface Listener {
-
+        //当前filer正调用返回时触发
         void onResponse(Result appResponse, Invoker<?> invoker, Invocation invocation);
-
+        //当前filter调用发生异常时触发
         void onError(Throwable t, Invoker<?> invoker, Invocation invocation);
     }
 

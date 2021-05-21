@@ -41,7 +41,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.SERVICE_FILTER_K
 public class ProtocolFilterWrapper implements Protocol {
     //自适应Protocol扩展
     private final Protocol protocol;
-    //spi自动注入DubboProtocol
+    //spi自动注入Protocol扩展
     public ProtocolFilterWrapper(Protocol protocol) {
         if (protocol == null) {
             throw new IllegalArgumentException("protocol == null");
@@ -121,6 +121,8 @@ public class ProtocolFilterWrapper implements Protocol {
                                 Filter.Listener listener = listenableFilter.listener(invocation);
                                 try {
                                     if (listener != null) {
+                                        //当前Filter正常返回，但需要检查Filter责任链后边的节点执行是否发生异常
+                                        //异常会封装在Result模型中
                                         if (t == null) {
                                             listener.onResponse(r, invoker, invocation);
                                         } else {
