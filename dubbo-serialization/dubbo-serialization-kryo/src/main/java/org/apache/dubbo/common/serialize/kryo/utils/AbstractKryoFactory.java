@@ -137,6 +137,7 @@ public abstract class AbstractKryoFactory implements KryoFactory {
             kryo.register(clazz);
         }
 
+        //<dubbo:protocol optimizer="">中配置的需要序列化的类 注册到Kryo框架中
         SerializableClassRegistry.getRegisteredClasses().forEach((clazz, ser) -> {
             if (ser == null) {
                 kryo.register(clazz);

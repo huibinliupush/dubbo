@@ -27,8 +27,9 @@ import java.util.Map;
  */
 class InjvmExporter<T> extends AbstractExporter<T> {
 
+    //本地暴露服务的serviceKey
     private final String key;
-
+    ////所有暴露服务的exporter缓存  key:serviceKey   value:exporter
     private final Map<String, Exporter<?>> exporterMap;
 
     InjvmExporter(Invoker<T> invoker, String key, Map<String, Exporter<?>> exporterMap) {

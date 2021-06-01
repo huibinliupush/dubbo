@@ -40,6 +40,7 @@ public class FstFactory {
     }
 
     public FstFactory() {
+        //<dubbo:protocol optimizer="">中配置的需要序列化的类 注册到FST框架中
         SerializableClassRegistry.getRegisteredClasses().keySet().forEach(conf::registerClass);
     }
 

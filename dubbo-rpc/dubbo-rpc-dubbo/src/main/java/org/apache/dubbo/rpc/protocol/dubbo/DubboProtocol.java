@@ -103,6 +103,7 @@ public class DubboProtocol extends AbstractProtocol {
      */
     private final Map<String, List<ReferenceCountExchangeClient>> referenceClientMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Object> locks = new ConcurrentHashMap<>();
+    //SerializationOptimizer类的缓存集合，缓存 className
     private final Set<String> optimizers = new ConcurrentHashSet<>();
 
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
@@ -279,14 +280,24 @@ public class DubboProtocol extends AbstractProtocol {
 
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
+        //这时候的invoker经过了ProtocolFilterWrapper的封装已经变成了一个Filter链
+        //从Invoker中获取providerUrl
         URL url = invoker.getUrl();
 
         // export service.
+        // 通过serviceName,serviceVersion,serviceGroup,port构建serviceKey
+        // servicePathPrefix/org.apache.dubbo.demo.DemoService:20880
+        // serviceGroup->serviceName->serviceVersion->port 通过这样的一个级联关系构建serviceKey的缓存
+        // serviceKey = serviceGroup/serviceName:serviceVersion:port
         String key = serviceKey(url);
+        //构建dubboExporter
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
+        //缓存暴露服务的exporter
         exporterMap.put(key, exporter);
 
         //export an stub service for dispatching event
+        //本地存根事件通知，如果支持本地存根事件通知但是没有配置 通知方法 则打出警告日志
+        //用于client端 实现本地存根 不属于服务暴露范畴
         Boolean isStubSupportEvent = url.getParameter(STUB_EVENT_KEY, DEFAULT_STUB_EVENT);
         Boolean isCallbackservice = url.getParameter(IS_CALLBACK_SERVICE, false);
         if (isStubSupportEvent && !isCallbackservice) {
@@ -299,8 +310,9 @@ public class DubboProtocol extends AbstractProtocol {
 
             }
         }
-
+        //启动netty服务端监听
         openServer(url);
+        //序列化协议优化
         optimizeSerialization(url);
 
         return exporter;
@@ -308,58 +320,80 @@ public class DubboProtocol extends AbstractProtocol {
 
     private void openServer(URL url) {
         // find server.
+        //获取providerUrl中的服务地址 ip:port
         String key = url.getAddress();
         //client can export a service which's only for server to invoke
+        //用于服务提供者端调用
         boolean isServer = url.getParameter(IS_SERVER_KEY, true);
         if (isServer) {
+            //ProtocolServer代表一个暴露的服务进程，一个端口对应一个ProtocolServer
             ProtocolServer server = serverMap.get(key);
             if (server == null) {
                 synchronized (this) {
+                    //double check
                     server = serverMap.get(key);
                     if (server == null) {
+                        //如果还没有启动对应port的监听，则启动nettyServer
                         serverMap.put(key, createServer(url));
                     }
                 }
             } else {
                 // server supports reset, use together with override
+                // 如果暴露的服务端口已经存在，则重置服务
+                // 同一个端口上仅允许启动一个服务器实例。若某个端口上已有服务器实例，此时则调用 reset 方法重置服务器的一些配置
                 server.reset(url);
             }
         }
     }
 
     private ProtocolServer createServer(URL url) {
+        //向providerUrl中添加新的参数
         url = URLBuilder.from(url)
                 // send readonly event when server closes, it's enabled by default
+                //该参数值表示发送的readOnly请求是否需要等待响应返回。当service关闭时，只能发送readOnly请求
                 .addParameterIfAbsent(CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString())
                 // enable heartbeat by default
+                //默认开启心跳检测，默认心跳间隔时间60s
                 .addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT))
+                //指定编码解码器扩展
                 .addParameter(CODEC_KEY, DubboCodec.NAME)
                 .build();
+        //<dubbo:protocol server=""> 指定provider端的网络框架实现 默认为netty
         String str = url.getParameter(SERVER_KEY, DEFAULT_REMOTING_SERVER);
 
+        //判断dubbo框架中是否支持这种网络框架的扩展。
+        //Transporter层负责封装具体网络框架的实现
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str)) {
             throw new RpcException("Unsupported server type: " + str + ", url: " + url);
         }
 
         ExchangeServer server;
         try {
+            //Exchange层入口 启动nettyServer
             server = Exchangers.bind(url, requestHandler);
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
         }
 
+        //<dubbo:protocol client=""> 指定consumer端的网络框架实现 默认为netty
         str = url.getParameter(CLIENT_KEY);
         if (str != null && str.length() > 0) {
             Set<String> supportedTypes = ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions();
+            //同样也是判断dubbo框架中是否支持这种网络框架的扩展
             if (!supportedTypes.contains(str)) {
                 throw new RpcException("Unsupported client type: " + str);
             }
         }
 
+        //封装exchange层创建出来的ExchangeServer
         return new DubboProtocolServer(server);
     }
 
     private void optimizeSerialization(URL url) throws RpcException {
+        //<dubbo:protocol optimizer=""> 指定SerializationOptimizer实现类
+        //SerializationOptimizer类中添加需要被序列化的类,
+        //在使用某些序列化算法（例如， Kryo、FST 等）时，为了让其能发挥出最佳的性能，
+        // 最好将那些需要被序列化的类提前注册到 Dubbo 系统中
         String className = url.getParameter(OPTIMIZER_KEY, "");
         if (StringUtils.isEmpty(className) || optimizers.contains(className)) {
             return;
@@ -368,6 +402,7 @@ public class DubboProtocol extends AbstractProtocol {
         logger.info("Optimizing the serialization process for Kryo, FST, etc...");
 
         try {
+            //加载指定的SerializationOptimizer实现类
             Class clazz = Thread.currentThread().getContextClassLoader().loadClass(className);
             if (!SerializationOptimizer.class.isAssignableFrom(clazz)) {
                 throw new RpcException("The serialization optimizer " + className + " isn't an instance of " + SerializationOptimizer.class.getName());
@@ -380,6 +415,9 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             for (Class c : optimizer.getSerializableClasses()) {
+                //将需要序列化的类 提前缓存起来
+                //特别需要考虑如何保证服务提供端和消费端都以同样的顺序（或者ID）来注册类，避免错位，
+                // 毕竟两端可被发现然后注册的类的数量可能都是不一样的。
                 SerializableClassRegistry.registerClass(c);
             }
 

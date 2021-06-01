@@ -30,4 +30,5 @@ public interface DemoService {
         return CompletableFuture.completedFuture(sayHello(name));
     }
 
+    void testBigDecimal(BigDeDto bigDeDto);
 }

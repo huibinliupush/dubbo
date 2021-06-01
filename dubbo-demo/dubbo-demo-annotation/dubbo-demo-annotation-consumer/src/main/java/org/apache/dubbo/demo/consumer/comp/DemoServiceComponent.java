@@ -17,6 +17,7 @@
 package org.apache.dubbo.demo.consumer.comp;
 
 import org.apache.dubbo.config.annotation.Reference;
+import org.apache.dubbo.demo.BigDeDto;
 import org.apache.dubbo.demo.DemoService;
 
 import org.springframework.stereotype.Component;
@@ -35,6 +36,21 @@ public class DemoServiceComponent implements DemoService {
 
     @Override
     public CompletableFuture<String> sayHelloAsync(String name) {
+        return null;
+    }
+
+    @Override
+    public void testBigDecimal(BigDeDto bigDeDto) {
+        demoService.testBigDecimal(bigDeDto);
+    }
+
+    @Override
+    public void wrapperReturnVoid(String warpperField) {
+
+    }
+
+    @Override
+    public DemoService wrapperReturnVoid(Integer warpperField) {
         return null;
     }
 }

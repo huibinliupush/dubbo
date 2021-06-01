@@ -17,6 +17,7 @@
 package org.apache.dubbo.demo.consumer;
 
 import org.apache.dubbo.config.spring.context.annotation.EnableDubbo;
+import org.apache.dubbo.demo.BigDeDto;
 import org.apache.dubbo.demo.DemoService;
 import org.apache.dubbo.demo.consumer.comp.DemoServiceComponent;
 
@@ -24,6 +25,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+
+import java.math.BigDecimal;
 
 public class Application {
     /**
@@ -36,6 +39,11 @@ public class Application {
         DemoService service = context.getBean("demoServiceComponent", DemoServiceComponent.class);
         String hello = service.sayHello("world");
         System.out.println("result :" + hello);
+
+        BigDeDto deDto = new BigDeDto();
+        deDto.setDecimal(new BigDecimal(20));
+        deDto.setName("hessian bigdecimal");
+        service.testBigDecimal(deDto);
     }
 
     @Configuration

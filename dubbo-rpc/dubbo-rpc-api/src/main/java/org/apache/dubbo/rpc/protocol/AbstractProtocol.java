@@ -45,12 +45,14 @@ import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 public abstract class AbstractProtocol implements Protocol {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    //所有暴露服务的exporter缓存  key:serviceKey   value:exporter
     protected final Map<String, Exporter<?>> exporterMap = new ConcurrentHashMap<String, Exporter<?>>();
 
     /**
      * <host:port, ProtocolServer>
      */
+    //缓存暴露的服务进程  一个端口一个ProtocolService
+    //key:ip:port  value:服务进程
     protected final Map<String, ProtocolServer> serverMap = new ConcurrentHashMap<>();
 
     //TODO SoftReference
@@ -62,6 +64,7 @@ public abstract class AbstractProtocol implements Protocol {
     }
 
     protected static String serviceKey(int port, String serviceName, String serviceVersion, String serviceGroup) {
+       // serviceGroup->serviceName->serviceVersion->port 通过这样的一个级联关系构建serviceKey的缓存
         return ProtocolUtils.serviceKey(port, serviceName, serviceVersion, serviceGroup);
     }
 

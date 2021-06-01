@@ -17,6 +17,7 @@
 package org.apache.dubbo.demo.provider;
 
 import org.apache.dubbo.config.annotation.Service;
+import org.apache.dubbo.demo.BigDeDto;
 import org.apache.dubbo.demo.DemoService;
 import org.apache.dubbo.rpc.RpcContext;
 
@@ -58,5 +59,11 @@ public class DemoServiceImpl implements DemoService {
     public DemoService wrapperReturnVoid(Integer warpperField) {
         logger.info("test wrapper OverWrite method");
         return new DemoServiceImpl();
+    }
+
+    @Override
+    public void testBigDecimal(BigDeDto bigDeDto) {
+        System.out.print("BigDecimal:"+bigDeDto.getDecimal());
+        System.out.print("name:"+bigDeDto.getName());
     }
 }

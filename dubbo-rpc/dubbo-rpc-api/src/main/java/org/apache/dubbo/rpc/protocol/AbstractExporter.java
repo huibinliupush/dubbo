@@ -28,6 +28,7 @@ public abstract class AbstractExporter<T> implements Exporter<T> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
+    //ProtocolFilterWrapper创建的Filter链
     private final Invoker<T> invoker;
 
     private volatile boolean unexported = false;
