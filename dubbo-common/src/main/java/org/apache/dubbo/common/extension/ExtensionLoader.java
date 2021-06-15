@@ -96,6 +96,7 @@ public class ExtensionLoader<T> {
 
     private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
 
+    //缓存所有对应扩展实现类中标注的@Activate注解集合。  key：扩展名  value:对应扩展实现类上标注的@Active注解
     private final Map<String, Object> cachedActivates = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
     private final Holder<Object> cachedAdaptiveInstance = new Holder<>();
@@ -243,6 +244,7 @@ public class ExtensionLoader<T> {
      * @see #getActivateExtension(org.apache.dubbo.common.URL, String[], String)
      */
     public List<T> getActivateExtension(URL url, String key, String group) {
+        //从Url中取出对应的扩展名称集合
         String value = url.getParameter(key);
         return getActivateExtension(url, StringUtils.isEmpty(value) ? null : COMMA_SPLIT_PATTERN.split(value), group);
     }
@@ -259,12 +261,18 @@ public class ExtensionLoader<T> {
     public List<T> getActivateExtension(URL url, String[] values, String group) {
         List<T> activateExtensions = new ArrayList<>();
         List<String> names = values == null ? new ArrayList<>(0) : asList(values);
+        //扩展名称中不包含 -default  代表使所用dubbo内置的对应扩展失效
         if (!names.contains(REMOVE_VALUE_PREFIX + DEFAULT_KEY)) {
             getExtensionClasses();
+            //处理所有标注@Activate注解的扩展实现，将满足激活条件的扩展实现加入到activateExtensions集合中
+            //遍历所有扩展实现类中标注逇@Activate注解结合集合 由此可见default表示所有标注@Activate注解的扩展类实现 包括dubbo内置和自定义扩展
             for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
+                //对应扩展名
                 String name = entry.getKey();
+                //对应扩展实现类中标注的@Active注解
                 Object activate = entry.getValue();
 
+                //@Activate注解中定义的group,value属性
                 String[] activateGroup, activateValue;
 
                 if (activate instanceof Activate) {
@@ -276,20 +284,38 @@ public class ExtensionLoader<T> {
                 } else {
                     continue;
                 }
+
+                /**
+                 * 判断标注该@Activate注解的扩展实现类 是否应该被激活
+                 * 激活条件：
+                 * 1. 方法指定激活的group是否包含在@Activate注解group中指定的扩展分组
+                 * 2. 指定扩展名称集合中 不包含 -扩展名（代表该扩展名对应的扩展实现 失效）
+                 * 3. isActive方法判断@Activate注解中value属性中指定的key:value是否存在url中 如果存在则激活
+                 * */
                 if (isMatchGroup(group, activateGroup)
                         && !names.contains(name)
                         && !names.contains(REMOVE_VALUE_PREFIX + name)
                         && isActive(activateValue, url)) {
+                    //满足激活条件
                     activateExtensions.add(getExtension(name));
                 }
             }
+            //根据注解@Activate中得before,after,order等排序属性 来对所有标注@Activate注解并且满足激活条件的
+            //扩展实现排序
             activateExtensions.sort(ActivateComparator.COMPARATOR);
         }
+
+        //下面开始处理dubbo配置中配置的 自定义扩展
         List<T> loadedExtensions = new ArrayList<>();
+        //遍历dubbo配置中配置的所有扩展名称集合
         for (int i = 0; i < names.size(); i++) {
             String name = names.get(i);
+            //扩展名不包含 - 或者 -扩展名 代表该扩展 生效  否则该扩展失效
             if (!name.startsWith(REMOVE_VALUE_PREFIX)
                     && !names.contains(REMOVE_VALUE_PREFIX + name)) {
+
+                //如果遍历到default，需要将配置在default之前的扩展名对应的扩展实现
+                // 放在已经激活的所有标注@Activate注解扩展实现的前面
                 if (DEFAULT_KEY.equals(name)) {
                     if (!loadedExtensions.isEmpty()) {
                         activateExtensions.addAll(0, loadedExtensions);
@@ -301,8 +327,10 @@ public class ExtensionLoader<T> {
             }
         }
         if (!loadedExtensions.isEmpty()) {
+            //将配置在default之后的扩展实现 放入activateExtensions集合的最后
             activateExtensions.addAll(loadedExtensions);
         }
+        //返回所有被激活的扩展实现
         return activateExtensions;
     }
 
@@ -320,6 +348,10 @@ public class ExtensionLoader<T> {
         return false;
     }
 
+    /**
+     * url参数中是否出现了指定的key以及key中得value是否与指定的key-value相同
+     * @Active(value="key1:value1, key2:value2")
+     * */
     private boolean isActive(String[] keys, URL url) {
         if (keys.length == 0) {
             return true;
@@ -327,12 +359,17 @@ public class ExtensionLoader<T> {
         for (String key : keys) {
             // @Active(value="key1:value1, key2:value2")
             String keyValue = null;
+            //@Activate(value="key:value")注解中得value属性指定的是key:value形式
             if (key.contains(":")) {
                 String[] arr = key.split(":");
+                //解析出value属性中指定的key
                 key = arr[0];
+                //解析出value
                 keyValue = arr[1];
             }
 
+            //如果url中存在@Activate注解value属性中指定的key或者以.key为结尾的参数名
+            //并且url中相应key对应的value值 与 指定的keyValue相同 那么标注该@Activate注解的扩展实现被激活
             for (Map.Entry<String, String> entry : url.getParameters().entrySet()) {
                 String k = entry.getKey();
                 String v = entry.getValue();
