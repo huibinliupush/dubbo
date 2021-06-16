@@ -261,7 +261,8 @@ public class ExtensionLoader<T> {
     public List<T> getActivateExtension(URL url, String[] values, String group) {
         List<T> activateExtensions = new ArrayList<>();
         List<String> names = values == null ? new ArrayList<>(0) : asList(values);
-        //扩展名称中不包含 -default  代表使所用dubbo内置的对应扩展失效
+        //扩展名称中不包含 -default（代表使所用标注@Activate注解的dubbo内置扩展或者自定义扩展全部失效）
+        //加载缺省扩展点实现
         if (!names.contains(REMOVE_VALUE_PREFIX + DEFAULT_KEY)) {
             getExtensionClasses();
             //处理所有标注@Activate注解的扩展实现，将满足激活条件的扩展实现加入到activateExtensions集合中
@@ -288,9 +289,10 @@ public class ExtensionLoader<T> {
                 /**
                  * 判断标注该@Activate注解的扩展实现类 是否应该被激活
                  * 激活条件：
-                 * 1. 方法指定激活的group是否包含在@Activate注解group中指定的扩展分组
-                 * 2. 指定扩展名称集合中 不包含 -扩展名（代表该扩展名对应的扩展实现 失效）
-                 * 3. isActive方法判断@Activate注解中value属性中指定的key:value是否存在url中 如果存在则激活
+                 * 1. 方法指定加载的group是否与`@Activate注解`中group属性指定的扩展分组匹配。
+                 * 2. 该扩展名未在`<dubbo:provider filter="....."/>` 和 `<dubbo:service filter="...." />`中配置。因为这里着重处理的是加载dubbo缺省的`Filter扩展`，并不包括在dubbo配置专门指定的`Filter扩展`。
+                 * 3. `<dubbo:provider filter="....."/>` 和 `<dubbo:service filter="...." />`配置中不包含 `-当前扩展名`（代表该扩展名对应的扩展实现 失效）
+                 * 4. isActive方法判断@Activate注解中value属性中指定的key:value是否存在url中 如果存在则激活
                  * */
                 if (isMatchGroup(group, activateGroup)
                         && !names.contains(name)
@@ -316,6 +318,7 @@ public class ExtensionLoader<T> {
 
                 //如果遍历到default，需要将配置在default之前的扩展名对应的扩展实现
                 // 放在已经激活的所有标注@Activate注解扩展实现的前面
+                //当前activateExtensions集合存放的是所有满足激活条件的缺省扩展default
                 if (DEFAULT_KEY.equals(name)) {
                     if (!loadedExtensions.isEmpty()) {
                         activateExtensions.addAll(0, loadedExtensions);
@@ -328,8 +331,14 @@ public class ExtensionLoader<T> {
         }
         if (!loadedExtensions.isEmpty()) {
             //将配置在default之后的扩展实现 放入activateExtensions集合的最后
+            // 这里可以看出，自定义扩展实现是默认放在缺省扩展之后的
             activateExtensions.addAll(loadedExtensions);
         }
+
+        /**
+         * 通过这段源码，我们可以看到即使有些Filter扩展不满足上述@Activate注解中配置的激活条件，但是只要在dubbo配置中配置了，也会被加载到。
+         * */
+
         //返回所有被激活的扩展实现
         return activateExtensions;
     }
@@ -349,8 +358,9 @@ public class ExtensionLoader<T> {
     }
 
     /**
-     * url参数中是否出现了指定的key以及key中得value是否与指定的key-value相同
-     * @Active(value="key1:value1, key2:value2")
+     * url参数中是否出现了指定的key或者以.key结尾的参数key
+     * 如果@Activate中指定了key-value 则检查url参数key中得value是否与指定的key-value相同
+     * @Activate(value="key1:value1, key2:value2")
      * */
     private boolean isActive(String[] keys, URL url) {
         if (keys.length == 0) {
