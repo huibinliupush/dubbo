@@ -46,29 +46,37 @@ public class DubboMonitor implements Monitor {
 
     /**
      * The length of the array which is a container of the statistics
+     * 服务接口调用统计信息的种类 一共10种统计信息类型
      */
     private static final int LENGTH = 10;
 
     /**
      * The timer for sending statistics
+     * 定时发送RPC调用统计信息给监控中心
      */
     private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(3, new NamedThreadFactory("DubboMonitorSendTimer", true));
 
     /**
      * The future that can cancel the <b>scheduledExecutorService</b>
+     * 用于销毁时 取消定时发送任务
      */
     private final ScheduledFuture<?> sendFuture;
 
+    //DubboMonitor是监控中心MonitorService的consumer，这里是它的invoker
     private final Invoker<MonitorService> monitorInvoker;
 
+    //远端监控中心代理，本质是一个dubbo服务引用，监控中心本质上也是一个dubbo服务 dubbo协议暴露MonitorService服务接口
     private final MonitorService monitorService;
 
+    //负责缓存所有服务接口的调用统计信息，key：服务接口的统计模型代表一个服务接口的统计信息   value：long型数组 保存RPC调用的统计信息
     private final ConcurrentMap<Statistics, AtomicReference<long[]>> statisticsMap = new ConcurrentHashMap<Statistics, AtomicReference<long[]>>();
 
     public DubboMonitor(Invoker<MonitorService> monitorInvoker, MonitorService monitorService) {
+        //DubboMonitor相当于监控中心服务MonitorSerivce的consumer
         this.monitorInvoker = monitorInvoker;
         this.monitorService = monitorService;
         // The time interval for timer <b>scheduledExecutorService</b> to send data
+        // 由配置<dubbo:monitor  interval="">设置 默认1分钟
         final long monitorInterval = monitorInvoker.getUrl().getPositiveParameter("interval", 60000);
         // collect timer for collecting statistics data
         sendFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -87,9 +95,12 @@ public class DubboMonitor implements Monitor {
         }
 
         String timestamp = String.valueOf(System.currentTimeMillis());
+        //将<dubbo:monitor  interval="">  interval时间间隔内的各个服务接口调用统计信息发送给监控中心MonitorService
         for (Map.Entry<Statistics, AtomicReference<long[]>> entry : statisticsMap.entrySet()) {
             // get statistics data
+            //获取代表服务接口的统计模型
             Statistics statistics = entry.getKey();
+            //获取服务接口调用的统计数据
             AtomicReference<long[]> reference = entry.getValue();
             long[] numbers = reference.get();
             long success = numbers[0];
@@ -104,7 +115,8 @@ public class DubboMonitor implements Monitor {
             long maxConcurrent = numbers[9];
             String protocol = getUrl().getParameter(DEFAULT_PROTOCOL);
 
-            // send statistics data
+            // 将interval时间间隔内的  服务接口调用统计信息 生成statisticUrl
+            //count://192.168.1.101:20880/org.apache.dubbo.demo.DemoService/sayHello?application=demo-provider&concurrent=1&consumer=192.168.1.101&dubbo=2.0.2&elapsed=0&failure=0&group=&input=249&interface=org.apache.dubbo.demo.DemoService&max.concurrent=1&max.elapsed=0&max.input=249&max.output=0&method=sayHello&output=0&success=1&timestamp=1624949295408&version=
             URL url = statistics.getUrl()
                     .addParameters(MonitorService.TIMESTAMP, timestamp,
                             MonitorService.SUCCESS, String.valueOf(success),
@@ -119,9 +131,10 @@ public class DubboMonitor implements Monitor {
                             MonitorService.MAX_CONCURRENT, String.valueOf(maxConcurrent),
                             DEFAULT_PROTOCOL, protocol
                     );
+            //将时间间隔interval内的，服务接口调用统计信息 发送给监控中心
             monitorService.collect(url);
 
-            // reset
+            // 重置服务接口的统计信息 开启下一轮的统计信息收集
             long[] current;
             long[] update = new long[LENGTH];
             do {
@@ -148,14 +161,25 @@ public class DubboMonitor implements Monitor {
     @Override
     public void collect(URL url) {
         // data to collect from url
+        //从statisticsURL中解析出RPC调用的统计信息
+
+        //RPC调用是成功还是失败
         int success = url.getParameter(MonitorService.SUCCESS, 0);
         int failure = url.getParameter(MonitorService.FAILURE, 0);
+
+        //RPC调用传入的字节大小 以及 返回的字节大小
         int input = url.getParameter(MonitorService.INPUT, 0);
         int output = url.getParameter(MonitorService.OUTPUT, 0);
+
+        //RPC调用的耗时
         int elapsed = url.getParameter(MonitorService.ELAPSED, 0);
+        //当前服务接口处理的并发数
         int concurrent = url.getParameter(MonitorService.CONCURRENT, 0);
         // init atomic reference
+        //利用statisticsURL生成统计模型Staistics
         Statistics statistics = new Statistics(url);
+
+        //获取本次RPC调用对应的统计信息  long数组
         AtomicReference<long[]> reference = statisticsMap.computeIfAbsent(statistics, k -> new AtomicReference<>());
         // use CompareAndSet to sum
         long[] current;
@@ -163,6 +187,7 @@ public class DubboMonitor implements Monitor {
         do {
             current = reference.get();
             if (current == null) {
+                //初始化统计信息
                 update[0] = success;
                 update[1] = failure;
                 update[2] = input;
@@ -174,15 +199,28 @@ public class DubboMonitor implements Monitor {
                 update[8] = elapsed;
                 update[9] = concurrent;
             } else {
+                //合并时间间隔内的统计信息  时间间隔为<dubbo:monitor  interval="">设置的参数
+                //时间间隔interval内  RPC调用的总体成功次数 和 失败次数
                 update[0] = current[0] + success;
                 update[1] = current[1] + failure;
+
+                //时间间隔interval内  RPC调用的总的传入字节大小 和 总的返回字节大小
                 update[2] = current[2] + input;
                 update[3] = current[3] + output;
+
+                //时间间隔interval内  RPC调用的总的耗时
                 update[4] = current[4] + elapsed;
+
+                //时间间隔interval内  统计的服务接口平均的并发量
                 update[5] = (current[5] + concurrent) / 2;
+
+                //时间间隔interval内  RPC调用传入的最大字节大小
                 update[6] = current[6] > input ? current[6] : input;
+                //时间间隔interval内 RPC调用返回的最大字节大小
                 update[7] = current[7] > output ? current[7] : output;
+                //时间间隔interval内  RPC调用的最大耗时
                 update[8] = current[8] > elapsed ? current[8] : elapsed;
+                //时间间隔interval内  RPC调用的最大并发量
                 update[9] = current[9] > concurrent ? current[9] : concurrent;
             }
         } while (!reference.compareAndSet(current, update));

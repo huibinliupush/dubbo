@@ -81,6 +81,7 @@ public class ContextFilter implements Filter, Filter.Listener {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        //提取消费者端的隐式传参Attachments
         Map<String, Object> attachments = invocation.getObjectAttachments();
         if (attachments != null) {
             Map<String, Object> newAttach = new HashMap<>(attachments.size());
@@ -92,19 +93,21 @@ public class ContextFilter implements Filter, Filter.Listener {
             }
             attachments = newAttach;
         }
-
+        //根据invoker和invocation的信息设置当前provider端的Rpc上下文信息
         RpcContext context = RpcContext.getContext();
         context.setInvoker(invoker)
                 .setInvocation(invocation)
 //                .setAttachments(attachments)  // merged from dubbox
                 .setLocalAddress(invoker.getUrl().getHost(), invoker.getUrl().getPort());
         String remoteApplication = (String) invocation.getAttachment(REMOTE_APPLICATION_KEY);
+        //设置consumer服务名称
         if (StringUtils.isNotEmpty(remoteApplication)) {
             context.setRemoteApplicationName(remoteApplication);
         } else {
             context.setRemoteApplicationName((String) context.getAttachment(REMOTE_APPLICATION_KEY));
         }
 
+        //上下文设置服务调用超时时间
         long timeout = RpcUtils.getTimeout(invocation, -1);
         if (timeout != -1) {
             context.set(TIME_COUNTDOWN_KEY, TimeoutCountDown.newCountDown(timeout, TimeUnit.MILLISECONDS));
@@ -112,6 +115,7 @@ public class ContextFilter implements Filter, Filter.Listener {
 
         // merged from dubbox
         // we may already added some attachments into RpcContext before this filter (e.g. in rest protocol)
+        // 如果前边的过滤器已经对上下文中的attachments信息做了设置，那么就和当前invoker中得attachments合并
         if (attachments != null) {
             if (context.getObjectAttachments() != null) {
                 context.getObjectAttachments().putAll(attachments);
@@ -130,6 +134,8 @@ public class ContextFilter implements Filter, Filter.Listener {
         } finally {
             context.clearAfterEachInvoke(true);
             // IMPORTANT! For async scenario, we must remove context from current thread, so we always create a new RpcContext for the next invoke for the same thread.
+            //清除上下文信息防止内存泄露
+            //在异步场景中，同一个线程针对每一个RPC请求都会创建一个新的RpcContext,所以当Rpc调用完后必须清除上下文信息，防止内存泄露。
             RpcContext.removeContext(true);
             RpcContext.removeServerContext();
         }

@@ -20,12 +20,16 @@ import java.util.concurrent.TimeUnit;
 
 public final class TimeoutCountDown implements Comparable<TimeoutCountDown> {
 
+  //提供给外部设置超时模型
   public static TimeoutCountDown newCountDown(long timeout, TimeUnit unit) {
     return new TimeoutCountDown(timeout, unit);
   }
 
+  //超时时间
   private final long timeoutInMillis;
+  //超时deadline
   private final long deadlineInNanos;
+  //是否超时
   private volatile boolean expired;
 
   private TimeoutCountDown(long timeout, TimeUnit unit) {

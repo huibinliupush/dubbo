@@ -32,11 +32,17 @@ public class ClassLoaderFilter implements Filter {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        //保存当前线程的ContextClassLoader
         ClassLoader ocl = Thread.currentThread().getContextClassLoader();
+        //将当前框架线程的类加载器替换成服务接口的类加载器
+        //这样做的目的是可以在dubbo框架中去访问由应用加载器加载到的类（违反双亲委派模型来查找class）
+        //根据双亲委派模型，不同类加载器加载到得类 是不能互相访问的
+        //DubboProtocol#optimizeSerialization方法中需要在dubbo框架线程中访问由用户加载器加载到得序列化优化类SerializationOptimizer.class
         Thread.currentThread().setContextClassLoader(invoker.getInterface().getClassLoader());
         try {
             return invoker.invoke(invocation);
         } finally {
+            //恢复当前线程的ContextClassLoader
             Thread.currentThread().setContextClassLoader(ocl);
         }
     }

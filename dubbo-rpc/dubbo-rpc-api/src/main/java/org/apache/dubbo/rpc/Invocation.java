@@ -30,11 +30,13 @@ import java.util.stream.Stream;
  */
 public interface Invocation {
 
+    //serviceKey：serviceGroup/serviceName:serviceVersion:port
+    //远程服务的唯一标识
     String getTargetServiceUniqueName();
 
     /**
      * get method name.
-     *
+     * rpc调用的目标方法
      * @return method name.
      * @serial
      */
@@ -43,13 +45,14 @@ public interface Invocation {
 
     /**
      * get the interface name
+     * rpc调用的目标服务
      * @return
      */
     String getServiceName();
 
     /**
      * get parameter types.
-     *
+     * 目标方法的参数类型集合
      * @return parameter types.
      * @serial
      */
@@ -57,7 +60,7 @@ public interface Invocation {
 
     /**
      * get parameter's signature, string representation of parameter types.
-     *
+     * 参数签名
      * @return parameter's signature
      */
     default String[] getCompatibleParamSignatures() {
@@ -68,7 +71,7 @@ public interface Invocation {
 
     /**
      * get arguments.
-     *
+     * 调用远程方法  consumer端传递的参数值
      * @return arguments.
      * @serial
      */
@@ -76,7 +79,7 @@ public interface Invocation {
 
     /**
      * get attachments.
-     *
+     * 获取rpc附加属性attachments 会远程传递给Provider端
      * @return attachments.
      * @serial
      */
@@ -125,15 +128,17 @@ public interface Invocation {
 
     /**
      * get the invoker in current context.
-     *
+     * 当前rpc调用关联的invoker对象
      * @return invoker.
      * @transient
      */
     Invoker<?> getInvoker();
 
+    //Attributes只会存在于调用端的上下文中，不会远程传递给provider端
+    //设置Attributes属性
     Object put(Object key, Object value);
-
+    //获取指定Attributes属性
     Object get(Object key);
-
+    //获取所有Attributes属性
     Map<Object, Object> getAttributes();
 }

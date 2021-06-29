@@ -242,6 +242,7 @@ public class ConfigValidationUtils {
         if (sysaddress != null && sysaddress.length() > 0) {
             address = sysaddress;
         }
+        //直连监控中心 <dubbo:monitor: address="ip:port">
         if (ConfigUtils.isNotEmpty(address)) {
             if (!map.containsKey(PROTOCOL_KEY)) {
                 if (getExtensionLoader(MonitorFactory.class).hasExtension(LOGSTAT_PROTOCOL)) {
@@ -253,6 +254,7 @@ public class ConfigValidationUtils {
             return UrlUtils.parseURL(address, map);
         } else if ((REGISTRY_PROTOCOL.equals(monitor.getProtocol()) || SERVICE_REGISTRY_PROTOCOL.equals(monitor.getProtocol()))
                 && registryURL != null) {
+            //从注册中心中自动发现监控中心 其实就是自动发现MonitorService这个dubbo服务
             return URLBuilder.from(registryURL)
                     .setProtocol(DUBBO_PROTOCOL)
                     .addParameter(PROTOCOL_KEY, monitor.getProtocol())

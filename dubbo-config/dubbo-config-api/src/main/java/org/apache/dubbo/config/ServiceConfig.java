@@ -571,8 +571,12 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         //dynamic为false人工手动注册服务，下线服务
                         url = url.addParameterIfAbsent(DYNAMIC_KEY, registryURL.getParameter(DYNAMIC_KEY));
                         //根据monitorConfig配置加载monitorUrl，加载过程类似loadRegistries
+                        //<dubbo:monitor protocol="registry" interval="100"/>
                         URL monitorUrl = ConfigValidationUtils.loadMonitor(this, registryURL);
                         if (monitorUrl != null) {
+                            //在monitorFilter中会用到，用于上报监控数据到监控中心MonitorService
+                            //监控中心其实就是一个dubbo服务，服务接口是MonitorService。用户可以自己实现这个MonitorService，然后将其
+                            //暴露为dubbo服务，这就是监控中心，
                             url = url.addParameterAndEncoded(MONITOR_KEY, monitorUrl.toFullString());
                         }
                         if (logger.isInfoEnabled()) {

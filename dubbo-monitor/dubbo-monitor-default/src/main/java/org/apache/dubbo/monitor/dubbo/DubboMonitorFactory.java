@@ -61,9 +61,13 @@ public class DubboMonitorFactory extends AbstractMonitorFactory {
         } else {
             filter = filter + ",";
         }
+        //这里的dubboMonitor相当于是MonitorService服务的consumer端，类似于服务引用过程
+        //dubboMonitor作为一个dubbo的客户端，在引用远端服务MonitorService的时候 去除monitorFilter过滤器
         urlBuilder.addParameters(CHECK_KEY, String.valueOf(false),
                 REFERENCE_FILTER_KEY, filter + "-monitor");
+        //引用MonitorService（远端监控中心），得到consumer端的invoker
         Invoker<MonitorService> monitorInvoker = protocol.refer(MonitorService.class, urlBuilder.build());
+        //创建远程MonitorService服务的代理，类似于dubbo consumer 引用 dubbo 服务 monitorService（监控中心）
         MonitorService monitorService = proxyFactory.getProxy(monitorInvoker);
         return new DubboMonitor(monitorInvoker, monitorService);
     }

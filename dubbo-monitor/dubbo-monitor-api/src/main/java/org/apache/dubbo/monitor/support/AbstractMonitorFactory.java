@@ -52,13 +52,18 @@ public abstract class AbstractMonitorFactory implements MonitorFactory {
 
     /**
      * The monitor centers Map<RegistryAddress, Registry>
+     *
+     *  一个监控中心对应一个monitor,监控中心就是一个dubbo服务MonitorService 可以注册在不同注册中心
+     *  缓存不同注册中心中得监控中心对应的监控monitor
      */
     private static final Map<String, Monitor> MONITORS = new ConcurrentHashMap<String, Monitor>();
 
+    //缓存创建Monitor的异步结果   在MonitorListener中获取使用，并删除。
     private static final Map<String, CompletableFuture<Monitor>> FUTURES = new ConcurrentHashMap<String, CompletableFuture<Monitor>>();
 
     /**
      * The monitor create executor
+     * 异步创建monitor的线程池
      */
     private static final ExecutorService EXECUTOR = new ThreadPoolExecutor(0, 10, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), new NamedThreadFactory("DubboMonitorCreator", true));
 
@@ -68,7 +73,9 @@ public abstract class AbstractMonitorFactory implements MonitorFactory {
 
     @Override
     public Monitor getMonitor(URL url) {
+        //dubbo://127.0.0.1:2181/org.apache.dubbo.monitor.MonitorService?application=demo-provider&dubbo=2.0.2&extra-keys=interface,key1,key2&interface=org.apache.dubbo.monitor.MonitorService&metadata-type=remote&pid=29125&protocol=registry&qos.port=22228&refer=application%3Ddemo-provider%26dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.monitor.MonitorService%26interval%3D100%26metadata-type%3Dremote%26pid%3D29125%26qos.port%3D22228%26register.ip%3D192.168.1.101%26timestamp%3D1624950208377&registry=zookeeper&simplified=true&timestamp=1624950208276
         url = url.setPath(MonitorService.class.getName()).addParameter(INTERFACE_KEY, MonitorService.class.getName());
+        //dubbo://127.0.0.1:2181/org.apache.dubbo.monitor.MonitorService
         String key = url.toServiceStringWithoutResolving();
         Monitor monitor = MONITORS.get(key);
         Future<Monitor> future = FUTURES.get(key);
@@ -85,6 +92,7 @@ public abstract class AbstractMonitorFactory implements MonitorFactory {
             }
 
             final URL monitorUrl = url;
+            //异步创建monitor
             final CompletableFuture<Monitor> completableFuture = CompletableFuture.supplyAsync(() -> AbstractMonitorFactory.this.createMonitor(monitorUrl));
             FUTURES.put(key, completableFuture);
             completableFuture.thenRunAsync(new MonitorListener(key), EXECUTOR);
@@ -110,7 +118,9 @@ public abstract class AbstractMonitorFactory implements MonitorFactory {
         @Override
         public void run() {
             try {
+                //从缓存中获取异步创建monitor的future
                 CompletableFuture<Monitor> completableFuture = AbstractMonitorFactory.FUTURES.get(key);
+                //将创建出来的Monitor放入缓存中
                 AbstractMonitorFactory.MONITORS.put(key, completableFuture.get());
                 AbstractMonitorFactory.FUTURES.remove(key);
             } catch (InterruptedException e) {

@@ -34,7 +34,8 @@ import static org.apache.dubbo.rpc.Constants.$ECHO;
 public class EchoFilter implements Filter {
 
     @Override
-    public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
+        public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
+        //如果rpc调用的目标方法是$echo并且传递的调用方法参数只有一个，则直接返回传递的参数值
         if (inv.getMethodName().equals($ECHO) && inv.getArguments() != null && inv.getArguments().length == 1) {
             return AsyncRpcResult.newDefaultAsyncResult(inv.getArguments()[0], inv);
         }

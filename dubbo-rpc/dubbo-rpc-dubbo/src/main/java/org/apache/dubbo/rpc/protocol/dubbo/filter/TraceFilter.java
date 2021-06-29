@@ -47,12 +47,24 @@ public class TraceFilter implements Filter {
 
     private static final Logger logger = LoggerFactory.getLogger(TraceFilter.class);
 
+    //最大跟踪次数key
     private static final String TRACE_MAX = "trace.max";
-
+    //已经跟踪了多少次 key
     private static final String TRACE_COUNT = "trace.count";
 
+    //缓存所有执行telnet trace命令的telnet客户端连接
     private static final ConcurrentMap<String, Set<Channel>> TRACERS = new ConcurrentHashMap<>();
 
+    /**
+     * 当telnet客户端执行trace命令的时候，处理telnet trace命令的TraceTelnetHandler 就会调用该方法
+     * 开始对trace命令指定的服务或者方法进行跟踪
+     *
+     * type：需要跟踪的服务接口
+     * metthod：需要跟踪的服务方法
+     * channel：调用trace命令的telnet客户端连接
+     * max: 最大跟踪次数，超过这个次数则停止跟踪
+     *
+     * */
     public static void addTracer(Class<?> type, String method, Channel channel, int max) {
         channel.setAttribute(TRACE_MAX, max);
         channel.setAttribute(TRACE_COUNT, new AtomicInteger());
@@ -74,9 +86,12 @@ public class TraceFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         long start = System.currentTimeMillis();
+        //调用下一个Filter执行服务调用
         Result result = invoker.invoke(invocation);
+        //统计服务调用时长
         long end = System.currentTimeMillis();
         if (TRACERS.size() > 0) {
+            //构造trace key,在缓存TRACERS中查找是否有在执行trace命令的 telnet客户端
             String key = invoker.getInterface().getName() + "." + invocation.getMethodName();
             Set<Channel> channels = TRACERS.get(key);
             if (channels == null || channels.isEmpty()) {
@@ -87,11 +102,13 @@ public class TraceFilter implements Filter {
                 for (Channel channel : new ArrayList<>(channels)) {
                     if (channel.isConnected()) {
                         try {
+                            //获取trace命令 指定的最大跟踪次数 默认为1
                             int max = 1;
                             Integer m = (Integer) channel.getAttribute(TRACE_MAX);
                             if (m != null) {
                                 max = m;
                             }
+                            //获取 目前已经跟踪多少次服务调用
                             int count = 0;
                             AtomicInteger c = (AtomicInteger) channel.getAttribute(TRACE_COUNT);
                             if (c == null) {
@@ -100,6 +117,7 @@ public class TraceFilter implements Filter {
                             }
                             count = c.getAndIncrement();
                             if (count < max) {
+                                //如果目前的跟踪次数 没有 超过最大跟踪次数，则将服务调用信息 返回给telnet客户端
                                 String prompt = channel.getUrl().getParameter(Constants.PROMPT_KEY, Constants.DEFAULT_PROMPT);
                                 channel.send("\r\n" + RpcContext.getContext().getRemoteAddress() + " -> "
                                         + invoker.getInterface().getName()
@@ -109,6 +127,7 @@ public class TraceFilter implements Filter {
                                         + "\r\n\r\n" + prompt);
                             }
                             if (count >= max - 1) {
+                                //如果已经达到最大跟踪次数的话  移除telnet客户端连接
                                 channels.remove(channel);
                             }
                         } catch (Throwable e) {

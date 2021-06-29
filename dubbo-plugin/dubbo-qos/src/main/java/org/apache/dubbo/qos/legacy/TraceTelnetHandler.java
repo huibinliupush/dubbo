@@ -37,6 +37,7 @@ public class TraceTelnetHandler implements TelnetHandler {
 
     @Override
     public String telnet(Channel channel, String message) {
+        //解析trace命令中得 service  method count
         String service = (String) channel.getAttribute(ChangeTelnetHandler.SERVICE_KEY);
         if ((service == null || service.length() == 0)
                 && (message == null || message.length() == 0)) {
@@ -62,7 +63,9 @@ public class TraceTelnetHandler implements TelnetHandler {
             return "Illegal times " + times + ", must be integer.";
         }
         Invoker<?> invoker = null;
+        //从所有的exporters中查找trace命令指定的服务invoker
         for (Exporter<?> exporter : DubboProtocol.getDubboProtocol().getExporters()) {
+            //tracem命令指定的service可以是服务接口名或者是服务接口全限定名，也可以是带servicePath的服务名
             if (service.equals(exporter.getInvoker().getInterface().getSimpleName())
                     || service.equals(exporter.getInvoker().getInterface().getName())
                     || service.equals(exporter.getInvoker().getUrl().getPath())) {
@@ -71,6 +74,7 @@ public class TraceTelnetHandler implements TelnetHandler {
             }
         }
         if (invoker != null) {
+            //查找指定的trace method是否存在
             if (method != null && method.length() > 0) {
                 boolean found = false;
                 for (Method m : invoker.getInterface().getMethods()) {
@@ -83,6 +87,8 @@ public class TraceTelnetHandler implements TelnetHandler {
                     return "No such method " + method + " in class " + invoker.getInterface().getName();
                 }
             }
+            //将trace命名指定的服务接口，服务方法,发起trace命令的telnet客户端连接，跟踪的最大次数缓存到TraceFilter中
+            //在TraceFilter中进行服务调用的跟踪，并将跟踪的信息返回给telnet客户端
             TraceFilter.addTracer(invoker.getInterface(), method, channel, Integer.parseInt(times));
         } else {
             return "No such service " + service;

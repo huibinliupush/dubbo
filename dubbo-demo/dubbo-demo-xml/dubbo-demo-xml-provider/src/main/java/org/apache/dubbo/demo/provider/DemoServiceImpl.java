@@ -16,6 +16,7 @@
  */
 package org.apache.dubbo.demo.provider;
 
+import org.apache.dubbo.demo.BigDeDto;
 import org.apache.dubbo.demo.DemoService;
 import org.apache.dubbo.rpc.RpcContext;
 
@@ -40,11 +41,7 @@ public class DemoServiceImpl implements DemoService {
     @Override
     public String sayHello(String name) {
         logger.info("Hello " + name + ", request from consumer: " + RpcContext.getContext().getRemoteAddress());
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+
         return "Hello " + name + ", response from provider: " + RpcContext.getContext().getLocalAddress();
     }
 
@@ -70,5 +67,10 @@ public class DemoServiceImpl implements DemoService {
     public DemoService wrapperReturnVoid(Integer warpperField) {
         logger.info("test wrapper OverWrite method");
         return new DemoServiceImpl();
+    }
+
+    @Override
+    public void testBigDecimal(BigDeDto bigDeDto) {
+
     }
 }
