@@ -206,7 +206,7 @@ public class MonitorFilter implements Filter, Filter.Listener {
             output = result.getAttachment(OUTPUT_KEY);
         }
 
-        //将这些统计信息生成 StatisticsUrl
+        //将这些统计信息生成 StatisticsUrl，协议头为count
         return new URL(COUNT_PROTOCOL, NetUtils.getLocalHost(), localPort, service + PATH_SEPARATOR + method, MonitorService.APPLICATION, application, MonitorService.INTERFACE, service, MonitorService.METHOD, method, remoteKey, remoteValue, error ? MonitorService.FAILURE : MonitorService.SUCCESS, "1", MonitorService.ELAPSED, String.valueOf(elapsed), MonitorService.CONCURRENT, String.valueOf(concurrent), INPUT_KEY, input, OUTPUT_KEY, output, GROUP_KEY, group, VERSION_KEY, version);
     }
 

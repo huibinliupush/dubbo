@@ -27,6 +27,7 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     public void collect(URL statistics) {
+
         collectedStatistics.add(statistics);
     }
 

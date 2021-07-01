@@ -95,6 +95,7 @@ public abstract class AbstractMonitorFactory implements MonitorFactory {
             //异步创建monitor
             final CompletableFuture<Monitor> completableFuture = CompletableFuture.supplyAsync(() -> AbstractMonitorFactory.this.createMonitor(monitorUrl));
             FUTURES.put(key, completableFuture);
+            //异步获取创建结果
             completableFuture.thenRunAsync(new MonitorListener(key), EXECUTOR);
 
             return null;
