@@ -37,6 +37,8 @@ import java.lang.reflect.Method;
  * ExceptionInvokerFilter
  * <p>
  * Functions:
+ * 解析出provider端自定义的异常并封装在RuntimeException中，防止consumer端因为没有provider端的自定义异常
+ * 而序列化失败
  * <ol>
  * <li>unexpected exception will be logged in ERROR level on provider side. Unexpected exception are unchecked
  * exception not declared on the interface</li>
@@ -54,16 +56,19 @@ public class ExceptionFilter implements Filter, Filter.Listener {
 
     @Override
     public void onResponse(Result appResponse, Invoker<?> invoker, Invocation invocation) {
+        //不会对泛化调用进行处理
         if (appResponse.hasException() && GenericService.class != invoker.getInterface()) {
             try {
                 Throwable exception = appResponse.getException();
 
                 // directly throw if it's checked exception
+                //如果是受检异常则直接抛出没不做处理
                 if (!(exception instanceof RuntimeException) && (exception instanceof Exception)) {
                     return;
                 }
                 // directly throw if the exception appears in the signature
                 try {
+                    //如果抛出的异常在服务接口的方法签名中，那么异常类型肯定也在服务api.jar包中，那么consumer端可以正确的序列化 所以不需要处理
                     Method method = invoker.getInterface().getMethod(invocation.getMethodName(), invocation.getParameterTypes());
                     Class<?>[] exceptionClassses = method.getExceptionTypes();
                     for (Class<?> exceptionClass : exceptionClassses) {
@@ -79,22 +84,27 @@ public class ExceptionFilter implements Filter, Filter.Listener {
                 logger.error("Got unchecked and undeclared exception which called by " + RpcContext.getContext().getRemoteHost() + ". service: " + invoker.getInterface().getName() + ", method: " + invocation.getMethodName() + ", exception: " + exception.getClass().getName() + ": " + exception.getMessage(), exception);
 
                 // directly throw if exception class and interface class are in the same jar file.
+                //获取类所在jar包，服务接口api和异常同在一个jar包，consumer可以正确序列化
                 String serviceFile = ReflectUtils.getCodeBase(invoker.getInterface());
                 String exceptionFile = ReflectUtils.getCodeBase(exception.getClass());
                 if (serviceFile == null || exceptionFile == null || serviceFile.equals(exceptionFile)) {
                     return;
                 }
                 // directly throw if it's JDK exception
+                //JDK自带异常不做处理
                 String className = exception.getClass().getName();
                 if (className.startsWith("java.") || className.startsWith("javax.")) {
                     return;
                 }
                 // directly throw if it's dubbo exception
+                //dubbo异常不做处理
                 if (exception instanceof RpcException) {
                     return;
                 }
 
                 // otherwise, wrap with RuntimeException and throw back to the client
+                //剩下的情况就是provider端自定义的异常，consumer端是不存在的，不能被正确的序列化
+                //所以要将自定义异常信息封装在RuntimeException中抛出
                 appResponse.setException(new RuntimeException(StringUtils.toString(exception)));
             } catch (Throwable e) {
                 logger.warn("Fail to ExceptionFilter when called by " + RpcContext.getContext().getRemoteHost() + ". service: " + invoker.getInterface().getName() + ", method: " + invocation.getMethodName() + ", exception: " + e.getClass().getName() + ": " + e.getMessage(), e);

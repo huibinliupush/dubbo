@@ -44,6 +44,7 @@ public class TpsLimitFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
 
+        //尝试获取令牌，如果获取不到，则限制本次RPC请求调用
         if (!tpsLimiter.isAllowable(invoker.getUrl(), invocation)) {
             throw new RpcException(
                     "Failed to invoke service " +

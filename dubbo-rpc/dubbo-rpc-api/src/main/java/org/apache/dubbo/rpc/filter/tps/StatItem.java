@@ -24,14 +24,16 @@ import java.util.concurrent.atomic.LongAdder;
  */
 class StatItem {
 
+    //servicekey ； interface:group:version
     private String name;
 
+    //令牌桶重置令牌时间
     private long lastResetTime;
-
+    //限流interval时间段内的请求可以允许通过多少个
     private long interval;
-
+    //令牌桶中的令牌数
     private LongAdder token;
-
+    //限流interval时间段内的请求可以允许通过rate个
     private int rate;
 
     StatItem(String name, int rate, long interval) {
@@ -44,14 +46,18 @@ class StatItem {
 
     public boolean isAllowable() {
         long now = System.currentTimeMillis();
+        //超过interval的时间间隔，重置令牌桶内令牌rate个 即 在interval时间段内，令牌桶内只分配rate个令牌
+        //采用固定时间窗口限流
         if (now > lastResetTime + interval) {
             token = buildLongAdder(rate);
             lastResetTime = now;
         }
 
+        //当前interval时间段内 令牌桶中已经没有令牌，拒绝请求通过
         if (token.sum() < 0) {
             return false;
         }
+        //当前请求拿走一个令牌，可以放行请求通过
         token.decrement();
         return true;
     }

@@ -32,17 +32,28 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class RpcStatus {
 
+    //缓存dubbo服务的RpcStatus(记录当前并发数等信息)  key：服务providerUrl的IdentityString value：服务RPC调用统计信息
     private static final ConcurrentMap<String, RpcStatus> SERVICE_STATISTICS = new ConcurrentHashMap<String, RpcStatus>();
 
+    //缓存dubbo服务接口每个方法的RpcStatus，key:服务providerUrl的IdentityString  value[key:mehtodName value:方法的RPC调用统计信息]
     private static final ConcurrentMap<String, ConcurrentMap<String, RpcStatus>> METHOD_STATISTICS = new ConcurrentHashMap<String, ConcurrentMap<String, RpcStatus>>();
     private final ConcurrentMap<String, Object> values = new ConcurrentHashMap<String, Object>();
+
+    //统计当前并发数
     private final AtomicInteger active = new AtomicInteger();
+    //总共的请求数
     private final AtomicLong total = new AtomicLong();
+    //失败的请求数
     private final AtomicInteger failed = new AtomicInteger();
+    //RPC调用总共的耗时
     private final AtomicLong totalElapsed = new AtomicLong();
+    //所有失败的RPC调用总共的耗时
     private final AtomicLong failedElapsed = new AtomicLong();
+    //所有RPC调用最大的耗时时间
     private final AtomicLong maxElapsed = new AtomicLong();
+    //所有失败的PRC调用最大的耗时时间
     private final AtomicLong failedMaxElapsed = new AtomicLong();
+    //所有成功的RPC调用最大的耗时时间
     private final AtomicLong succeededMaxElapsed = new AtomicLong();
 
     private RpcStatus() {
@@ -53,6 +64,8 @@ public class RpcStatus {
      * @return status
      */
     public static RpcStatus getStatus(URL url) {
+        //获取服务接口RPC调用状态模型
+        // dubbo://192.168.1.101:20880/servicePathPrefix/org.apache.dubbo.demo.DemoService
         String uri = url.toIdentityString();
         return SERVICE_STATISTICS.computeIfAbsent(uri, key -> new RpcStatus());
     }
@@ -71,6 +84,7 @@ public class RpcStatus {
      * @return status
      */
     public static RpcStatus getStatus(URL url, String methodName) {
+        //获取服务接口方法 RPC调用状态模型
         String uri = url.toIdentityString();
         ConcurrentMap<String, RpcStatus> map = METHOD_STATISTICS.computeIfAbsent(uri, k -> new ConcurrentHashMap<>());
         return map.computeIfAbsent(methodName, k -> new RpcStatus());
@@ -92,29 +106,37 @@ public class RpcStatus {
     }
 
     /**
+     * 增加服务接口当前并发数
      * @param url
      */
     public static boolean beginCount(URL url, String methodName, int max) {
         max = (max <= 0) ? Integer.MAX_VALUE : max;
         RpcStatus appStatus = getStatus(url);
         RpcStatus methodStatus = getStatus(url, methodName);
+        //防止并发数溢出
         if (methodStatus.active.get() == Integer.MAX_VALUE) {
             return false;
         }
+
+        //并发情况下 CAS循环更新共享变量
         for (int i; ; ) {
             i = methodStatus.active.get();
+            //当前服务接口方法并发数 不能超过 设置的最大值
             if (i + 1 > max) {
                 return false;
             }
+            //满足限制并发条件，当前服务接口方法并发数+1
             if (methodStatus.active.compareAndSet(i, i + 1)) {
                 break;
             }
         }
+        //当前服务并发数+1
         appStatus.active.incrementAndGet();
         return true;
     }
 
     /**
+     * RPC调用完成统计RPC调用状态情况。
      * @param url
      * @param elapsed
      * @param succeeded
@@ -125,20 +147,28 @@ public class RpcStatus {
     }
 
     private static void endCount(RpcStatus status, long elapsed, boolean succeeded) {
+        //当前并发数减1
         status.active.decrementAndGet();
+        //RPC调用的总次数加1
         status.total.incrementAndGet();
+        //更新所有RPC调用耗时
         status.totalElapsed.addAndGet(elapsed);
         if (status.maxElapsed.get() < elapsed) {
+            //设置所有RPC调用的最大耗时
             status.maxElapsed.set(elapsed);
         }
         if (succeeded) {
             if (status.succeededMaxElapsed.get() < elapsed) {
+                //设置所有成功RPC调用的最大耗时
                 status.succeededMaxElapsed.set(elapsed);
             }
         } else {
+            //RPC调用失败次数加1
             status.failed.incrementAndGet();
+            //RPC调用失败情况下的总耗时
             status.failedElapsed.addAndGet(elapsed);
             if (status.failedMaxElapsed.get() < elapsed) {
+                //更新RPC调用失败时的最大耗时
                 status.failedMaxElapsed.set(elapsed);
             }
         }

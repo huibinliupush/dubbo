@@ -68,9 +68,9 @@ public class AccessLogFilter implements Filter {
     private static final Logger logger = LoggerFactory.getLogger(AccessLogFilter.class);
 
     private static final String LOG_KEY = "dubbo.accesslog";
-
+    //内存中保存日志的最大数量，达到该数据，触发异步刷盘
     private static final int LOG_MAX_BUFFER = 5000;
-
+    //异步刷盘时间间隔
     private static final long LOG_OUTPUT_INTERVAL = 5000;
 
     private static final String FILE_DATE_FORMAT = "yyyyMMdd";
@@ -78,6 +78,7 @@ public class AccessLogFilter implements Filter {
     // It's safe to declare it as singleton since it runs on single thread only
     private static final DateFormat FILE_NAME_FORMATTER = new SimpleDateFormat(FILE_DATE_FORMAT);
 
+    //缓存服务访问日志。key:accesslog配置的值（true,default,日志文件全限定名），value：对应的访问日志模型
     private static final Map<String, Set<AccessLogData>> LOG_ENTRIES = new ConcurrentHashMap<>();
 
     private static final ScheduledExecutorService LOG_SCHEDULED = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Dubbo-Access-Log", true));
@@ -87,6 +88,7 @@ public class AccessLogFilter implements Filter {
      * defined in url <b>accesslog</b>
      */
     public AccessLogFilter() {
+        //异步日志刷盘。 如果突然宕机，可能会导致一部分日志的丢失
         LOG_SCHEDULED.scheduleWithFixedDelay(this::writeLogToFile, LOG_OUTPUT_INTERVAL, LOG_OUTPUT_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
@@ -101,9 +103,13 @@ public class AccessLogFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
         try {
+            //记录RPC访问日志
+            //获取配置<dubbo:provider accesslog="">或者<dubbo:protocol accesslog="">或者<dubbo:service accesslog="">
             String accessLogKey = invoker.getUrl().getParameter(ACCESS_LOG_KEY);
             if (ConfigUtils.isNotEmpty(accessLogKey)) {
+                //构建访问日志
                 AccessLogData logData = buildAccessLogData(invoker, inv);
+                //缓存访问日志 定期刷盘写入日志文件
                 log(accessLogKey, logData);
             }
         } catch (Throwable t) {
@@ -115,9 +121,12 @@ public class AccessLogFilter implements Filter {
     private void log(String accessLog, AccessLogData accessLogData) {
         Set<AccessLogData> logSet = LOG_ENTRIES.computeIfAbsent(accessLog, k -> new ConcurrentHashSet<>());
 
+
         if (logSet.size() < LOG_MAX_BUFFER) {
+            //缓存日志
             logSet.add(accessLogData);
         } else {
+            //达到日志缓存阈值5000 则触发日志缓存写入日志文件
             logger.warn("AccessLog buffer is full. Do a force writing to file to clear buffer.");
             //just write current logSet to file.
             writeLogSetToFile(accessLog, logSet);
@@ -128,9 +137,11 @@ public class AccessLogFilter implements Filter {
 
     private void writeLogSetToFile(String accessLog, Set<AccessLogData> logSet) {
         try {
+            //accesslog配置为true或者default，则默认使用应用本身的日志组件
             if (ConfigUtils.isDefault(accessLog)) {
                 processWithServiceLogger(logSet);
             } else {
+                //accesslog配置指定的是具体路径日志文件，则将日志写入指定的日志文件中
                 File file = new File(accessLog);
                 createIfLogDirAbsent(file);
                 if (logger.isDebugEnabled()) {
@@ -156,6 +167,7 @@ public class AccessLogFilter implements Filter {
 
     private void processWithAccessKeyLogger(Set<AccessLogData> logSet, File file) throws IOException {
         try (FileWriter writer = new FileWriter(file, true)) {
+            //set是无序的，所以缓存日志写入日志文件的日志也是无序的
             for (Iterator<AccessLogData> iterator = logSet.iterator();
                  iterator.hasNext();
                  iterator.remove()) {
@@ -183,6 +195,7 @@ public class AccessLogFilter implements Filter {
              iterator.hasNext();
              iterator.remove()) {
             AccessLogData logData = iterator.next();
+            //使用应用本身的日志组件
             LoggerFactory.getLogger(LOG_KEY + "." + logData.getServiceName()).info(logData.getLogMessage());
         }
     }

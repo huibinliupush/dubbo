@@ -1,1 +1,1 @@
-yourProjectKey=org.apache.dubbo.demo.provider.filter.YourProjectFilter
+tps=org.apache.dubbo.rpc.filter.TpsLimitFilter

@@ -41,9 +41,13 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        //dubbo://192.168.1.101:20880/servicePathPrefix/org.apache.dubbo.demo.DemoService?anyhost=true&application=demo-provider&bind.ip=192.168.1.101&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&metadata-type=remote&methods=sayHello,sayHelloAsync,wrapperReturnVoid,testBigDecimal&pid=37905&qos.port=22228&release=&sayHello.executes=20&side=provider&timestamp=1625137412256
         URL url = invoker.getUrl();
         String methodName = invocation.getMethodName();
+        //获取配置<dubbo:service execute="">或者<dubbo:method execute="">中的execute配置项
+        //每个服务中每个接口的最大允许并发数（或者占用线程数）
         int max = url.getMethodParameter(methodName, EXECUTES_KEY, 0);
+        //检查当前服务接口方法处理的并发数是否达到指定的最大值
         if (!RpcStatus.beginCount(url, methodName, max)) {
             throw new RpcException(RpcException.LIMIT_EXCEEDED_EXCEPTION,
                     "Failed to invoke method " + invocation.getMethodName() + " in provider " +
@@ -65,6 +69,7 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
 
     @Override
     public void onResponse(Result appResponse, Invoker<?> invoker, Invocation invocation) {
+        //RPC调用完成后，当前服务方法并发数减1  并统计对应服务方法的RPC调用状态信息
         RpcStatus.endCount(invoker.getUrl(), invocation.getMethodName(), getElapsed(invocation), true);
     }
 
@@ -73,9 +78,11 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
         if (t instanceof RpcException) {
             RpcException rpcException = (RpcException) t;
             if (rpcException.isLimitExceed()) {
+                //如果异常的原因是被ExecuteLimitFilter限流了，那么直接返回
                 return;
             }
         }
+        //RPC调用失败后，当前服务方法并发数减1  并统计对应服务方法的RPC调用状态信息
         RpcStatus.endCount(invoker.getUrl(), invocation.getMethodName(), getElapsed(invocation), false);
     }
 
