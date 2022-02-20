@@ -41,6 +41,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.READONLY_EVENT;
 
 /**
  * ExchangeReceiver
+ * 实现request-response语义
  */
 public class HeaderExchangeHandler implements ChannelHandlerDelegate {
 

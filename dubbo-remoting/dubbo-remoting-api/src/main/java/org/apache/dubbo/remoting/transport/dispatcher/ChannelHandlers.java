@@ -25,6 +25,7 @@ import org.apache.dubbo.remoting.transport.MultiMessageHandler;
 
 public class ChannelHandlers {
 
+    //static 单例
     private static ChannelHandlers INSTANCE = new ChannelHandlers();
 
     protected ChannelHandlers() {

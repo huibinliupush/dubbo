@@ -92,6 +92,7 @@ final public class NettyCodecAdapter {
                         throw new IOException("Decode without read data.");
                     }
                     if (msg != null) {
+                        //out有数据了会触发 下一个channelHandler
                         out.add(msg);
                     }
                 }

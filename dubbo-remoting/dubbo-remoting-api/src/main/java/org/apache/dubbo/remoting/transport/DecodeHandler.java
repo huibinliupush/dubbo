@@ -26,6 +26,10 @@ import org.apache.dubbo.remoting.RemotingException;
 import org.apache.dubbo.remoting.exchange.Request;
 import org.apache.dubbo.remoting.exchange.Response;
 
+/**
+ *
+ * 负责对dubbo协议的消息体进行反序列化和序列化
+ * */
 public class DecodeHandler extends AbstractChannelHandlerDelegate {
 
     private static final Logger log = LoggerFactory.getLogger(DecodeHandler.class);

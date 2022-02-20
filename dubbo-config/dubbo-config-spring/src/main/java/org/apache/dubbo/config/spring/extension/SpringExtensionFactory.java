@@ -39,6 +39,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
     public static void addApplicationContext(ApplicationContext context) {
         CONTEXTS.add(context);
         if (context instanceof ConfigurableApplicationContext) {
+            //在spring启动成功之后设置shutdownHook（兼容非SpringBoot环境）
             ((ConfigurableApplicationContext) context).registerShutdownHook();
         }
     }
