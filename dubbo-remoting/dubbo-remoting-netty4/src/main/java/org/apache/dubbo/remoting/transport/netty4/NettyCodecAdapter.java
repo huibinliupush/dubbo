@@ -46,6 +46,7 @@ final public class NettyCodecAdapter {
     private final org.apache.dubbo.remoting.ChannelHandler handler;
 
     public NettyCodecAdapter(Codec2 codec, URL url, org.apache.dubbo.remoting.ChannelHandler handler) {
+        // DubboCountCodec -> DubboCodec
         this.codec = codec;
         this.url = url;
         this.handler = handler;

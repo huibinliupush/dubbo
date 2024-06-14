@@ -73,7 +73,9 @@ public class NettyServer extends AbstractServer implements RemotingServer {
 
     public NettyServer(URL url, ChannelHandler handler) throws RemotingException {
         // you can customize name and type of client thread pool by THREAD_NAME_KEY and THREADPOOL_KEY in CommonConstants.
-        // the handler will be wrapped: MultiMessageHandler->HeartbeatHandler->AllChannelhandler
+        // dubbo 中的 handler 嵌套：
+        // the handler will be wrapped: MultiMessageHandler->HeartbeatHandler->AllChannelhandler->DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
+        // see : org.apache.dubbo.remoting.exchange.support.header.HeaderExchanger.bind
         super(ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME), ChannelHandlers.wrap(handler, url));
     }
 
@@ -114,6 +116,7 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                                 .addLast("encoder", adapter.getEncoder())
                                 .addLast("server-idle-handler", new IdleStateHandler(0, 0, idleTimeout, MILLISECONDS))
                                 .addLast("handler", nettyServerHandler);
+                        
                     }
                 });
         // bind
