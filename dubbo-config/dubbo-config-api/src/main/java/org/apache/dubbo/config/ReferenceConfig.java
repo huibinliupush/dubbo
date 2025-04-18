@@ -261,6 +261,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         serviceMetadata.addAttribute(PROXY_CLASS_REF, ref);
         ConsumerModel consumerModel = repository.lookupReferredService(serviceMetadata.getServiceKey());
         consumerModel.setProxyObject(ref);
+        // 异步 method 信息
         consumerModel.init(attributes);
 
         initialized = true;
@@ -315,11 +316,13 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             }
 
             if (urls.size() == 1) {
+                // 一个注册中心，对应一个 invoker
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;
                 for (URL url : urls) {
+                    // 多个注册中心对应多个 clusterInvoker(封装每个具体注册中心下的 providers , route,loanbalance)
                     invokers.add(REF_PROTOCOL.refer(interfaceClass, url));
                     if (UrlUtils.isRegistry(url)) {
                         registryURL = url; // use last registry url

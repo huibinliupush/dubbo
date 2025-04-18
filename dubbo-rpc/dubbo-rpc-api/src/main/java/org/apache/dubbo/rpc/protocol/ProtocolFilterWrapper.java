@@ -105,6 +105,7 @@ public class ProtocolFilterWrapper implements Protocol {
                                     listenableFilter.removeListener(invocation);
                                 }
                             } else if (filter instanceof Filter.Listener) {
+                                // 本 filter 执行异常或者整个 Filter 链中有异常都会回调
                                 Filter.Listener listener = (Filter.Listener) filter;
                                 listener.onError(e, invoker, invocation);
                             }
@@ -114,7 +115,7 @@ public class ProtocolFilterWrapper implements Protocol {
                         }
 
                         //如果请求正常返回结果则回调filter监听器的onResponse方法，
-                        //如果请求执行过程中发生异常则回调filter监听器的onError方法，
+                        //如果请求执行过程中发生异常则回调filter监听器的onError方法，（整个 Filter 链中有异常都会回调）
                         return asyncResult.whenCompleteWithContext((r, t) -> {
                             if (filter instanceof ListenableFilter) {
                                 ListenableFilter listenableFilter = ((ListenableFilter) filter);

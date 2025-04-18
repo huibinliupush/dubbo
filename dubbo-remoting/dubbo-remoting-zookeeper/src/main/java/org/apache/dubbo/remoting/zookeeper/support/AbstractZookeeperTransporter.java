@@ -130,6 +130,7 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
         //获取所有zk节点
         List<String> addressList = new ArrayList<String>();
         addressList.add(url.getAddress());
+        // 将 url 中 backup 中指定的 127.0.0.1:8989,127.0.0.1:9999 用 , 分割成 ip:port 数组
         addressList.addAll(url.getParameter(RemotingConstants.BACKUP_KEY, Collections.EMPTY_LIST));
 
         //如果配置了userName和password则将他们作为节点地址的前缀 -> username:password@

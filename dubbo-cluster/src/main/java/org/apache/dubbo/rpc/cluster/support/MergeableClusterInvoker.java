@@ -45,6 +45,9 @@ import static org.apache.dubbo.rpc.Constants.MERGER_KEY;
 
 /**
  * @param <T>
+ * 分组聚合，将集群中的调用结果聚合起来，然后再返回结果。
+ * 比如菜单服务，接口一样，但有多种实现，用group区分，
+ * 现在消费方需从每种group中调用一次返回结果，合并结果返回，这样就可以实现聚合菜单项。
  */
 @SuppressWarnings("unchecked")
 public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
@@ -59,10 +62,15 @@ public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
     protected Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         checkInvokers(invokers, invocation);
         String merger = getUrl().getMethodParameter(invocation.getMethodName(), MERGER_KEY);
+        // 如果没有设置 MERGER_KEY ， 则随便调用一个 group 中的 invoker
         if (ConfigUtils.isEmpty(merger)) { // If a method doesn't have a merger, only invoke one Group
+            // 这里的 invoker 为 clusterInvoker 而非之前的 dubboInvoker
+            // clusterInvoker 里的 Directory 为 static ,里面封装的是相同 group 下的 dubboInvokers
+            // see : org.apache.dubbo.registry.integration.RegistryDirectory.refreshInvoker
             for (final Invoker<T> invoker : invokers) {
                 if (invoker.isAvailable()) {
                     try {
+                        // clusterInvoker
                         return invoker.invoke(invocation);
                     } catch (RpcException e) {
                         if (e.isNoInvokerAvailableAfterFilter()) {
@@ -83,7 +91,8 @@ public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
         } catch (NoSuchMethodException e) {
             returnType = null;
         }
-
+        // 每个 group 中选取一个 invoker 挨个调用
+        // 多个 invokers(分属不同 group) 的结果放在 results 中
         Map<String, Result> results = new HashMap<>();
         for (final Invoker<T> invoker : invokers) {
             RpcInvocation subInvocation = new RpcInvocation(invocation, invoker);
@@ -92,7 +101,7 @@ public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
         }
 
         Object result = null;
-
+        // 过滤出正常的返回结果
         List<Result> resultList = new ArrayList<Result>(results.size());
 
         for (Map.Entry<String, Result> entry : results.entrySet()) {

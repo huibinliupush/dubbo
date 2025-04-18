@@ -27,7 +27,9 @@ import org.apache.dubbo.rpc.cluster.support.wrapper.AbstractCluster;
 public class ZoneAwareCluster extends AbstractCluster {
 
     public final static String NAME = "zone-aware";
-
+    // see : org.apache.dubbo.config.ReferenceConfig.createProxy
+    // 多注册中心的处理
+    // 需要构建 ClusterInterceptor
     @Override
     protected <T> AbstractClusterInvoker<T> doJoin(Directory<T> directory) throws RpcException {
         return new ZoneAwareClusterInvoker<T>(directory);

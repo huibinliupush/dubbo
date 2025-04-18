@@ -128,6 +128,11 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
         return Collections.unmodifiableMap(injectedMethodReferenceBeanCache);
     }
 
+    // bean 为依赖 dubbo 服务的 spring bean
+    // injectedType 为 bean 中的字段或者方法需要依赖注入的类型（dubbo 接口）
+    // attributes 为 bean 中的字段或者方法标注的 @DubboReference 注解
+    // injectedElement 为 bean 中需要注入的地方（字段或者方法）
+    // 该方法负责生成 dubbo reference 代理（也会提升为一个bean），然后注入到相应字段或者方法中（injectedElement）
     @Override
     protected Object doGetInjectedBean(AnnotationAttributes attributes, Object bean, String beanName, Class<?> injectedType,
                                        InjectionMetadata.InjectedElement injectedElement) throws Exception {
@@ -137,22 +142,28 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
         //根据injectedType就是需要注入的DubboService,构造出serviceBeanName，后续会用这个serviceBeanName到spring中去查找
         //是否存在serviceBean来判断这个DubboService是不是本地暴露的服务，如果是本地暴露的服务并且协议不是inJvm就直接调用。
         String referencedBeanName = buildReferencedBeanName(attributes, injectedType);
-
         /**
          * The name of bean that is declared by {@link Reference @Reference} annotation injection
+         * 注意这里即使相同的 interfaceName，如果 @DubboReference 中指定的属性不同，那么也会对应不同的代理示例
          */
-        //如果引用地不是本地暴露的服务，那么这个就是referenceBean，远程dubboService的代理引用。
-        //构造referenceBeanName
+        // 如果引用地不是本地暴露的服务，那么这个就是referenceBean，远程dubboService的代理引用。
+        // 构造referenceBeanName : @Reference(注解属性key=value,key=value) interfaceName
+        // @Reference 标注的属性不同，那么对应的 referenceBean 也不同，最好还是指明 id , 这样就会引用同一个 referenceBean
         String referenceBeanName = getReferenceBeanName(attributes, injectedType);
 
         //根据dubbo引用注解@reference的信息，将注解中配置的信息 构造referenceBean(这里就是dubbo注解驱动外部化配置的地方)
         ReferenceBean referenceBean = buildReferenceBeanIfAbsent(referenceBeanName, attributes, injectedType);
 
         //判断引用的dubbo服务是否为本地暴露的服务，如果是本地服务后边直接 反射调用服务实例的具体方法
+        // 1. serviceBean 在当前springContext中
+        // 2. referenceBean.isInjvm() = true(默认)
         boolean localServiceBean = isLocalServiceBean(referencedBeanName, referenceBean, attributes);
 
-        //注册ReferenceBean到spring中（远程暴露情况）
-        //用ReferenceBeanName关联本地的serviceBean，真正调用的是本地service方法（本地暴露情况）
+        // localServiceBean = true ，那么就直接调用本地 dubboservice, 就不会注册 ReferenceBean
+        // 而是将 ReferenceBeanName 作为 dubboservice-> ref(demoServerImpl) 的别名
+        // 通过 ReferenceBeanName 在 spring 中获取到的 bean 就是 demoServerImpl
+
+        // localServiceBean = false，向 spring 注册 ReferenceBean
         registerReferenceBean(referencedBeanName, referenceBean, attributes, localServiceBean, injectedType);
 
         //缓存依赖注入的referenceBean 和 依赖注入的点（field,method）之间的关联
@@ -178,7 +189,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
 
         ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 
-        //获取@reference引用的服务beanName(站在服务引用的视角) 这个服务有可能是个本地服务（serviceBean），也可能是远程服务
+        // referenceBeanName
         String beanName = getReferenceBeanName(attributes, interfaceClass);
 
         if (localServiceBean) {  // If @Service bean is local one
@@ -200,6 +211,9 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
         } else { // Remote @Service Bean
             //如果是远程引用，那就直接将这个referenceBean（里面包含了远程服务代理）注册到spring中
             if (!beanFactory.containsBean(beanName)) {
+                // 这里要求 referenceBean 必须已经是初始化好的，spring 在这个方法中不会管初始化，因为BeanDefinition已经停止修改了
+                // 不会调用 InitializingBean's afterPropertiesSet 方法，需要自己手动调用
+                // see : org.apache.dubbo.config.spring.beans.factory.annotation.ReferenceBeanBuilder.postConfigureBean
                 beanFactory.registerSingleton(beanName, referenceBean);
             }
         }
@@ -293,14 +307,20 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
     private Object getOrCreateProxy(String referencedBeanName, ReferenceBean referenceBean, boolean localServiceBean,
                                     Class<?> serviceInterfaceType) {
         if (localServiceBean) { // If the local @Service Bean exists, build a proxy of Service
-            //调用本地暴露的服务时  直接反射调用service类的实现 serviceImpl(代理里直接调用实现类的方法 不走那些invoker链)
+            // 调用本地暴露的服务时  直接反射调用service类的实现 serviceImpl(代理里直接调用实现类的方法 不走那些invoker链)
+            // 该 Proxy 实现 serviceInterfaceType 接口，并将接口中的所有方法代理给 ReferencedBeanInvocationHandler（反射调用 demeServiceImpl 中方法）
             return newProxyInstance(getClassLoader(), new Class[]{serviceInterfaceType},
                     newReferencedBeanInvocationHandler(referencedBeanName));
         } else {
-            //暴露协议为inJvm的的时候需要立马暴露，调用服务虽然也是本地，但是需要走filter链
-            //https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-call/#%E9%85%8D%E7%BD%AE
+            // 暴露协议为inJvm的的时候需要立马暴露，调用服务虽然也是本地，但是需要走filter链
+            // 1. ServiceBean 在本地并且 @DubboReference(injvm = false),那么就会调用 ServiceBean 的 exporter 走 filter链
+            // https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-call/#%E9%85%8D%E7%BD%AE
+            // 如果存在本地 ServiceBean 就立马将它暴露，如果不在这里暴露，那么后面创建 reference 代理的时候就会报错
+            // no provider avliable
             exportServiceBeanIfNecessary(referencedBeanName); // If the referenced ServiceBean exits, export it immediately
-            //创建远程服务代理
+            // 2. 其他正常的远程调用
+            // 同一个 referenceBean 调用两次是否会产生两个代理 ？
+            // see : org.apache.dubbo.demo.consumer.comp.DemoServiceComponent
             return referenceBean.get();
         }
     }

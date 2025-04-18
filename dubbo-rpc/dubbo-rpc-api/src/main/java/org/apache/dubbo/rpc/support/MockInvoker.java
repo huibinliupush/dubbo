@@ -130,6 +130,8 @@ final public class MockInvoker<T> implements Invoker<T> {
             }
         } else { //impl mock
             try {
+                // 本地实现的 mock 类，在 mock  参数中直接指定类名
+                // see : https://cn.dubbo.apache.org/zh-cn/overview/mannual/java-sdk/tasks/framework/more/local-mock/
                 Invoker<T> invoker = getInvoker(mock);
                 return invoker.invoke(invocation);
             } catch (Throwable t) {
@@ -167,7 +169,9 @@ final public class MockInvoker<T> implements Invoker<T> {
         }
 
         Class<T> serviceType = (Class<T>) ReflectUtils.forName(url.getServiceInterface());
+        // 创建 mock 类的实例
         T mockObject = (T) getMockObject(mockService, serviceType);
+        // 将 mock 类的实例转换为代理，逻辑同 serviceImpl 转换为 abstractProxyInvoker
         invoker = PROXY_FACTORY.getInvoker(mockObject, serviceType, url);
         if (MOCK_MAP.size() < 10000) {
             MOCK_MAP.put(mockService, invoker);

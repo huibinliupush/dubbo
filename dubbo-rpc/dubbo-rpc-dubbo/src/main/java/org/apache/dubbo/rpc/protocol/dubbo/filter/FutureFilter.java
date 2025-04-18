@@ -85,6 +85,7 @@ public class FutureFilter implements Filter, Filter.Listener {
 
         Object[] params = invocation.getArguments();
         try {
+            // onInvoke 事件方法参数：对应 method 的请求参数
             onInvokeMethod.invoke(onInvokeInst, params);
         } catch (InvocationTargetException e) {
             fireThrowCallback(invoker, invocation, e.getTargetException());
@@ -117,6 +118,7 @@ public class FutureFilter implements Filter, Filter.Listener {
         Object[] args = invocation.getArguments();
         Object[] params;
         Class<?>[] rParaTypes = onReturnMethod.getParameterTypes();
+        // onReturn 事件方法参数：对应 method 的返回值，请求参数
         if (rParaTypes.length > 1) {
             if (rParaTypes.length == 2 && rParaTypes[1].isAssignableFrom(Object[].class)) {
                 params = new Object[2];
@@ -163,7 +165,7 @@ public class FutureFilter implements Filter, Filter.Listener {
             try {
                 Object[] args = invocation.getArguments();
                 Object[] params;
-
+                // onThrow 事件方法参数：exception，对应 method 的请求参数
                 if (rParaTypes.length > 1) {
                     if (rParaTypes.length == 2 && rParaTypes[1].isAssignableFrom(Object[].class)) {
                         params = new Object[2];

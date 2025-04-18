@@ -123,6 +123,7 @@ public abstract class AbstractConfigurator implements Configurator {
                 String currentApplication = url.getParameter(APPLICATION_KEY, url.getUsername());
                 if (configApplication == null || ANY_VALUE.equals(configApplication)
                         || configApplication.equals(currentApplication)) {
+                    // conditionKeys 不能覆盖，需要原样保留
                     Set<String> conditionKeys = new HashSet<String>();
                     conditionKeys.add(CATEGORY_KEY);
                     conditionKeys.add(Constants.CHECK_KEY);
@@ -146,6 +147,7 @@ public abstract class AbstractConfigurator implements Configurator {
                             }
                         }
                     }
+                    // conditionKeys 中的参数不能覆盖，需要从 configuratorUrl 中删除
                     return doConfigure(url, configuratorUrl.removeParameters(conditionKeys));
                 }
             }

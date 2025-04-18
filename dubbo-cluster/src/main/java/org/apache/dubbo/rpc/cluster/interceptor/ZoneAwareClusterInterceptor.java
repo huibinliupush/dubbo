@@ -31,6 +31,8 @@ import static org.apache.dubbo.common.constants.RegistryConstants.REGISTRY_ZONE_
  * Determines the zone information of current request.
  *
  * active only when url has key 'cluster=zone-aware'
+ *
+ * // 加载于普通 ZoneAwareCluster 前面
  */
 @Activate(value = "cluster:zone-aware")
 public class ZoneAwareClusterInterceptor implements ClusterInterceptor {
@@ -42,6 +44,7 @@ public class ZoneAwareClusterInterceptor implements ClusterInterceptor {
         String force = (String) rpcContext.getAttachment(REGISTRY_ZONE_FORCE);
         ExtensionLoader<ZoneDetector> loader = ExtensionLoader.getExtensionLoader(ZoneDetector.class);
         if (StringUtils.isEmpty(zone) && loader.hasExtension("default")) {
+            // 可以通过获取环境变量来得知 CurrentRequest 到底属于哪个 zone
             ZoneDetector detector = loader.getExtension("default");
             zone = detector.getZoneOfCurrentRequest(invocation);
             force = detector.isZoneForcingEnabled(invocation, zone);

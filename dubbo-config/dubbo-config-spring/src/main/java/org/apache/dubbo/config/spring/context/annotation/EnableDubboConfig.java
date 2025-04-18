@@ -66,7 +66,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
 @Documented
-@Import(DubboConfigConfigurationRegistrar.class)
+@Import(DubboConfigConfigurationRegistrar.class)// 当 EnableDubboConfig 标注的类被 spring 扫描到注册的时候，就会导入这里的类到 spring 容器中
 public @interface EnableDubboConfig {
 
     /**

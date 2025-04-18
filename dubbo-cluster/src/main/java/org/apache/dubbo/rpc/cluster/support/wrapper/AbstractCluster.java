@@ -32,6 +32,7 @@ import java.util.List;
 
 import static org.apache.dubbo.common.constants.CommonConstants.REFERENCE_INTERCEPTOR_KEY;
 
+// 主要用于 buildClusterInterceptors
 public abstract class AbstractCluster implements Cluster {
 
     private <T> Invoker<T> buildClusterInterceptors(AbstractClusterInvoker<T> clusterInvoker, String key) {
@@ -50,6 +51,12 @@ public abstract class AbstractCluster implements Cluster {
 
     @Override
     public <T> Invoker<T> join(Directory<T> directory) throws RpcException {
+        // doJoin 返回具体的 Cluster 比如 FailoverCluster
+        // 然后构建 ClusterInterceptors 链，最后一层就是 FailoverCluster
+        // 类似于服务发布时构建的 Filter 链
+
+        // ConsumerContextClusterInterceptor
+        // ZoneAwareClusterInterceptor
         return buildClusterInterceptors(doJoin(directory), directory.getUrl().getParameter(REFERENCE_INTERCEPTOR_KEY));
     }
 

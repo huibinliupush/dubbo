@@ -55,7 +55,7 @@ public class ClusterUtils {
 
         if (remoteMap != null && remoteMap.size() > 0) {
             map.putAll(remoteMap);
-
+            // 移除 provider 端特定的参数配置
             // Remove configurations from provider, some items should be affected by provider.
             map.remove(THREAD_NAME_KEY);
             map.remove(DEFAULT_KEY_PREFIX + THREAD_NAME_KEY);

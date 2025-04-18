@@ -21,11 +21,15 @@ package org.apache.dubbo.rpc.cluster.router;
  */
 public abstract class AbstractRouterRule {
     private String rawRule;
+    // 表示是否在每次调用时执行该路由规则。如果设置为 false，
+    // 则会在 Provider 列表变更时预先执行并缓存结果，调用时直接从缓存中获取路由结果。
     private boolean runtime = true;
     private boolean force = false;
     private boolean valid = true;
     private boolean enabled = true;
     private int priority;
+    // 表示该路由规则是否为持久数据，当注册方退出时，路由规则是否依然存在。
+    // 类比注册的 URL , 如果是 false 表示静态数据，注册方退出不会删除
     private boolean dynamic = false;
 
     private String scope;

@@ -23,7 +23,8 @@ import org.apache.dubbo.rpc.cluster.Directory;
 
 /**
  * mock impl
- *
+ * Cluster 扩展点的切面
+ * 类似 protocol 扩展点的切面 listenerWrapper , filterWrapper
  */
 public class MockClusterWrapper implements Cluster {
 
@@ -32,7 +33,7 @@ public class MockClusterWrapper implements Cluster {
     public MockClusterWrapper(Cluster cluster) {
         this.cluster = cluster;
     }
-
+    // 不用构建 ClusterInterceptor
     @Override
     public <T> Invoker<T> join(Directory<T> directory) throws RpcException {
         return new MockClusterInvoker<T>(directory,

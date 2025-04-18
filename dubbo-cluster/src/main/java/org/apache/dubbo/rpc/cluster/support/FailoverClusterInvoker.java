@@ -52,12 +52,16 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    // 这里的 invokers 已经经过路由了
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(Invocation invocation, final List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         List<Invoker<T>> copyInvokers = invokers;
         checkInvokers(copyInvokers, invocation);
         String methodName = RpcUtils.getMethodName(invocation);
+        // consumer 端配置优先, 这里的 consumerUrl 已经在 config 层被 providerURL 覆盖
+        // org.apache.dubbo.common.URL.getMethodParameter(java.lang.String, java.lang.String) 的实现逻辑
+        // 1 : 先从 method 配置中取  2： method 没有配置则从 service 配置中取
         int len = getUrl().getMethodParameter(methodName, RETRIES_KEY, DEFAULT_RETRIES) + 1;
         if (len <= 0) {
             len = 1;
@@ -71,6 +75,8 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
             //NOTE: if `invokers` changed, then `invoked` also lose accuracy.
             if (i > 0) {
                 checkWhetherDestroyed();
+                // 从 Directory 中重新获取 invokers 并再次经过 routerchain
+                // 因为 invokers 可能会发生变化
                 copyInvokers = list(invocation);
                 // check again
                 checkInvokers(copyInvokers, invocation);
@@ -79,6 +85,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
             invoked.add(invoker);
             RpcContext.getContext().setInvokers((List) invoked);
             try {
+                // DubboInvoker（带 Filters）
                 Result result = invoker.invoke(invocation);
                 if (le != null && logger.isWarnEnabled()) {
                     logger.warn("Although retry the method " + methodName

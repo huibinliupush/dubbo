@@ -229,6 +229,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
         try {
             // 注意这个CuratorWatcher 是一次性的，触发后就没了 需要重新注册
             // 因为dubbo在每次变更通知时 都是全量通知，需要重新全量拉取，在重新拉取的过程中在对CuratorWatcher进行注册
+            // 监听哪个 path 在 CuratorWatcherImpl 中已经封装好了 @see org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.createTargetChildListener
             return client.getChildren().usingWatcher(listener).forPath(path);
         } catch (NoNodeException e) {
             return null;
@@ -399,7 +400,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
             if (state == ConnectionState.LOST) {
                 //session 过期
                 logger.warn("Curator zookeeper session " + Long.toHexString(lastSessionId) + " expired.");
-                // 通知dubbo内部 连接状态监听器
+                // 通知dubbo内部 连接状态监听器，实例内部类(private class)可访问其所属的类 this 实例指针
                 CuratorZookeeperClient.this.stateChanged(StateListener.SESSION_LOST);
             } else if (state == ConnectionState.SUSPENDED) {
                 //连接丢失

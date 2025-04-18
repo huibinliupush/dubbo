@@ -35,7 +35,10 @@ import java.util.concurrent.ThreadLocalRandom;
 public class LeastActiveLoadBalance extends AbstractLoadBalance {
 
     public static final String NAME = "leastactive";
-
+    /**
+     *
+     * active 表示当前 provider 正在处理的请求数（发出请求，还未响应）
+     * */
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         // Number of invokers

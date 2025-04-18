@@ -211,7 +211,7 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
     }
 
     public void completeCompoundConfigs() {
-        //根据优先级设置默认的配置
+        //根据优先级设置默认的配置，按照优先级 provider > module > application 来填充 serviceConfig 相关属性
         super.completeCompoundConfigs(provider);
         //如果配置了<dubbo:provider />,则根据provider的配置作为默认配置
         if (provider != null) {

@@ -137,6 +137,8 @@ public class NacosRegistry extends FailbackRegistry {
     public List<URL> lookup(final URL url) {
         final List<URL> urls = new LinkedList<>();
         execute(namingService -> {
+            // 根据订阅 url 获取所有具体的 serviceNames
+            // 相当于在 zookeeper 中获取所有具体的 URL
             Set<String> serviceNames = getServiceNames(url, null);
             for (String serviceName : serviceNames) {
                 List<Instance> instances = namingService.getAllInstances(serviceName,
@@ -149,6 +151,7 @@ public class NacosRegistry extends FailbackRegistry {
 
     @Override
     public void doRegister(URL url) {
+        // CATEGORY:{interface}:[version]:[group]
         final String serviceName = getServiceName(url);
         final Instance instance = createInstance(url);
         /**
@@ -175,6 +178,7 @@ public class NacosRegistry extends FailbackRegistry {
 
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
+        // 通过订阅 URL 获取到 nacos 中所有匹配的 serviceNames（具体）
         Set<String> serviceNames = getServiceNames(url, listener);
 
         //Set corresponding serviceNames for easy search later
@@ -269,6 +273,8 @@ public class NacosRegistry extends FailbackRegistry {
     }
 
     private Set<String> getServiceNames0(URL url) {
+        // category(多个用逗号分隔)：interface:version:group
+        // 相当于是订阅 URL 在 nacos 中的模型就是 serviceName
         NacosServiceName serviceName = createServiceName(url);
 
         final Set<String> serviceNames;
@@ -298,9 +304,9 @@ public class NacosRegistry extends FailbackRegistry {
                     getUrl().getParameter(GROUP_KEY, Constants.DEFAULT_GROUP)).getData()
                     .stream()
                     .map(NacosServiceName::new)
-                    .filter(serviceName::isCompatible)
+                    .filter(serviceName::isCompatible) // 过滤出匹配订阅 URL 的 serviceName
                     .map(NacosServiceName::toString)
-                    .collect(Collectors.toList()));
+                    .collect(Collectors.toList()));// 得到全部都是具体的 URl
 
         });
 

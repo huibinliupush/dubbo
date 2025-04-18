@@ -36,6 +36,11 @@ public class ShortestResponseLoadBalance extends AbstractLoadBalance {
 
     public static final String NAME = "shortestresponse";
 
+    /**
+     * 选取 provider 对应的方法，成功请求的平均响应时间（最小）
+     * 这里还要考虑到 active 当前 provider 正在处理的请求数：succeededAverageElapsed * active
+     * 虽然响应时间少，但是当前处理的请求数多，那么权重就降低
+     * */
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         // Number of invokers
@@ -43,8 +48,10 @@ public class ShortestResponseLoadBalance extends AbstractLoadBalance {
         // Estimated shortest response time of all invokers
         long shortestResponse = Long.MAX_VALUE;
         // The number of invokers having the same estimated shortest response time
+        // 最少 response time 的 invokers 有多个，5ms , 3ms ,3ms ,3ms ,3ms(shortestCount = 4)
         int shortestCount = 0;
         // The index of invokers having the same estimated shortest response time
+        // 拥有最少 response time invokers 的索引
         int[] shortestIndexes = new int[length];
         // the weight of every invokers
         int[] weights = new int[length];
@@ -58,10 +65,14 @@ public class ShortestResponseLoadBalance extends AbstractLoadBalance {
         // Filter out all the shortest response invokers
         for (int i = 0; i < length; i++) {
             Invoker<T> invoker = invokers.get(i);
+            // 获取具体 provider 对应的 method 的 RpcStatus
             RpcStatus rpcStatus = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName());
             // Calculate the estimated response time from the product of active connections and succeeded average elapsed time.
+            // 获取成功请求数的平均耗时
             long succeededAverageElapsed = rpcStatus.getSucceededAverageElapsed();
+            // 当前并发的请求数（当前正在处理的请求数）
             int active = rpcStatus.getActive();
+            // 加上正在处理的请求数影响（虽然响应时间少，但是当前处理的请求数多，那么权重就降低）
             long estimateResponse = succeededAverageElapsed * active;
             int afterWarmup = getWeight(invoker, invocation);
             weights[i] = afterWarmup;
@@ -86,6 +97,7 @@ public class ShortestResponseLoadBalance extends AbstractLoadBalance {
             return invokers.get(shortestIndexes[0]);
         }
         if (!sameWeight && totalWeight > 0) {
+            // 在 shortestIndexes 中进行加权随机
             int offsetWeight = ThreadLocalRandom.current().nextInt(totalWeight);
             for (int i = 0; i < shortestCount; i++) {
                 int shortestIndex = shortestIndexes[i];

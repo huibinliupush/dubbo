@@ -82,7 +82,7 @@ public abstract class AbstractRegistry implements Registry {
     // Local disk cache, where the special key value.registries records the list of registry centers, and the others are the list of notified service providers
     /**
      * properties 是一个 KV 结构，其中 Key 是当前节点URL的serviceKey:{group}/{interfaceName}:{version}，
-     * Value 是对应的订阅category（providers,configurators,routers）分类下的URL列表(用空格分隔)
+     * Value 是对应的订阅category（providers,configurators,routers）分类下的所有URL列表(用空格分隔)
      * 包含了所有 Category（例如，providers、routes、configurators 等） 下的 URL 这些Url用空格分隔。
      * properties 中有一个特殊的 Key 值为 org.apache.dubbo.registry.RegistryService，对应的 Value 是注册中心URL列表(用空格分隔)。
      *
@@ -90,6 +90,8 @@ public abstract class AbstractRegistry implements Registry {
      * 这里需要广义的理解订阅者，只要像注册中心订阅了数据就是订阅者，不止是consumer会订阅provider端URL
      * provider端也会订阅数据  比如 订阅configurators目录下的动态配置数据。provider端也是订阅者 也会有本地文件缓存 存放configurators目录下的动态配置URL
      * consumer端 订阅的数据就比较多 包括providers目录下的服务提供者URL。 routers目录下的路由规则URL 。 configurators目录下的动态配置URL
+     *
+     * properties 保存了注册中心中的所有数据，所有服务，每个服务下的 providers,configurators,routers 分类下的所有 URL
      * */
     private final Properties properties = new Properties();
     // File cache timing writing
@@ -215,6 +217,7 @@ public abstract class AbstractRegistry implements Registry {
                     if (!file.exists()) {
                         file.createNewFile();
                     }
+                    // 这里会创建一个新的 FileOutputStream，所以每次都是用 properties 全量覆盖 cachefile
                     try (FileOutputStream outputFile = new FileOutputStream(file)) {
                         //将properties中的缓存数据 更新到本地缓存文件中
                         properties.store(outputFile, "Dubbo Registry Cache");
@@ -301,6 +304,8 @@ public abstract class AbstractRegistry implements Registry {
             }
         } else {
             final AtomicReference<List<URL>> reference = new AtomicReference<>();
+            // reference::set 的实例方法引用，listener 就是 set 方法，只要参数和返回值一样就可以
+            // 相当于 new 一个 NotifyListener，里边的 notify 方法中调用 reference::set
             NotifyListener listener = reference::set;
             subscribe(url, listener); // Subscribe logic guarantees the first notify to return
             List<URL> urls = reference.get();
@@ -406,6 +411,7 @@ public abstract class AbstractRegistry implements Registry {
         }
         //遍历订阅的URL集合
         for (Map.Entry<URL, Set<NotifyListener>> entry : getSubscribed().entrySet()) {
+            // 订阅的条件 URL
             URL url = entry.getKey();
             //将传入的urls（需要通知的URL内容） 与 已经订阅的Url进行匹配，如果匹配成功说明传入的Url就是我们订阅的url
             //匹配成功的话  说明我们订阅的url内容发生了变化  变化的信息存放在参数urls里。

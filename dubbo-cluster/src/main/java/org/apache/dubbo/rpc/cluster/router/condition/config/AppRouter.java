@@ -20,7 +20,7 @@ import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.constants.CommonConstants;
 
 /**
- * Application level router, "application.condition-router"
+ * Application level router, "consumerApplication.condition-router"
  */
 public class AppRouter extends ListenableRouter {
     public static final String NAME = "APP_ROUTER";

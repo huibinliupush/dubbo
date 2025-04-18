@@ -41,7 +41,10 @@ public class MockInvokersSelector extends AbstractRouter {
     public MockInvokersSelector() {
         this.priority = MOCK_INVOKERS_DEFAULT_PRIORITY;
     }
+    // 如果 consumer service 设置了 INVOCATION_NEED_MOCK 在 invocation Attachments 中
+    // 则返回全部 MockInvokers，否则返回 null
 
+    // 如果没有设置 INVOCATION_NEED_MOCK，NormalInvokers
     @Override
     public <T> List<Invoker<T>> route(final List<Invoker<T>> invokers,
                                       URL url, final Invocation invocation) throws RpcException {
@@ -50,12 +53,16 @@ public class MockInvokersSelector extends AbstractRouter {
         }
 
         if (invocation.getObjectAttachments() == null) {
+            // 返回所有不是 MockInvokers 的 NormalInvokers
             return getNormalInvokers(invokers);
         } else {
+            // 如果 reference 配置了 mock 属性这里会被设置成 true
+            // see : org.apache.dubbo.rpc.cluster.support.wrapper.MockClusterInvoker.selectMockInvoker
             String value = (String) invocation.getObjectAttachments().get(INVOCATION_NEED_MOCK);
             if (value == null) {
                 return getNormalInvokers(invokers);
             } else if (Boolean.TRUE.toString().equalsIgnoreCase(value)) {
+                // 查找是否有 mock 协议实现的 provider, 有就返回，没有返回 null
                 return getMockedInvokers(invokers);
             }
         }
@@ -76,6 +83,7 @@ public class MockInvokersSelector extends AbstractRouter {
     }
 
     private <T> List<Invoker<T>> getNormalInvokers(final List<Invoker<T>> invokers) {
+        // 是否有协议为 Mock 的 invokers
         if (!hasMockProviders(invokers)) {
             return invokers;
         } else {

@@ -99,6 +99,8 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         Object msg = req.getData();
         try {
             CompletionStage<Object> future = handler.reply(channel, msg);
+            // 如果是异步任务，当 dubbo thread 调用这里，任务已经执行完成，那么 whenComplete 继续由 dubbo thread 执行
+            // 如果异步任务还未没有执行，dubbo thread 执行返回，whenComplete 后续由异步线程执行
             future.whenComplete((appResult, t) -> {
                 try {
                     if (t == null) {
@@ -165,6 +167,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
 
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
+        // 转换为 HeaderExchangeChannel
         final ExchangeChannel exchangeChannel = HeaderExchangeChannel.getOrAddChannel(channel);
         if (message instanceof Request) {
             // handle request.

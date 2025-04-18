@@ -46,7 +46,9 @@ public abstract class ListenableRouter extends AbstractRouter implements Configu
     private static final String RULE_SUFFIX = ".condition-router";
 
     private static final Logger logger = LoggerFactory.getLogger(ListenableRouter.class);
+    // 解析出来的 yaml 文件
     private ConditionRouterRule routerRule;
+    // routerRule 转换出来的 ConditionRouter
     private List<ConditionRouter> conditionRouters = Collections.emptyList();
 
     public ListenableRouter(URL url, String ruleKey) {

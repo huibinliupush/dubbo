@@ -50,8 +50,11 @@ public class ZoneAwareClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(ZoneAwareClusterInvoker.class);
 
+    // CLUSTER.join(new StaticDirectory(u, invokers));
+    // invokers 是具体的 clusterInvoker 封装具体注册中心的 provider , routeChain , loanbalance
+    // u 为 registerUrl
     public ZoneAwareClusterInvoker(Directory<T> directory) {
-        super(directory);
+        super(directory);// StaticDirectory
     }
 
     @Override
@@ -60,7 +63,10 @@ public class ZoneAwareClusterInvoker<T> extends AbstractClusterInvoker<T> {
         // First, pick the invoker (XXXClusterInvoker) that comes from the local registry, distinguish by a 'preferred' key.
         for (Invoker<T> invoker : invokers) {
             // FIXME, the invoker is a cluster invoker representing one Registry, so it will automatically wrapped by MockClusterInvoker.
+            // 普通的 ClusterInvoker 会被 MockClusterInvoker 进行包装
+            // see： MockClusterWrapper
             MockClusterInvoker<T> mockClusterInvoker = (MockClusterInvoker<T>) invoker;
+            // 优先使用 <registry > 配置中配置了 preferred=true 的注册中心
             if (mockClusterInvoker.isAvailable() && mockClusterInvoker.getRegistryUrl()
                     .getParameter(REGISTRY_KEY + "." + PREFERRED_KEY, false)) {
                 return mockClusterInvoker.invoke(invocation);
@@ -70,12 +76,15 @@ public class ZoneAwareClusterInvoker<T> extends AbstractClusterInvoker<T> {
         // providers in the registry with the same zone
         String zone = (String) invocation.getAttachment(REGISTRY_ZONE);
         if (StringUtils.isNotEmpty(zone)) {
+            // 选择与 invocation 中的 registry_zone 配置与注册中心 <registry > 相同的 zone 配置
             for (Invoker<T> invoker : invokers) {
                 MockClusterInvoker<T> mockClusterInvoker = (MockClusterInvoker<T>) invoker;
                 if (mockClusterInvoker.isAvailable() && zone.equals(mockClusterInvoker.getRegistryUrl().getParameter(REGISTRY_KEY + "." + ZONE_KEY))) {
                     return mockClusterInvoker.invoke(invocation);
                 }
             }
+            // 如果请求的 zone 在多个注册中心中都没有配置（不同的 zone）
+            // 如果设置了强制 REGISTRY_ZONE_FORCE 按照 zone 来选取那么就报错
             String force = (String) invocation.getAttachment(REGISTRY_ZONE_FORCE);
             if (StringUtils.isNotEmpty(force) && "true".equalsIgnoreCase(force)) {
                 throw new IllegalStateException("No registry instance in zone or no available providers in the registry, zone: "
@@ -86,12 +95,14 @@ public class ZoneAwareClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
 
         // load balance among all registries, with registry weight count in.
+        // 按照 <registry > 的权重 weight 来选取具体的 registry
         Invoker<T> balancedInvoker = select(loadbalance, invocation, invokers, null);
         if (balancedInvoker.isAvailable()) {
             return balancedInvoker.invoke(invocation);
         }
 
         // If none of the invokers has a preferred signal or is picked by the loadbalancer, pick the first one available.
+        // 选取第一个可用的
         for (Invoker<T> invoker : invokers) {
             MockClusterInvoker<T> mockClusterInvoker = (MockClusterInvoker<T>) invoker;
             if (mockClusterInvoker.isAvailable()) {

@@ -25,7 +25,7 @@ public class AsyncContextImpl implements AsyncContext {
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
     private CompletableFuture<Object> future;
-
+    // 当前线程上下文
     private RpcContext storedContext;
     private RpcContext storedServerContext;
 
@@ -41,6 +41,7 @@ public class AsyncContextImpl implements AsyncContext {
                 Throwable bizExe = (Throwable) value;
                 future.completeExceptionally(bizExe);
             } else {
+                // 该 future 已经通过 org.apache.dubbo.rpc.RpcContext.startAsync 方法传递给 dubbo 线程
                 future.complete(value);
             }
         } else {
@@ -67,6 +68,7 @@ public class AsyncContextImpl implements AsyncContext {
 
     @Override
     public void signalContextSwitch() {
+        // 这里已经进入异步线程，将 dubbo 线程的上下文复制到异步线程中
         RpcContext.restoreContext(storedContext);
         RpcContext.restoreServerContext(storedServerContext);
         // Restore any other contexts in here if necessary.

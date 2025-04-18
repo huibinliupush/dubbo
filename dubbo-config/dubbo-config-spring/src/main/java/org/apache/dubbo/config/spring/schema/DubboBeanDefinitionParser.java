@@ -159,6 +159,9 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                 //设置classDefinition属性 这里需要注意的是<dubbo:service>中的<property>标签设置的是class类的属性并不是ServceBean的属性
                 parseProperties(element.getChildNodes(), classDefinition, parserContext);
                 //自动配置<dubbo:service>标签的ref属性，并添加到标签对应的dubbo config beanDefinition中
+
+                // 如果此时 ref 相关 BeanDefinition 已经注册，那么这里就添加 RuntimeBeanReference
+                // 如果此时 ref 相关 BeanDefinition 还没有注册，那么这里就添加 BeanDefinitionHolder
                 beanDefinition.getPropertyValues().addPropertyValue("ref", new BeanDefinitionHolder(classDefinition, id + "Impl"));
             }
         }  else if (ProviderConfig.class.equals(beanClass)) {

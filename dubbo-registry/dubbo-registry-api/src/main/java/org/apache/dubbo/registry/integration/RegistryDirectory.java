@@ -103,6 +103,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private final String serviceKey; // Initialization at construction time, assertion not null
     private final Class<T> serviceType; // Initialization at construction time, assertion not null
     private final Map<String, String> queryMap; // Initialization at construction time, assertion not null
+    // 只保留 Consumer 属性的 registerURL(其他 registry 属性全部删除)，也就是由 queryMap 集合重新生成的 URL。
     private final URL directoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
     private final boolean multiGroup;
     private Protocol protocol; // Initialization at the time of injection, the assertion is not null
@@ -110,7 +111,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private volatile boolean forbidden = false;
     private boolean shouldRegister;
     private boolean shouldSimplified;
-
+    // 初始情况下和 directoryUrl 一样，后续再 notify 中会被重新覆盖（根据动态配置的变化重新覆盖 overrideDirectoryUrl）
     private volatile URL overrideDirectoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
 
     private volatile URL registeredConsumerUrl;
@@ -128,13 +129,16 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private volatile List<Invoker<T>> invokers;
 
     // Set<invokerUrls> cache invokeUrls to invokers mapping.
+    // 缓存订阅的 providerUrl
     private volatile Set<URL> cachedInvokerUrls; // The initial value is null and the midway may be assigned to null, please use the local variable reference
-
+    // 对比于发布过程中的 providerConfigurationListener
     private static final ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER = new ConsumerConfigurationListener();
+    // 对比于发布过程中的 serviceConfigurationListener
     private ReferenceConfigurationListener serviceConfigurationListener;
 
 
     public RegistryDirectory(Class<T> serviceType, URL url) {
+        // registryUrl
         super(url);
         if (serviceType == null) {
             throw new IllegalArgumentException("service type is null.");
@@ -232,14 +236,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 .filter(this::isValidCategory)
                 .filter(this::isNotCompatibleFor26x)
                 .collect(Collectors.groupingBy(this::judgeCategory));
-
+        // configuratorURLs 到 configurators 的转换，全量覆盖
         List<URL> configuratorURLs = categoryUrls.getOrDefault(CONFIGURATORS_CATEGORY, Collections.emptyList());
         this.configurators = Configurator.toConfigurators(configuratorURLs).orElse(this.configurators);
-
+        // routerURLs 到 Routers 的转换，全量覆盖，并将这些  routers 添加到 routerChain 中
         List<URL> routerURLs = categoryUrls.getOrDefault(ROUTERS_CATEGORY, Collections.emptyList());
         toRouters(routerURLs).ifPresent(this::addRouters);
 
-        // providers
+        // providerURLs 转换为 dubboInvokers，并回调 AddressListener
         List<URL> providerURLs = categoryUrls.getOrDefault(PROVIDERS_CATEGORY, Collections.emptyList());
         /**
          * 3.x added for extend URL address
@@ -329,6 +333,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             // pre-route and build cache, notice that route cache should build on original Invoker list.
             // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not should be routed.
             routerChain.setInvokers(newInvokers);
+            // 同一分组下的 Invokers 包装成一个 AbstractClusterInvoker
+            // 多个分组就会有多个 AbstractClusterInvoker 保存在这里的 invokers
             this.invokers = multiGroup ? toMergeInvokerList(newInvokers) : newInvokers;
             this.urlInvokerMap = newUrlInvokerMap;
 
@@ -355,6 +361,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             for (List<Invoker<T>> groupList : groupMap.values()) {
                 StaticDirectory<T> staticDirectory = new StaticDirectory<>(groupList);
                 staticDirectory.buildRouterChain();
+                // 同一分组下的 Invokers 包装成一个 AbstractClusterInvoker
                 mergedInvokers.add(CLUSTER.join(staticDirectory));
             }
         } else {
@@ -433,6 +440,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         ExtensionLoader.getExtensionLoader(Protocol.class).getSupportedExtensions()));
                 continue;
             }
+            // override > -D >Consumer > Provider
+            // 这里对 reference 的 url 进行覆盖，如果 consumer 端没有配置，那么就采用 provider 端的配置
             URL url = mergeUrl(providerUrl);
 
             String key = url.toFullString(); // The parameter urls are sorted
@@ -475,13 +484,16 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      * @return
      */
     private URL mergeUrl(URL providerUrl) {
+        // 用 consumer 端的配置先覆盖 providerUrl
         providerUrl = ClusterUtils.mergeUrl(providerUrl, queryMap); // Merge the consumer side parameters
-
+        // 用动态配置覆盖 providerUrl
+        // configurators , CONSUMER_CONFIGURATION_LISTENER , serviceConfigurationListener
         providerUrl = overrideWithConfigurator(providerUrl);
 
         providerUrl = providerUrl.addParameter(Constants.CHECK_KEY, String.valueOf(false)); // Do not check whether the connection is successful or not, always create Invoker!
 
         // The combination of directoryUrl and override is at the end of notify, which can't be handled here
+        // 用新生成的 providerUrl 重新覆盖一遍 overrideDirectoryUrl
         this.overrideDirectoryUrl = this.overrideDirectoryUrl.addParametersIfAbsent(providerUrl.getParameters()); // Merge the provider side parameters
 
         if ((providerUrl.getPath() == null || providerUrl.getPath()
@@ -691,7 +703,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private boolean isNotCompatibleFor26x(URL url) {
         return StringUtils.isEmpty(url.getParameter(COMPATIBLE_CONFIG_KEY));
     }
-
+    // 根据动态配置重新覆盖 overrideDirectoryUrl
     private void overrideDirectoryUrl() {
         // merge override parameters
         this.overrideDirectoryUrl = directoryUrl;

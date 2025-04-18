@@ -191,11 +191,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             bootstrap = DubboBootstrap.getInstance();
             bootstrap.init();
         }
-        //设置默认配置，并根据配置的优先级顺序依次覆盖得到最终配置
-        //校验ServiceConfig各种配置的有效性
-        //之前加载XML或者注解配置的时候，只是单纯装载我们配置了的属性，没有配置的属性不管
-        //在这里就是对没有只配置的属性 做 缺省配置填充
-        checkAndUpdateSubConfigs();
+
+        // 1. 填充 service 中没有配置的属性，默认填充方式： provider > module > application
+        // 2. 按照配置源的优先级重新设置 ServiceConfig 的属性,得到最终的 ServiceConfig 配置
+        // 配置优先级：-D 系统变量 > 环境变量 > 外部化配置 > XML，注解，API设置的配置 > 本地配置文件 dubbo.properties
+        checkAndUpdateSubConfigs(); // 按照配置源优先级，最终确定 serverConfig 的配置，以及校验相关配置的合法性（格式，扩展点）
 
         //init serviceMetadata
         //设置服务元信息，后续会在dubbo自省架构中详细论述
@@ -223,7 +223,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     }
 
     /**
-     * 设置默认配置，并根据配置的优先级顺序依次覆盖得到最终配置
+     * 设置默认配置，并根据配置源的优先级顺序依次覆盖得到最终配置
      * 配置优先级：-D 系统变量 > 环境变量 > 外部化配置 > XML，注解，API设置的配置 > 本地配置文件 dubbo.properties
      * */
     private void checkAndUpdateSubConfigs() {
@@ -233,7 +233,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         completeCompoundConfigs();
         //设置默认provider配置
         checkDefault();
-        //设置protocolConfig（按照配置源的优先级加载）
+        //设置protocolConfig（按照配置源的优先级加载），refresh Protocol config
         checkProtocol();
         // init some null configuration.
         // 回调配置处理前置处理器
@@ -247,9 +247,18 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         if (!isOnlyInJvm()) {
             //检查<dubbo:service />中的registry（值为注册中心<dubbo:registry />中的id或者name
             //将配置的中的registryIds转换成为RegistryConfig
+            // refresh Registry config
             checkRegistry();
         }
-        //根据属性配置优先级，重新按照优先级获取属性配置，设置ServiceBean的属性
+
+        /**
+         *
+         * 到现在，serviceConfig 中的全部属性就按照 service > provider > module > application 的优先级填充好了
+         * service 中没有配置的属性，默认填充方式： provider > module > application
+         * 以上就是 serviceConfig 本地配置的终级版，下面就是按照配置源的优先级重新设置 ServiceConfig 的属性
+         * 配置优先级：-D 系统变量 > 环境变量 > 外部化配置 > XML，注解，API设置的配置 > 本地配置文件 dubbo.properties
+         * */
+        //根据属性配置源优先级，重新按照优先级获取属性配置，设置ServiceBean的属性 , refresh 其他基本属性
         this.refresh();
 
         if (StringUtils.isEmpty(interfaceName)) {
@@ -272,6 +281,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 throw new IllegalStateException(e.getMessage(), e);
             }
             //检查如果dubbo配置了Method相关：<dubbo:method />，检查method配置的合理性
+            // refresh MethodConfig
             checkInterfaceAndMethods(interfaceClass, getMethods());
             //检查ref是否实现了interfaceClass接口
             checkRef();
@@ -318,6 +328,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //检查Mock配置的有效性
         ConfigValidationUtils.checkMock(interfaceClass, this);
         //检查ServiceConfig 也就是<dubbo:service />中相关配置的有效性
+        // 检查所有配置的相关扩展点是否已经加载
         ConfigValidationUtils.validateServiceConfig(this);
         //回调配置后置处理器（用户可通过SPI自定义扩展 配置后置处理器）
         postProcessConfig();
@@ -356,6 +367,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
         //加载注册中心URLs(将RegistryConfig转换为URL)，dubbo支持多注册中心,一个服务接口可以同时注册到多个不同的注册中心。
         //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&metadata-type=remote&pid=2044&qos.port=22222&registry=zookeeper&timestamp=1615790840656
+        // registryURL 包含 applicationConfig , registryConfig, 以及 RuntimeParameters 等参数
         List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
 
         //dubbo支持多协议暴露，同一个服务接口可以暴露多种协议，这里根据配置的服务协议依次暴露服务
@@ -376,6 +388,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         }
     }
 
+    // 按照配置项的优先级生成服务 url
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
         String name = protocolConfig.getName();
         //默认协议为dubbo
@@ -398,6 +411,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //设置<dubbo:service />相关配置
         AbstractConfig.appendParameters(map, this);
         MetadataReportConfig metadataReportConfig = getMetadataReportConfig();
+        // 如果配置了元数据中心，则元数据远程上报，否则本地上报
         if (metadataReportConfig != null && metadataReportConfig.isValid()) {
             //添加元数据Report类型metadata-type（服务元数据上报相关）
             map.putIfAbsent(METADATA_KEY, REMOTE_METADATA_STORAGE_TYPE);
@@ -491,7 +505,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             if (revision != null && revision.length() > 0) {
                 map.put(REVISION_KEY, revision);
             }
-            //获取暴露接口的方法名称集合
+            //获取暴露接口的方法名称集合（支持方法继承）
             String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();
             if (methods.length == 0) {
                 logger.warn("No method found in service interface " + interfaceClass.getName());
@@ -528,8 +542,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         Integer port = findConfigedPorts(protocolConfig, name, map);
         //<dubbo:protocol id="dubbo" contextpath="servicePathPrefix" name="dubbo" port="20880" />
         //<dubbo:service interface="org.apache.dubbo.demo.DemoService" path="servicePath"  ref="demoService"/>
-        //url格式： 协议://host:port/contextpatcj/path/interfaceClass?服务参数=参数值&......
-        //
+        //url格式： 协议://host:port/contextpatcj/path?服务参数=参数值&......
+        // path 用来指定 URL 的 path , 默认为 interfaceName
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
         //dubbo://10.52.38.28:20880/servicePathPrefix/org.apache.dubbo.demo.provider.api.CallbackService?addListener.1.callback=true&anyhost=true&application=demo-provider&bind.ip=10.52.38.28&bind.port=20880&callbacks=1000&connections=1&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.provider.api.CallbackService&metadata-type=remote&methods=addListener&pid=5148&qos.port=22222&release=&side=provider&timestamp=1615865248401
         // You can customize Configurator to append extra parameters
@@ -542,6 +556,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
         String scope = url.getParameter(SCOPE_KEY);
         /**
+         * 远程发布暴露 port （注册或者不注册）, （本地发布不会暴露 port ,consumer不可直连）
          * <dubbo:service scope="..." />
          * scope可选值：local remote none 默认为Null
          * null：既要远程发布（注册到注册中心）也要本地发布（不注册服务，consumer不可直连，本地调用也需要走invoker链）
@@ -596,6 +611,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         //通过prroxyFactory创建invoker，服务发布proxy层入口
                         //为服务实现类的对象ref创建相应的Invoker
                         //将服务URL添加到RegistryUrl中的export参数中（用于后续在regitry层进行服务发布）
+
+                        /**
+                         * 注意这里：如果一个服务需要注册到多个注册中心，也就是说有多个 registryURLs 的情况下
+                         * invoker 也会是多个，一个 invoker 对应一个 registryURL
+                         * 但其背后的代理 Wrapper 都是同一个。
+                         *
+                         * */
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         //包装关联invoker和serviceConfig
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
@@ -612,6 +634,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                     if (logger.isInfoEnabled()) {
                         logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                     }
+                    // 只发布不注册的话，这里的 url 是 service 的。dubbo://hot:port/interfacename?参数=值
+                    // 远程发布的话，这里的 url 是 registry 的。registry://hot:port/interfacename?参数=值
                     Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, url);
                     DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
                     //通过PROTOCOL接口适配器加载DubboProtocol直接发布dubbo服务

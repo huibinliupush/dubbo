@@ -69,6 +69,7 @@ public class ConditionRouter extends AbstractRouter {
     }
 
     public ConditionRouter(URL url) {
+        // RouteUrl
         this.url = url;
         this.priority = url.getParameter(PRIORITY_KEY, 0);
         this.force = url.getParameter(FORCE_KEY, false);
@@ -111,20 +112,26 @@ public class ConditionRouter extends AbstractRouter {
             String content = matcher.group(2);
             // Start part of the condition expression.
             if (StringUtils.isEmpty(separator)) {
+                // 遇到新的 key(content) 为该 key 创建 MatchPair
                 pair = new MatchPair();
                 condition.put(content, pair);
             }
             // The KV part of the condition expression
             else if ("&".equals(separator)) {
+                // 又遇到一个 key(content)
                 if (condition.get(content) == null) {
+                    // 该 key 是一个新 key, 为新 key 创建 MatchPair
                     pair = new MatchPair();
                     condition.put(content, pair);
                 } else {
+                    // 该 key 是一个旧 key，缓存旧 key 对应的 MatchPair
+                    // 因为后面紧接着就要解析到新的值，放入 MatchPair 中
                     pair = condition.get(content);
                 }
             }
             // The Value in the KV part.
             else if ("=".equals(separator)) {
+                // 遇到值，就 value 放入 key 对应的 MatchPair 中（之前已经被缓存在变量 pair 中）
                 if (pair == null) {
                     throw new ParseException("Illegal route rule \""
                             + rule + "\", The error char '" + separator
@@ -137,6 +144,7 @@ public class ConditionRouter extends AbstractRouter {
             }
             // The Value in the KV part.
             else if ("!=".equals(separator)) {
+                // 遇到值，就 value 放入 key 对应的 MatchPair 中（之前已经被缓存在变量 pair 中）
                 if (pair == null) {
                     throw new ParseException("Illegal route rule \""
                             + rule + "\", The error char '" + separator
@@ -149,6 +157,7 @@ public class ConditionRouter extends AbstractRouter {
             }
             // The Value in the KV part, if Value have more than one items.
             else if (",".equals(separator)) { // Should be separated by ','
+                // 遇到多个值，就 value 放入 key 对应的 MatchPair 中（之前已经被缓存在变量 pair 中）
                 if (values == null || values.isEmpty()) {
                     throw new ParseException("Illegal route rule \""
                             + rule + "\", The error char '" + separator
@@ -176,7 +185,10 @@ public class ConditionRouter extends AbstractRouter {
             return invokers;
         }
         try {
+            // 针对 consumerUrl 的过滤
+            // 不支持 $ 引用
             if (!matchWhen(url, invocation)) {
+                // consumer 不适用路由规则，返回全部 provider
                 return invokers;
             }
             List<Invoker<T>> result = new ArrayList<Invoker<T>>();
@@ -185,6 +197,7 @@ public class ConditionRouter extends AbstractRouter {
                 return result;
             }
             for (Invoker<T> invoker : invokers) {
+                // 针对 providerUrl 的过滤
                 if (matchThen(invoker.getUrl(), url)) {
                     result.add(invoker);
                 }
@@ -213,6 +226,7 @@ public class ConditionRouter extends AbstractRouter {
         return url;
     }
 
+    // url 为 consumerUrl
     boolean matchWhen(URL url, Invocation invocation) {
         return CollectionUtils.isEmptyMap(whenCondition) || matchCondition(whenCondition, url, null, invocation);
     }
@@ -221,6 +235,8 @@ public class ConditionRouter extends AbstractRouter {
         return CollectionUtils.isNotEmptyMap(thenCondition) && matchCondition(thenCondition, url, param, null);
     }
 
+    // url 为 providerUrl
+    // param 为 consumerUrl 中的参数
     private boolean matchCondition(Map<String, MatchPair> condition, URL url, URL param, Invocation invocation) {
         Map<String, String> sample = url.toMap();
         boolean result = false;
@@ -235,6 +251,7 @@ public class ConditionRouter extends AbstractRouter {
             } else if (HOST_KEY.equals(key)) {
                 sampleValue = url.getHost();
             } else {
+                // url 参数
                 sampleValue = sample.get(key);
                 if (sampleValue == null) {
                     sampleValue = sample.get(key);

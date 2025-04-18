@@ -543,7 +543,7 @@ class URL implements Serializable {
      * 获取注册中心配置的所有地址，分别生成对应address的RegistryUrl
      * <dubbo:registry address="zookeeper://10.20.153.10:2181?backup=10.20.153.11:2181,10.20.153.12:2181" />
      * <dubbo:registry protocol="zookeeper" address="10.20.153.10:2181,10.20.153.11:2181,10.20.153.12:2181" />
-     *
+     *  为每个地址生成一个 URL
      * */
     public List<URL> getBackupUrls() {
         List<URL> urls = new ArrayList<>();

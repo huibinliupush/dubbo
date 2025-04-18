@@ -50,12 +50,14 @@ public class FileRouterFactory implements RouterFactory {
             String protocol = url.getParameter(ROUTER_KEY, ScriptRouterFactory.NAME); // Replace original protocol (maybe 'file') with 'script'
             String type = null; // Use file suffix to config script type, e.g., js, groovy ...
             String path = url.getPath();
+            // 获取脚本文件的后缀
             if (path != null) {
                 int i = path.lastIndexOf('.');
                 if (i > 0) {
                     type = path.substring(i + 1);
                 }
             }
+            // 从文件中读取路由脚本
             String rule = IOUtils.read(new FileReader(new File(url.getAbsolutePath())));
 
             // FIXME: this code looks useless

@@ -46,7 +46,7 @@ public class NettyServerHandler extends ChannelDuplexHandler {
     private final Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
 
     private final URL url;
-
+    // NettyServer
     private final ChannelHandler handler;
 
     public NettyServerHandler(URL url, ChannelHandler handler) {

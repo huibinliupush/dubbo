@@ -24,7 +24,7 @@
     <dubbo:application metadata-type="remote" name="demo-provider"/>
     <dubbo:metadata-report address="zookeeper://127.0.0.1:2181"/>
     <!--<dubbo:monitor protocol="registry" interval="100"/>-->
-    <dubbo:registry id ="zookeeper" address="zookeeper://127.0.0.1:2181" simplified="true" extra-keys="interface,key1,key2"/>
+    <dubbo:registry id ="zookeeper" address="zookeeper://127.0.0.1:2181" simplified="true" extra-keys="interface,key1,key2" />
     <dubbo:protocol id="dubbo" contextpath="servicePathPrefix" name="dubbo" port="20880" />
     <bean id="demoService" class="org.apache.dubbo.demo.provider.DemoServiceImpl"/>
     <bean id="callbackService" class="org.apache.dubbo.demo.provider.impl.CallbackServiceImpl"/>

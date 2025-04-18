@@ -401,7 +401,7 @@ public class HashedWheelTimer implements Timer {
                     //此处 等待worker线程 清理动作执行完毕
                     workerThread.join(100);
                 } catch (InterruptedException ignored) {
-                    //workerThread被其他线程中断
+                    //当前线程被其他线程中断
                     interrupted = true;
                 }
             }

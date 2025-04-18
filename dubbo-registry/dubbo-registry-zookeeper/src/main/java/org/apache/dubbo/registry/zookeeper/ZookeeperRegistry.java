@@ -66,6 +66,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
     private final static String DEFAULT_ROOT = "dubbo";
 
     //zookeeper中的根目录 默认:/dubbo  通过不同的根目录实现服务分组 环境隔离
+    // 通过 <dubbo:registry group = '...'> 指定
     private final String root;
     //用于全量订阅场景，缓存订阅过的所有service
     private final Set<String> anyServices = new ConcurrentHashSet<>();

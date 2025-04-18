@@ -772,7 +772,9 @@ public class RpcContext {
         if (currentContext.asyncContext == null) {
             currentContext.asyncContext = new AsyncContextImpl();
         }
+        // 在 asyncContext 设置 future
         currentContext.asyncContext.start();
+        // 返回给 dubbo 线程
         return currentContext.asyncContext;
     }
 

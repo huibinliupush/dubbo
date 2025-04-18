@@ -43,6 +43,8 @@ import java.lang.annotation.Target;
 public @interface DubboComponentScan {
 
     /**
+     * 如果路径配置为空，那么 dubbo 就会选用被该注解标注的类所在的 PackageName 以及子路径
+     *
      * Alias for the {@link #basePackages()} attribute. Allows for more concise annotation
      * declarations e.g.: {@code @DubboComponentScan("org.my.pkg")} instead of
      * {@code @DubboComponentScan(basePackages="org.my.pkg")}.

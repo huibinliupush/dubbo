@@ -79,7 +79,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         String value = getUrl().getMethodParameter(invocation.getMethodName(), MOCK_KEY, Boolean.FALSE.toString()).trim();
         if (value.length() == 0 || "false".equalsIgnoreCase(value)) {
             //no mock
-            result = this.invoker.invoke(invocation);
+            result = this.invoker.invoke(invocation); // clusterInvoker
         } else if (value.startsWith("force")) {
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + getUrl());
@@ -119,11 +119,15 @@ public class MockClusterInvoker<T> implements Invoker<T> {
     private Result doMockInvoke(Invocation invocation, RpcException e) {
         Result result = null;
         Invoker<T> minvoker;
-
+        // 如果没有 provider 启动这里会返回 null
+        // 获取远程 mock 协议的 invoker
         List<Invoker<T>> mockInvokers = selectMockInvoker(invocation);
+        // 远程 mock provider 优先于本地 mockInvoker
         if (CollectionUtils.isEmpty(mockInvokers)) {
+            // 本地 mockInvoker
             minvoker = (Invoker<T>) new MockInvoker(getUrl(), directory.getInterface());
         } else {
+            // 获取远程 mock 协议的 invoker
             minvoker = mockInvokers.get(0);
         }
         try {
@@ -165,6 +169,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
             ((RpcInvocation) invocation).setAttachment(INVOCATION_NEED_MOCK, Boolean.TRUE.toString());
             //directory will return a list of normal invokers if Constants.INVOCATION_NEED_MOCK is present in invocation, otherwise, a list of mock invokers will return.
             try {
+                // 通过 mock 路由获取由 mock 协议实现的 provider , 没有返回空
                 invokers = directory.list(invocation);
             } catch (RpcException e) {
                 if (logger.isInfoEnabled()) {

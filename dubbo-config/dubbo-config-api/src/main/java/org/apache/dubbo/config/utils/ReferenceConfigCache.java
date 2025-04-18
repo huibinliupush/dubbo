@@ -70,7 +70,7 @@ public class ReferenceConfigCache {
     private final KeyGenerator generator;
 
     private final ConcurrentMap<String, ReferenceConfigBase<?>> referredReferences = new ConcurrentHashMap<>();
-
+    // interfaceClass -> key:serviceKey value:referenceProxy
     private final ConcurrentMap<Class<?>, ConcurrentMap<String, Object>> proxies = new ConcurrentHashMap<>();
 
     private ReferenceConfigCache(String name, KeyGenerator generator) {
@@ -104,6 +104,7 @@ public class ReferenceConfigCache {
 
     @SuppressWarnings("unchecked")
     public <T> T get(ReferenceConfigBase<T> referenceConfig) {
+        // group1/org.apache.dubbo.foo.FooService:1.0.0
         String key = generator.generateKey(referenceConfig);
         Class<?> type = referenceConfig.getInterfaceClass();
 

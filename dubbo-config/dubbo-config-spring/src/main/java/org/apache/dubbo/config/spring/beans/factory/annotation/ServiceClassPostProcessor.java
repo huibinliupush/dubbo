@@ -180,6 +180,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
 
             // Registers @Service Bean first 将扫描到得指定类的 bean definition注册（@DubboService标注的类）
             // 提升dubbo服务类为spring bean的地方
+            // 这里只扫描 scanner.addIncludeFilter 中指定的 dubbo 注解，不会扫描 spring 注解
             scanner.scan(packageToScan);
 
             // Finds all BeanDefinitionHolders of @Service whether @ComponentScan scans or not.
@@ -273,7 +274,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
         Set<BeanDefinitionHolder> beanDefinitionHolders = new LinkedHashSet<>(beanDefinitions.size());
 
         for (BeanDefinition beanDefinition : beanDefinitions) {
-
+            // class short name : demeServerImpl (首字母小写)
             String beanName = beanNameGenerator.generateBeanName(beanDefinition, registry);
             BeanDefinitionHolder beanDefinitionHolder = new BeanDefinitionHolder(beanDefinition, beanName);
             beanDefinitionHolders.add(beanDefinitionHolder);
@@ -298,7 +299,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
 
         //获取dubbo服务impl类
         Class<?> beanClass = resolveClass(beanDefinitionHolder);
-        //获取service类上标注的注解 @service
+        //获取service类上标注的注解 @service（递归合并该 Annotation 的父类所有属性）
         Annotation service = findServiceAnnotation(beanClass);
 
         /**
@@ -419,13 +420,14 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
         //后续通过MutablePropertyValues 设置serviceBean的 beanDefinition
         MutablePropertyValues propertyValues = beanDefinition.getPropertyValues();
 
-        //在AnnotationPropertyValuesAdapter中忽略下列属性，后续单独设置
+        // 在AnnotationPropertyValuesAdapter中忽略下列属性，后续单独设置
+        // 在获取 propertyValues 的时候忽略注解中的如下属性
         String[] ignoreAttributeNames = of("provider", "monitor", "application", "module", "registry", "protocol",
                 "interface", "interfaceName", "parameters");
         //将@service注解上的属性添加到 beanDefinition中
         propertyValues.addPropertyValues(new AnnotationPropertyValuesAdapter(serviceAnnotation, environment, ignoreAttributeNames));
 
-        //开始单独设置ignoreAttributeNames中的属性
+        //开始单独设置ignoreAttributeNames中的属性（BeanReference）
 
         // References "ref" property to annotated-@Service Bean
         addPropertyReference(builder, "ref", annotatedServiceBeanName);

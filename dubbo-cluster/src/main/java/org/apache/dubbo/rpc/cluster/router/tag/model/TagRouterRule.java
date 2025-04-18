@@ -50,7 +50,7 @@ public class TagRouterRule extends AbstractRouterRule {
         if (!isValid()) {
             return;
         }
-
+        // Addresses 为空的话，则不会建立 tag 映射
         tags.stream().filter(tag -> CollectionUtils.isNotEmpty(tag.getAddresses())).forEach(tag -> {
             tagnameToAddresses.put(tag.getName(), tag.getAddresses());
             tag.getAddresses().forEach(addr -> {

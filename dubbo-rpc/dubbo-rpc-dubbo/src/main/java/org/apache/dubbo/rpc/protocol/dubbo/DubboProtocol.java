@@ -110,7 +110,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         @Override
         public CompletableFuture<Object> reply(ExchangeChannel channel, Object message) throws RemotingException {
-
+            // message 为 request.getData()
             if (!(message instanceof Invocation)) {
                 throw new RemotingException(channel, "Unsupported request: "
                         + (message == null ? null : (message.getClass().getName() + ": " + message))
@@ -118,6 +118,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             Invocation inv = (Invocation) message;
+            // Filter 链 + 代理类
             Invoker<?> invoker = getInvoker(channel, inv);
             // need to consider backward-compatibility if it's a callback
             if (Boolean.TRUE.toString().equals(inv.getObjectAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
@@ -146,7 +147,7 @@ public class DubboProtocol extends AbstractProtocol {
             Result result = invoker.invoke(inv);
             return result.thenApply(Function.identity());
         }
-
+        // OneWay
         @Override
         public void received(Channel channel, Object message) throws RemotingException {
             if (message instanceof Invocation) {
@@ -265,7 +266,7 @@ public class DubboProtocol extends AbstractProtocol {
             throw new RemotingException(channel, "Not found exported service: " + serviceKey + " in " + exporterMap.keySet() + ", may be version or group mismatch " +
                     ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress() + ", message:" + getInvocationWithoutData(inv));
         }
-
+        // Filter 链 + 代理类
         return exporter.getInvoker();
     }
 
@@ -440,6 +441,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         // create rpc invoker.
         DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
+        // 一个 providerUrl 对应一个 invoker
         invokers.add(invoker);
 
         return invoker;

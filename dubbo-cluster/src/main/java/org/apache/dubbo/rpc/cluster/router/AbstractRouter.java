@@ -23,7 +23,10 @@ import org.apache.dubbo.rpc.cluster.governance.GovernanceRuleRepository;
 
 public abstract class AbstractRouter implements Router {
     protected int priority = DEFAULT_PRIORITY;
+    // force 为 true 表示如果 routers 过滤出来的 provider 集合是空，打印警告信息，返回一个空的 invokers 集合
+    // force 为 false 表示如果 routers 过滤出来的 provider 集合是空，原样返回原来的 invokers 集合
     protected boolean force = false;
+    // subscribeUrl
     protected URL url;
 
     protected GovernanceRuleRepository ruleRepository;

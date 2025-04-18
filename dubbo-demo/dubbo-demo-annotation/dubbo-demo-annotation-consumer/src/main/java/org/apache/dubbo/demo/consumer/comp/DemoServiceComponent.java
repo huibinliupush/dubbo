@@ -16,18 +16,33 @@
  */
 package org.apache.dubbo.demo.consumer.comp;
 
-import org.apache.dubbo.config.annotation.Reference;
+import org.apache.dubbo.config.annotation.Argument;
+import org.apache.dubbo.config.annotation.DubboReference;
+import org.apache.dubbo.config.annotation.Method;
 import org.apache.dubbo.demo.BigDeDto;
 import org.apache.dubbo.demo.DemoService;
-
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
 @Component("demoServiceComponent")
 public class DemoServiceComponent implements DemoService {
-    @Reference
-    private DemoService demoService;
+    @DubboReference(check = false,
+            methods = {@Method(name = "sayHello", timeout = 250, retries = 3)}, mock = "force:return fake")
+            // parameters = {"sayHello.mock","force:return fake"}) 这里有 bug,解析异常。会把 ： 替换为 ,
+            // see org.apache.dubbo.config.spring.beans.factory.annotation.ReferenceBeanBuilder.preConfigureBean
+    private DemoService demoService; // 同一字段放在不同类中也是不同的代理 ？ 错，还是一个代理
+
+    private DemoService demoService1;
+
+    // @DubboReference 标注在方法上以及标注在字段上，虽然注解属性一样，依赖注入的类型一样，但是其实背后注入的是两个代理
+    // 但其实这里没必要，只要依赖注入的类型一样，那么背后就都是一个代理 ？错，还是一个代理
+    // 因为只要依赖注入的类型一样，@DubboReference 的属性一样，就是一个 ReferenceBean
+    // 同一个 ReferenceBean 调用两次都会返回同一个代理，代理会被缓存在 ReferenceBean->ref 字段中
+    @DubboReference(check = false)
+    public void setDemoService(DemoService demoService) { // 必须是 public get or set method 才能依赖注入
+        this.demoService1 = demoService;
+    }
 
     @Override
     public String sayHello(String name) {

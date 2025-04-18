@@ -27,7 +27,7 @@ public class ConfigItem {
     public static final String WEIGHT_TYPE = "weight";
     public static final String BALANCING_TYPE = "balancing";
     public static final String DISABLED_TYPE = "disabled";
-
+    // see : org.apache.dubbo.rpc.cluster.configurator.parser.ConfigParser.parseEnabled
     private String type;
     private Boolean enabled;
     private List<String> addresses;

@@ -65,7 +65,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             this.lastUpdate = lastUpdate;
         }
     }
-
+    // methodKey -> (providerURL , WeightedRoundRobin)
     private ConcurrentMap<String, ConcurrentMap<String, WeightedRoundRobin>> methodWeightMap = new ConcurrentHashMap<String, ConcurrentMap<String, WeightedRoundRobin>>();
 
     /**
@@ -85,6 +85,20 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         }
         return null;
     }
+    /**
+     * 2 6 3 7 (weight) ，total 18
+     * round 1 : 2 6 3 7 (WeightedRoundRobin) , 选中 7 ， WeightedRoundRobin 变化：2  6  3  -11
+     * round 2 ：4 12 6 -4 (WeightedRoundRobin)，选中 6 ， WeightedRoundRobin 变化：4 -6  6  -4
+     * round 3 ：8 0 9 3 (WeightedRoundRobin)，选中 3 ， WeightedRoundRobin 变化：  8  0 -9   3
+     * round 4 ：10 6 -6 10 (WeightedRoundRobin)，选中 2 ，WeightedRoundRobin 变化：-8 6 -6 10
+     * round 5 ：-6 12 -3 17 (WeightedRoundRobin)，选中 7 ，WeightedRoundRobin 变化：-6 12 -3 -1
+     * round 6 ：-4 18 0 6 (WeightedRoundRobin)，选中 6 ，WeightedRoundRobin 变化：-4 0 0 6
+     * round 7 ：-2 6 3 13 (WeightedRoundRobin)，选中 7 ，WeightedRoundRobin 变化：-2 6 3 -5
+     * round 8 ：0 12 6 2 (WeightedRoundRobin)，选中 6 ，WeightedRoundRobin 变化：0 -6 6 2
+     * round 9 ：2 0 9 9 (WeightedRoundRobin)，选中 3 ，WeightedRoundRobin 变化：2 0 -9 9
+     * round10 ：4 6 -6 16 (WeightedRoundRobin)，选中 7 ，WeightedRoundRobin 变化：4 6 -6 -2
+     *
+     * */
 
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
@@ -97,7 +111,9 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         WeightedRoundRobin selectedWRR = null;
         for (Invoker<T> invoker : invokers) {
             String identifyString = invoker.getUrl().toIdentityString();
+            // 获取每个 provider 的权重
             int weight = getWeight(invoker, invocation);
+            // 建立具体 providerUrl 到 权重的映射
             WeightedRoundRobin weightedRoundRobin = map.computeIfAbsent(identifyString, k -> {
                 WeightedRoundRobin wrr = new WeightedRoundRobin();
                 wrr.setWeight(weight);
@@ -117,7 +133,10 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             }
             totalWeight += weight;
         }
+        // providerURL 会发生变化
         if (invokers.size() != map.size()) {
+            // 如果 weightedRoundRobin 的最后更新时间已经超过了 RECYCLE_PERIOD 就删除
+            // 考虑到 providerURL 会发生变化，一旦变化之后，旧的 providerURL 对应的 weightedRoundRobin 就要被清理
             map.entrySet().removeIf(item -> now - item.getValue().getLastUpdate() > RECYCLE_PERIOD);
         }
         if (selectedInvoker != null) {

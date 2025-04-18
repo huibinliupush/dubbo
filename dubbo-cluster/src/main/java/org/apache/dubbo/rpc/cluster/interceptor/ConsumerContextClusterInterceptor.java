@@ -24,6 +24,9 @@ import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.RpcInvocation;
 import org.apache.dubbo.rpc.cluster.support.AbstractClusterInvoker;
 
+// 加载于普通 ClusterInvoker 前面
+// ConsumerContext 在每次发起远程调用之后都会被清除
+// 远程调用相应之后，会填充 ServerContext
 @Activate
 public class ConsumerContextClusterInterceptor implements ClusterInterceptor, ClusterInterceptor.Listener {
 
@@ -34,16 +37,19 @@ public class ConsumerContextClusterInterceptor implements ClusterInterceptor, Cl
         if (invocation instanceof RpcInvocation) {
             ((RpcInvocation) invocation).setInvoker(invoker);
         }
+        // 远程调用之前清除 ServerContext
         RpcContext.removeServerContext();
     }
 
     @Override
     public void after(AbstractClusterInvoker<?> clusterInvoker, Invocation invocation) {
+        // 远程调用之后，清除 ConsumerContext
         RpcContext.removeContext(true);
     }
 
     @Override
     public void onMessage(Result appResponse, AbstractClusterInvoker<?> invoker, Invocation invocation) {
+        // 响应回来之后设置远端 serverContext
         RpcContext.getServerContext().setObjectAttachments(appResponse.getObjectAttachments());
     }
 

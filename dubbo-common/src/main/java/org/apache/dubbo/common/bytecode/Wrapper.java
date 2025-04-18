@@ -198,7 +198,7 @@ public abstract class Wrapper {
             c2.append(" if( $2.equals(\"").append(fn).append("\") ){ return ($w)w.").append(fn).append("; }");
             pts.put(fn, ft);
         }
-
+        // 支持方法继承
         Method[] methods = c.getMethods();
         // get all public method.
         //设置invokeMethod方法体
@@ -207,6 +207,7 @@ public abstract class Wrapper {
             c3.append(" try{");
             for (Method m : methods) {
                 //ignore Object's method.忽略object父类的方法
+                // 找到方法的是在哪个类中实现的
                 if (m.getDeclaringClass() == Object.class) {
                     continue;
                 }
@@ -268,6 +269,7 @@ public abstract class Wrapper {
                 c3.append(" }");
 
                 mns.add(mn);
+                // 找到方法的是在哪个类中实现的
                 if (m.getDeclaringClass() == c) {
                     dmns.add(mn);
                 }
@@ -410,7 +412,7 @@ public abstract class Wrapper {
         cc.addField("public static String[] mns;"); // all method name array.
         cc.addField("public static String[] dmns;"); // declared method name array.
         for (int i = 0, len = ms.size(); i < len; i++) {
-            cc.addField("public static Class[] mts" + i + ";");
+            cc.addField("public static Class[] mts" + i + ";"); // 类中第 i 个方法的参数类型集合
         }
 
         //设置Wrapper子类的 方法体

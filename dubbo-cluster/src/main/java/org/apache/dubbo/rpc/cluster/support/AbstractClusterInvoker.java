@@ -135,7 +135,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             return null;
         }
         String methodName = invocation == null ? StringUtils.EMPTY_STRING : invocation.getMethodName();
-
+        // 从 provider 获取
         boolean sticky = invokers.get(0).getUrl()
                 .getMethodParameter(methodName, CLUSTER_STICKY_KEY, DEFAULT_CLUSTER_STICKY);
 
@@ -144,6 +144,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             stickyInvoker = null;
         }
         //ignore concurrency problem
+        // 如果 stickyInvoker 本次调用出错，那么在下一次重试的时候就会选取其他的 invoker 作为后续 stickyInvoker
         if (sticky && stickyInvoker != null && (selected == null || !selected.contains(stickyInvoker))) {
             if (availablecheck && stickyInvoker.isAvailable()) {
                 return stickyInvoker;
@@ -247,14 +248,16 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
     public Result invoke(final Invocation invocation) throws RpcException {
         checkWhetherDestroyed();
 
-        // binding attachments into invocation.
+        // binding attachments from RpcContext into Invocation.
         Map<String, Object> contextAttachments = RpcContext.getContext().getObjectAttachments();
         if (contextAttachments != null && contextAttachments.size() != 0) {
             ((RpcInvocation) invocation).addObjectAttachments(contextAttachments);
         }
-
+        // router 过滤 invokers
         List<Invoker<T>> invokers = list(invocation);
+        // loadBalance 由 provider 端的参数决定
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
+        // method 如果是异步调用，则在 invocation Attachment 设置调用 id (ID_KEY)
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
         return doInvoke(invocation, invokers, loadbalance);
     }

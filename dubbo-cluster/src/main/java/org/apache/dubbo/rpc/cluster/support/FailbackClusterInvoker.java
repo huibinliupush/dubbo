@@ -86,6 +86,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         }
         RetryTimerTask retryTimerTask = new RetryTimerTask(loadbalance, invocation, invokers, lastInvoker, retries, RETRY_FAILED_PERIOD);
         try {
+            // 5s 后重试
             failTimer.newTimeout(retryTimerTask, RETRY_FAILED_PERIOD, TimeUnit.SECONDS);
         } catch (Throwable e) {
             logger.error("Failback background works error,invocation->" + invocation + ", exception: " + e.getMessage());
@@ -102,7 +103,9 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         } catch (Throwable e) {
             logger.error("Failback to invoke method " + invocation.getMethodName() + ", wait for retry in background. Ignored exception: "
                     + e.getMessage() + ", ", e);
+            // 后台时间轮每隔 5s 重试，最多重试 retries 次数，超过则 logger.error
             addFailed(loadbalance, invocation, invokers, invoker);
+            // 返回一个空的结果
             return AsyncRpcResult.newDefaultAsyncResult(null, null, invocation); // ignore
         }
     }
