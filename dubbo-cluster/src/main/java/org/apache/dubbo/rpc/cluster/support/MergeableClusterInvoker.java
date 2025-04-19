@@ -97,6 +97,7 @@ public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
         for (final Invoker<T> invoker : invokers) {
             RpcInvocation subInvocation = new RpcInvocation(invocation, invoker);
             subInvocation.setAttachment(ASYNC_KEY, "true");
+            // 异步调用
             results.put(invoker.getUrl().getServiceKey(), invoker.invoke(subInvocation));
         }
 
@@ -107,7 +108,9 @@ public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
         for (Map.Entry<String, Result> entry : results.entrySet()) {
             Result asyncResult = entry.getValue();
             try {
+                // 获取异步结果
                 Result r = asyncResult.get();
+                // 有异常的话就 log.error ，忽略异常结果
                 if (r.hasException()) {
                     log.error("Invoke " + getGroupDescFromServiceKey(entry.getKey()) +
                                     " failed: " + r.getException().getMessage(),
@@ -159,9 +162,15 @@ public class MergeableClusterInvoker<T> extends AbstractClusterInvoker<T> {
             }
         } else {
             Merger resultMerger;
+            // merger = true or default
+            // 通过 returnType 到缓存中获取对应类型的 merger
             if (ConfigUtils.isDefault(merger)) {
+                // loadMergers() 方法会通过 Dubbo SPI 方式加载 Merger 接口全部扩展实现的名称，
+                // 并填充到 MERGER_CACHE 集合中，具体实现如下：
+                // 自动加载所有 merger SPI 实现(内置以及自己实现的)，并获取与 returnType 对应的 Merger
                 resultMerger = MergerFactory.getMerger(returnType);
             } else {
+                // merger 指定 SPI 实现
                 resultMerger = ExtensionLoader.getExtensionLoader(Merger.class).getExtension(merger);
             }
             if (resultMerger != null) {

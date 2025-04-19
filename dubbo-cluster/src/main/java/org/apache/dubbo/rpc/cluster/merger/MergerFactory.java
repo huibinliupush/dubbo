@@ -48,6 +48,8 @@ public class MergerFactory {
             Class type = returnType.getComponentType();
             result = MERGER_CACHE.get(type);
             if (result == null) {
+                // loadMergers() 方法会通过 Dubbo SPI 方式加载 Merger 接口全部扩展实现的名称，
+                // 并填充到 MERGER_CACHE 集合中，具体实现如下：
                 loadMergers();
                 result = MERGER_CACHE.get(type);
             }

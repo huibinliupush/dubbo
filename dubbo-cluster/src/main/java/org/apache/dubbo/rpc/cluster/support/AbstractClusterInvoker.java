@@ -127,6 +127,9 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
      * @param selected    exclude selected invokers or not
      * @return the invoker which will final to do invoke.
      * @throws RpcException exception
+     *
+     *
+     * 快速路径与慢速路径的设计
      */
     protected Invoker<T> select(LoadBalance loadbalance, Invocation invocation,
                                 List<Invoker<T>> invokers, List<Invoker<T>> selected) throws RpcException {
@@ -150,7 +153,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
                 return stickyInvoker;
             }
         }
-
+        // 快速路径与慢速路径的设计
         Invoker<T> invoker = doSelect(loadbalance, invocation, invokers, selected);
 
         if (sticky) {
@@ -158,7 +161,8 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         }
         return invoker;
     }
-
+    
+    // 快速路径与慢速路径的设计
     private Invoker<T> doSelect(LoadBalance loadbalance, Invocation invocation,
                                 List<Invoker<T>> invokers, List<Invoker<T>> selected) throws RpcException {
 
@@ -168,12 +172,17 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         if (invokers.size() == 1) {
             return invokers.get(0);
         }
+        // 之前已经被路由到的 invoker , 本次非常大的概率不会被再次选中(快速路由路径)
         Invoker<T> invoker = loadbalance.select(invokers, getUrl(), invocation);
 
         //If the `invoker` is in the  `selected` or invoker is unavailable && availablecheck is true, reselect.
+        // 如果不巧遇到了低概率事件，有选中了之前的 invoker,就 reselect
         if ((selected != null && selected.contains(invoker))
                 || (!invoker.isAvailable() && getUrl() != null && availablecheck)) {
             try {
+                // 慢速路由路径
+                // 排除之前已经选中的 invokers,在进行 loadbalance 一次。
+                // 如果现在所有 invoker 之前已经被选过了，那么降级方案就是从 selected 中选取一个可用的
                 Invoker<T> rInvoker = reselect(loadbalance, invocation, invokers, selected, availablecheck);
                 if (rInvoker != null) {
                     invoker = rInvoker;
@@ -182,6 +191,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
                     int index = invokers.indexOf(invoker);
                     try {
                         //Avoid collision
+                        // 最后兜底就是选取下一个 invoker
                         invoker = invokers.get((index + 1) % invokers.size());
                     } catch (Exception e) {
                         logger.warn(e.getMessage() + " may because invokers list dynamic change, ignore.", e);
@@ -214,6 +224,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
                 invokers.size() > 1 ? (invokers.size() - 1) : invokers.size());
 
         // First, try picking a invoker not in `selected`.
+        // 排除之前已经选中的（因为此时是 reseleclt）
         for (Invoker<T> invoker : invokers) {
             if (availablecheck && !invoker.isAvailable()) {
                 continue;
@@ -223,12 +234,13 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
                 reselectInvokers.add(invoker);
             }
         }
-
+        // 从未选中的集合中中继续 loadbalance
         if (!reselectInvokers.isEmpty()) {
             return loadbalance.select(reselectInvokers, getUrl(), invocation);
         }
 
         // Just pick an available invoker using loadbalance policy
+        // 如果已经全部选过了，就从 selected 选取一个可用的 invoker
         if (selected != null) {
             for (Invoker<T> invoker : selected) {
                 if ((invoker.isAvailable()) // available first

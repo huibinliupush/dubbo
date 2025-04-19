@@ -34,7 +34,18 @@ import java.util.List;
 
 import static org.apache.dubbo.rpc.Constants.MOCK_KEY;
 import static org.apache.dubbo.rpc.cluster.Constants.INVOCATION_NEED_MOCK;
-
+/**
+ * mock 值的配置规范
+ * see : org.apache.dubbo.rpc.support.MockInvoker#normalizeMock(java.lang.String)
+ *
+ * provider端配置 <service  protocl = "dubbo , mock"> 同时注册 dubbo 协议和 mock 协议
+ * consumer 端的 registryDirectory 从注册中心拉取 providerUrl, 在 MockProtocol 中 refer 转换为 mockInvoker
+ * consumer 端通过配置 <reference mock = "force"></> 强制走远程 mockInvoker
+ *
+ * 远程 mockInvoker 优先于本地的 mockInvoker
+ *
+ * 如果没有远程 mockInvoker consumer端 <reference mock = "force"> 强制走本地 InterfaceMock 实现
+ * */
 public class MockClusterInvoker<T> implements Invoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(MockClusterInvoker.class);
@@ -120,7 +131,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         Result result = null;
         Invoker<T> minvoker;
         // 如果没有 provider 启动这里会返回 null
-        // 获取远程 mock 协议的 invoker
+        // 获取远程 mock 协议的 invoker（MockInvokersSelector 路由进行选择）
         List<Invoker<T>> mockInvokers = selectMockInvoker(invocation);
         // 远程 mock provider 优先于本地 mockInvoker
         if (CollectionUtils.isEmpty(mockInvokers)) {

@@ -63,6 +63,7 @@ public class MockInvokersSelector extends AbstractRouter {
                 return getNormalInvokers(invokers);
             } else if (Boolean.TRUE.toString().equalsIgnoreCase(value)) {
                 // 查找是否有 mock 协议实现的 provider, 有就返回，没有返回 null
+                // provider 注册的是 mock 协议
                 return getMockedInvokers(invokers);
             }
         }

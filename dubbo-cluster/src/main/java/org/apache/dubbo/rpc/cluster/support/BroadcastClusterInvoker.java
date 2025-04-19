@@ -58,7 +58,7 @@ public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 logger.warn(e.getMessage(), e);
             }
         }
-        // 全量调用 invokers , 只要有一个失败就抛出异常
+        // 全量调用 invokers 之后, 只要有一个失败就抛出异常
         if (exception != null) {
             throw exception;
         }
