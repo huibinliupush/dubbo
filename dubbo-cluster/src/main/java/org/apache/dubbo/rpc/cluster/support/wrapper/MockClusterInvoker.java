@@ -45,6 +45,10 @@ import static org.apache.dubbo.rpc.cluster.Constants.INVOCATION_NEED_MOCK;
  * 远程 mockInvoker 优先于本地的 mockInvoker
  *
  * 如果没有远程 mockInvoker consumer端 <reference mock = "force"> 强制走本地 InterfaceMock 实现
+ *
+ * 对了这里说的远程 mockInvoker 只是 registryDirectory 在本地创建的一个本地 mockInvoker（为了避免每次调用创建一个 mockInvoker）
+ * 在 invoke 的时候还是走的本地，不会走远程，事实上，MockProtocol 是不会远程发布的 export 为空实现（不支持暴露）
+ * provider 端仅仅只是将 MockProtocolURl 注册上去，consumer 拉取下来生成 Mockinvoker
  * */
 public class MockClusterInvoker<T> implements Invoker<T> {
 
