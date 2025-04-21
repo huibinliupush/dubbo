@@ -32,6 +32,7 @@ public class NettyTransporter implements Transporter {
 
     @Override
     public RemotingServer bind(URL url, ChannelHandler handler) throws RemotingException {
+        // ChannelHandlerDispatcher : DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
         return new NettyServer(url, handler);
     }
 

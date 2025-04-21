@@ -69,6 +69,7 @@ public class Exchangers {
         //没有设置编码解码器的时候  会在这里设置成exchangeCodec
         //在dubbpProtocol中已经设置了DubboCodec
         url = url.addParameterIfAbsent(Constants.CODEC_KEY, "exchange");
+        // HeaderExchanger bind
         return getExchanger(url).bind(url, handler);
     }
 

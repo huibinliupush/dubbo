@@ -43,6 +43,7 @@ public class ChannelEventRunnable implements Runnable {
     }
 
     public ChannelEventRunnable(Channel channel, ChannelHandler handler, ChannelState state, Object message, Throwable exception) {
+        // NettyChannel
         this.channel = channel;
         this.handler = handler;
         this.state = state;

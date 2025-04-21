@@ -50,7 +50,7 @@ final class NettyChannel extends AbstractChannel {
      * netty channel
      */
     private final Channel channel;
-
+    // channel 属性
     private final Map<String, Object> attributes = new ConcurrentHashMap<String, Object>();
 
     private final AtomicBoolean active = new AtomicBoolean(false);
@@ -86,6 +86,7 @@ final class NettyChannel extends AbstractChannel {
         }
         NettyChannel ret = CHANNEL_MAP.get(ch);
         if (ret == null) {
+            // dubbo pipeline
             NettyChannel nettyChannel = new NettyChannel(ch, url, handler);
             if (ch.isActive()) {
                 nettyChannel.markActive(true);
@@ -159,10 +160,13 @@ final class NettyChannel extends AbstractChannel {
         boolean success = true;
         int timeout = 0;
         try {
+            // netty native channel
+            // 这里会调用 pipine 中的 NettyServerHandler write
             ChannelFuture future = channel.writeAndFlush(message);
             if (sent) {
                 // wait timeout ms
                 timeout = getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
+                // 等待 message 被 flush 到 socket 中（注意此时还未到 remote）
                 success = future.await(timeout);
             }
             Throwable cause = future.cause();

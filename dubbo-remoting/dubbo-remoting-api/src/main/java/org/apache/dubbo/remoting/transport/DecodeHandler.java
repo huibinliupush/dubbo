@@ -43,7 +43,8 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
         if (message instanceof Decodeable) {
             decode(message);
         }
-
+        // 反序列化请求或者响应内容
+        // 此时内容已经被解码出来但是还未被反序列化
         if (message instanceof Request) {
             decode(((Request) message).getData());
         }

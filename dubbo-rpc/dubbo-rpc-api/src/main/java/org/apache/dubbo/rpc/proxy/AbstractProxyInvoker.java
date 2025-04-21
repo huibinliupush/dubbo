@@ -83,9 +83,12 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
         try {
             //Javassit代理：该方法调用代理给wrapper.invokeMethod方法，在wrapper中直接调用服务实现类ref的目标方法
             //JdkProxy代理：该方法中直接反射调用服务实现类ref中的目标方法
+            // 这里会通过 Wrapper 调用到真正的 ServiceImpl ， 返回真正的结果
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
             //将方法返回结果包装成CompletableFuture<AppResponse>
+            // 同步异步在这里封装支持
 			CompletableFuture<Object> future = wrapWithFuture(value);
+            // CompletableFuture<接口返回值> 转换为 CompletableFuture<AppResponse>
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {
                 AppResponse result = new AppResponse();
                 if (t != null) {
@@ -112,11 +115,13 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     }
 
 	private CompletableFuture<Object> wrapWithFuture(Object value) {
+        // 异步
         if (RpcContext.getContext().isAsyncStarted()) {
             return ((AsyncContextImpl)(RpcContext.getContext().getAsyncContext())).getInternalFuture();
         } else if (value instanceof CompletableFuture) {
             return (CompletableFuture<Object>) value;
         }
+        // 同步
         return CompletableFuture.completedFuture(value);
     }
 

@@ -51,9 +51,12 @@ public class Transporters {
         if (handlers.length == 1) {
             handler = handlers[0];
         } else {
+            // 多个 handlers 伪装成一个 handler
             handler = new ChannelHandlerDispatcher(handlers);
         }
-        return getTransporter().bind(url, handler);
+
+        // NettyTransporter bind 返回 NettyServer
+        return getTransporter().bind(url, handler); // ChannelHandlerDispatcher
     }
 
     public static Client connect(String url, ChannelHandler... handler) throws RemotingException {

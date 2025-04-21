@@ -49,6 +49,7 @@ public class AllChannelHandler extends WrappedChannelHandler {
     public void disconnected(Channel channel) throws RemotingException {
         ExecutorService executor = getExecutorService();
         try {
+            // NettyChannel
             executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.DISCONNECTED));
         } catch (Throwable t) {
             throw new ExecutionException("disconnect event", channel, getClass() + " error when process disconnected event .", t);
@@ -59,6 +60,7 @@ public class AllChannelHandler extends WrappedChannelHandler {
     public void received(Channel channel, Object message) throws RemotingException {
         ExecutorService executor = getPreferredExecutorService(message);
         try {
+            // 由 Netty 的 IO 线程传递给 Dubbo 线程 executor 执行
             executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.RECEIVED, message));
         } catch (Throwable t) {
         	if(message instanceof Request && t instanceof RejectedExecutionException){

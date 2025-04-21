@@ -144,7 +144,12 @@ public class DubboProtocol extends AbstractProtocol {
                 }
             }
             RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
+            // AsyncRpcResult
+            // see : org.apache.dubbo.rpc.proxy.AbstractProxyInvoker.invoke
             Result result = invoker.invoke(inv);
+            // thenApply 会返回 AppResponse ， 但不是这里，这里直接返回的是 thenApply 产生的 CompletableFuture
+            // 当真正的 Future 完成之后就会返回 AppResponse
+            // see : org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeHandler.handleRequest
             return result.thenApply(Function.identity());
         }
         // OneWay
@@ -160,6 +165,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         @Override
         public void connected(Channel channel) throws RemotingException {
+            // 我们可以在 interface 中实现 void onconnect() 方法来处理连接 active 事件
             invoke(channel, ON_CONNECT_KEY);
         }
 
@@ -168,6 +174,7 @@ public class DubboProtocol extends AbstractProtocol {
             if (logger.isDebugEnabled()) {
                 logger.debug("disconnected from " + channel.getRemoteAddress() + ",url:" + channel.getUrl());
             }
+            // 我们可以在 interface 中实现 void ondisconnect() 方法来处理连接 inactive 事件
             invoke(channel, ON_DISCONNECT_KEY);
         }
 
@@ -260,6 +267,7 @@ public class DubboProtocol extends AbstractProtocol {
                 (String) inv.getObjectAttachments().get(VERSION_KEY),
                 (String) inv.getObjectAttachments().get(GROUP_KEY)
         );
+        // 获取对应的 DubboExporter 里面包装了对应 service 的 Invoker
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {
@@ -282,7 +290,7 @@ public class DubboProtocol extends AbstractProtocol {
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
         //这时候的invoker经过了ProtocolFilterWrapper的封装已经变成了一个Filter链
-        //从Invoker中获取providerUrl
+        //从Invoker中获取providerUrl(在 registry 层被配置中心重新覆盖过)
         URL url = invoker.getUrl();
 
         // export service.
@@ -290,10 +298,12 @@ public class DubboProtocol extends AbstractProtocol {
         // servicePathPrefix/org.apache.dubbo.demo.DemoService:20880
         // serviceGroup->serviceName->serviceVersion->port 通过这样的一个级联关系构建serviceKey的缓存
         // serviceKey = serviceGroup/serviceName:serviceVersion:port
+        // 支持多端口暴露
         String key = serviceKey(url);
-        //构建dubboExporter
+        //构建dubboExporter，用来包装 dubboInvoker
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
         //缓存暴露服务的exporter
+        // 这里会缓存进程中暴露的所有 dubbo servce 对应的 exporter(端口粒度)
         exporterMap.put(key, exporter);
 
         //export an stub service for dispatching event
@@ -319,29 +329,72 @@ public class DubboProtocol extends AbstractProtocol {
         return exporter;
     }
 
+    /**
+     * 同一协议 ，同一端口场景：
+     *
+     * ProtocolServer 准确的说是按 port 粒度划分，一个 port 对应一个 ProtocolServer
+     * 多个 <service> 暴露在同一个 port 上的场景，底层对应的是一个 ProtocolServer 底层是同一个 NettyServer
+     * 底层共同依赖同一个 NettyServer, 但在 Protocal 层却对应不同的 Export（封装不同的 Invoker）
+     * NettyServer 负责接收不同 client 发送过来的请求（不同 service 请求），后面对应不同的 Invoker 处理
+     *
+     * 这样是非常合理的，毕竟一个进程只需要一个 NettyServer 就够了，用这一个 NettyServer 去处理多个不同的 <service> 请求
+     *
+     * 只不过在多 <service> 暴露的时候，后面的 <service> 暴露会走到这里的 server.reset(url)
+     * 但真正的 providerUrl 是存放在 Invoker 中的（接口级别），这里重置的只是 providerUrl 中 Server 相关的配置，不会影响到 service 接口级别的配置
+     * heartbeat，idleTimeout，ACCEPTS_KEY ，IDLE_TIMEOUT_KEY ， executor thread pool
+     *
+     * */
+
+    /**
+     * 同一协议 ，不同端口场景：
+     *
+     * 对应多个 ProtocolServer ，每个 ProtocolServer 底层一个 NettyServer : mainEventloop(1) , subEventloop(cpu + 1)
+     * 这样就不是很合理，因为不管你暴露多少个端口，只要是同一进程，应该只有一个 NettyServer ： mainEventloop(端口数) ， subEventloop(cpu + 1)
+     *
+     * 如果按照现在的设计，那么多个端口（n）, 会对应 n * subEventloop(cpu + 1) 个 IO 线程 ，显然是不合理的
+     * */
+
+    /**
+     * 不同协议 ，同一端口场景：
+     *
+     * 只要是一个 Dubbo 进程，不管暴露的协议，端口是多少个，底层的 NettyServer 都应该是一个，NettyServer 应该按照进程粒度划分而不是端口
+     * */
+
+    /**
+     * 不同协议 ，不同端口场景：
+     *
+     * */
     private void openServer(URL url) {
         // find server.
         //获取providerUrl中的服务地址 ip:port
         String key = url.getAddress();
-        //client can export a service which's only for server to invoke
+        //client can export a service which's only for server to invoke（call back 逻辑）
         //用于服务提供者端调用
         boolean isServer = url.getParameter(IS_SERVER_KEY, true);
         if (isServer) {
             //ProtocolServer代表一个暴露的服务进程，一个端口对应一个ProtocolServer
-            ProtocolServer server = serverMap.get(key);
+            // 支持多端口暴露，多个端口就对应多个 ProtocolServer
+            ProtocolServer server = serverMap.get(key); // key = ip:port
             if (server == null) {
                 synchronized (this) {
                     //double check
                     server = serverMap.get(key);
                     if (server == null) {
                         //如果还没有启动对应port的监听，则启动nettyServer
+                        // DubboProtocolServer -> HeaderExchangeService -> NettyServer
                         serverMap.put(key, createServer(url));
                     }
                 }
             } else {
                 // server supports reset, use together with override
                 // 如果暴露的服务端口已经存在，则重置服务
-                // 同一个端口上仅允许启动一个服务器实例。若某个端口上已有服务器实例，此时则调用 reset 方法重置服务器的一些配置
+                // 当配置中心的 provider 端参数发生变化，就会 reExport
+                // 之前的 export 已经在对应的 port 上有 ProtocolServer 了
+                // 所以这里仅仅是更新 新的 providerUrl 即可
+
+                // 这里重置的只是 providerUrl 中 Server 相关的配置，不会影响到 service 接口级别的配置
+                // Service 相关的 URL 配置： ACCEPTS_KEY ，IDLE_TIMEOUT_KEY ， THREADS_KEY（dubbo thread pool 线程数）
+                // 多个 <service> 同一协议，同一端口，暴露的时候 第一个 service 暴露走 if 分支，后面的 service 暴露走 这里的 else 分支
                 server.reset(url);
             }
         }

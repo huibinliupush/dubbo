@@ -76,6 +76,8 @@ public class NettyServer extends AbstractServer implements RemotingServer {
         // dubbo 中的 handler 嵌套：
         // the handler will be wrapped: MultiMessageHandler->HeartbeatHandler->AllChannelhandler->DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
         // see : org.apache.dubbo.remoting.exchange.support.header.HeaderExchanger.bind
+        // DubboHandler 全部包装在 NettyServer 中，而 NettyServer 本身就是一个 DubboHandler
+        // 所以 Dubbo Pipeline 中第一个 handler 为 NettyServer
         super(ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME), ChannelHandlers.wrap(handler, url));
     }
 
@@ -92,8 +94,10 @@ public class NettyServer extends AbstractServer implements RemotingServer {
         workerGroup = NettyEventLoopFactory.eventLoopGroup(
                 getUrl().getPositiveParameter(IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS),
                 "NettyServerWorker");
-
+        // Netty 的 ChannelHandler(NettyServerHandler) 来包装内部 handler(this)
+        // Dubbo 层面的 pipeline,第一个 handler 就是 NettyServer,NettyServer里包装了其他 handler
         final NettyServerHandler nettyServerHandler = new NettyServerHandler(getUrl(), this);
+        // <ip:port, dubbo channel>
         channels = nettyServerHandler.getChannels();
 
         bootstrap.group(bossGroup, workerGroup)
@@ -111,11 +115,11 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                             ch.pipeline().addLast("negotiation",
                                     SslHandlerInitializer.sslServerHandler(getUrl(), nettyServerHandler));
                         }
-                        ch.pipeline()
+                        ch.pipeline() // netty pipeine
                                 .addLast("decoder", adapter.getDecoder())
                                 .addLast("encoder", adapter.getEncoder())
                                 .addLast("server-idle-handler", new IdleStateHandler(0, 0, idleTimeout, MILLISECONDS))
-                                .addLast("handler", nettyServerHandler);
+                                .addLast("handler", nettyServerHandler); // dubbo pipeline (最开始是 NettyServer),而 NettyServer 本身包装了其他 DubboHandler
                         
                     }
                 });
@@ -123,6 +127,8 @@ public class NettyServer extends AbstractServer implements RemotingServer {
         ChannelFuture channelFuture = bootstrap.bind(getBindAddress());
         channelFuture.syncUninterruptibly();
         channel = channelFuture.channel();
+
+        // 其实这里可以缓存 bootstrap ，实现多端口的绑定，多个端口对应多个 ServerChannel(accept)
 
     }
 

@@ -133,8 +133,10 @@ public class ThreadlessExecutor extends AbstractExecutorService {
     public void execute(Runnable runnable) {
         synchronized (lock) {
             if (!waiting) {
+                // 没有线程 wait ,交给  sharedExecutor 执行
                 sharedExecutor.execute(runnable);
             } else {
+                // 有线程正在 waiting,将任务放入 queue 中
                 queue.add(runnable);
             }
         }

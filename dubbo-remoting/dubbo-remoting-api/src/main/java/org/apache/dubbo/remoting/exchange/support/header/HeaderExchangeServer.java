@@ -53,7 +53,7 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 public class HeaderExchangeServer implements ExchangeServer {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    // NettyServer
     private final RemotingServer server;
     private AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -64,7 +64,9 @@ public class HeaderExchangeServer implements ExchangeServer {
 
     public HeaderExchangeServer(RemotingServer server) {
         Assert.notNull(server, "server == null");
+        // NettyServer
         this.server = server;
+        // 空闲连接的关闭
         startIdleCheckTask(getUrl());
     }
 

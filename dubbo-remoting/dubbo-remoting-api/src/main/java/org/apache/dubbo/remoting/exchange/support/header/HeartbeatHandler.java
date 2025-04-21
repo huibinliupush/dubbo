@@ -69,6 +69,7 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
             if (req.isTwoWay()) {
                 Response res = new Response(req.getId(), req.getVersion());
                 res.setEvent(HEARTBEAT_EVENT);
+                // NettyChannel
                 channel.send(res);
                 if (logger.isInfoEnabled()) {
                     int heartbeat = channel.getUrl().getParameter(Constants.HEARTBEAT_KEY, 0);

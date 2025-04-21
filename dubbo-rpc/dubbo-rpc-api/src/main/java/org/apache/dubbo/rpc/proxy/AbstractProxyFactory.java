@@ -49,7 +49,7 @@ public abstract class AbstractProxyFactory implements ProxyFactory {
     @Override
     public <T> T getProxy(Invoker<T> invoker, boolean generic) throws RpcException {
         Set<Class<?>> interfaces = new HashSet<>();
-
+        // 获取 interface 以及继承的父接口
         String config = invoker.getUrl().getParameter(INTERFACES);
         if (config != null && config.length() > 0) {
             String[] types = COMMA_SPLIT_PATTERN.split(config);
@@ -72,10 +72,11 @@ public abstract class AbstractProxyFactory implements ProxyFactory {
                 // ignore
             }
         }
-
+        // 服务接口 interface 本身及其所有父类
         interfaces.add(invoker.getInterface());
+        // 内置接口，所有的 service 接口模型实现
         interfaces.addAll(Arrays.asList(INTERNAL_INTERFACES));
-
+        // 动态代理会实现 interfaces 中包含的所有方法，在方法实现中将调用代理给对应的 InvokerInvocationHandler.invoke 方法（静态实现）
         return getProxy(invoker, interfaces.toArray(new Class<?>[0]));
     }
 

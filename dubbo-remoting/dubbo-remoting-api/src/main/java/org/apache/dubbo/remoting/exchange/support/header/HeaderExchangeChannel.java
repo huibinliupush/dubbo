@@ -44,7 +44,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
     private static final Logger logger = LoggerFactory.getLogger(HeaderExchangeChannel.class);
 
     private static final String CHANNEL_KEY = HeaderExchangeChannel.class.getName() + ".CHANNEL";
-
+    // DubboChannel（NettyChannel类型）
     private final Channel channel;
 
     private volatile boolean closed = false;
@@ -130,6 +130,8 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         req.setVersion(Version.getProtocolVersion());
         req.setTwoWay(true);
         req.setData(request);
+        // remote 端响应回来，会调用该 future 的 comlpete 方法
+        // org.apache.dubbo.remoting.exchange.support.DefaultFuture.received(org.apache.dubbo.remoting.Channel, org.apache.dubbo.remoting.exchange.Response, boolean)
         DefaultFuture future = DefaultFuture.newFuture(channel, req, timeout, executor);
         try {
             channel.send(req);

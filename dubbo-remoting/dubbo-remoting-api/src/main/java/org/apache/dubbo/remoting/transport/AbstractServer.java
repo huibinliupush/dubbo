@@ -76,6 +76,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
             throw new RemotingException(url.toInetSocketAddress(), null, "Failed to bind " + getClass().getSimpleName()
                     + " on " + getLocalAddress() + ", cause: " + t.getMessage(), t);
         }
+        // 根据 THREADPOOL_KEY 获取 dubbo 线程池
         executor = executorRepository.createExecutorIfAbsent(url);
     }
 
@@ -108,6 +109,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
         } catch (Throwable t) {
             logger.error(t.getMessage(), t);
         }
+        // 根据 Url 中 THREADS_KEY 调整 executor 的线程数
         executorRepository.updateThreadpool(url, executor);
         super.setUrl(getUrl().addParameters(url.getParameters()));
     }
@@ -173,6 +175,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
         }
 
         Collection<Channel> channels = getChannels();
+        // accepts 规定 Server 允许接收的最大连接数，<= 0 表示不限制
         if (accepts > 0 && channels.size() > accepts) {
             logger.error("Close channel " + ch + ", cause: The server " + ch.getLocalAddress() + " connections greater than max config " + accepts);
             ch.close();

@@ -24,12 +24,16 @@ import java.util.Map;
 
 /**
  * DubboExporter
+ *
+ * （group , service , version ,port） 粒度
  */
 public class DubboExporter<T> extends AbstractExporter<T> {
 
-    //暴露服务的serviceKey
+    //暴露服务的serviceKey（按照端口划分）
+    // serviceGroup/serviceName:serviceVersion:port
     private final String key;
     //所有暴露服务的exporter缓存  key:serviceKey   value:exporter
+    // org.apache.dubbo.rpc.protocol.AbstractProtocol.exporterMap
     private final Map<String, Exporter<?>> exporterMap;
 
     public DubboExporter(Invoker<T> invoker, String key, Map<String, Exporter<?>> exporterMap) {

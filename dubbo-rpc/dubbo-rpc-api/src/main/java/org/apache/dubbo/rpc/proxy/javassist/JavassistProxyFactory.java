@@ -32,6 +32,13 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T getProxy(Invoker<T> invoker, Class<?>[] interfaces) {
+        // 实现 interfaces 中的所有方法，方法体是将方法转到调用 org.apache.dubbo.rpc.proxy.InvokerInvocationHandler.invoke
+        // 实现 newInstance 方法，向 Proxy 实例中写入 InvokerInvocationHandler 实例
+        // 注意： Proxy 调用 InvokerInvocationHandler.invoke 方法的时候并不是通过反射获取方法名，方法参数类型，以及参数值
+        // 而是在动态生成 Proxy 的时候，在方法体中就已经写死了，运行时不需要通过反射获取
+
+        // invokerInvocationHandler.invoke(methodname , paramType , param) 静态在 Proxy 对应方法体中写死
+        // 这样在运行时就不需要通过反射获取方法名以及参数类型信息系了
         return (T) Proxy.getProxy(interfaces).newInstance(new InvokerInvocationHandler(invoker));
     }
 

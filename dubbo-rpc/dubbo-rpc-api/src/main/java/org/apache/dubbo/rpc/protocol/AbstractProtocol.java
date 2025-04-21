@@ -53,6 +53,8 @@ public abstract class AbstractProtocol implements Protocol {
      */
     //缓存暴露的服务进程  一个端口一个ProtocolService
     //key:ip:port  value:服务进程
+    // 支持多端口暴露，多个端口就对应多个 ProtocolServer
+    // ProtocolServer : DubboProtocolServer -> HeaderExchangeService -> NettyServer
     protected final Map<String, ProtocolServer> serverMap = new ConcurrentHashMap<>();
 
     //TODO SoftReference

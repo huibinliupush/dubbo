@@ -63,6 +63,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
     private final Request request;
     private final int timeout;
     private final long start = System.currentTimeMillis();
+    // 设置发送的时间戳（调用send的时间戳，还未到 socket）
     private volatile long sent;
     private Timeout timeoutCheckTask;
 
@@ -77,6 +78,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     private DefaultFuture(Channel channel, Request request, int timeout) {
+        // NettyChannel
         this.channel = channel;
         this.request = request;
         this.id = request.getId();
@@ -99,7 +101,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
      * 1.init a DefaultFuture
      * 2.timeout check
      *
-     * @param channel channel
+     * @param channel nettychannel
      * @param request the request
      * @param timeout timeout
      * @return a new DefaultFuture
@@ -165,13 +167,16 @@ public class DefaultFuture extends CompletableFuture<Object> {
 
     public static void received(Channel channel, Response response, boolean timeout) {
         try {
+            // 收到响应之后， 根据 invoker id 获取发送 future
             DefaultFuture future = FUTURES.remove(response.getId());
             if (future != null) {
+                // 取消发送超时判断任务
                 Timeout t = future.timeoutCheckTask;
                 if (!timeout) {
                     // decrease Time
                     t.cancel();
                 }
+                // 通知 future complete
                 future.doReceived(response);
             } else {
                 logger.warn("The timeout response finally returned at "
@@ -244,6 +249,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     private void doSent() {
+        // 设置发送的时间戳（调用send的时间戳，还未到 socket）
         sent = System.currentTimeMillis();
     }
 

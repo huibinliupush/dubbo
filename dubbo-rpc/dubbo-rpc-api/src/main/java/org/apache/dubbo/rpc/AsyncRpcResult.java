@@ -62,6 +62,7 @@ public class AsyncRpcResult implements Result {
     private CompletableFuture<AppResponse> responseFuture;
 
     public AsyncRpcResult(CompletableFuture<AppResponse> future, Invocation invocation) {
+        // CompletableFuture<AppResponse>
         this.responseFuture = future;
         this.invocation = invocation;
         // dubbo thread context

@@ -43,6 +43,7 @@ public class HeaderExchanger implements Exchanger {
     public ExchangeServer bind(URL url, ExchangeHandler handler) throws RemotingException {
         // handler: org.apache.dubbo.rpc.protocol.dubbo.DubboProtocol.requestHandler
         // DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
+        // HeaderExchangeServer 包装 NettyServer
         return new HeaderExchangeServer(Transporters.bind(url, new DecodeHandler(new HeaderExchangeHandler(handler))));
     }
 
