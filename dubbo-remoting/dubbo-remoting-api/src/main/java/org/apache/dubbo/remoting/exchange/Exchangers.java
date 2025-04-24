@@ -109,6 +109,9 @@ public class Exchangers {
             throw new IllegalArgumentException("handler == null");
         }
         url = url.addParameterIfAbsent(Constants.CODEC_KEY, "exchange");
+        // HeaderExchanger
+        // dubboProtocol.requestHandler
+        // HeaderExchangeClient -> NettyClient
         return getExchanger(url).connect(url, handler);
     }
 
@@ -118,6 +121,7 @@ public class Exchangers {
     }
 
     public static Exchanger getExchanger(String type) {
+        // HeaderExchanger
         return ExtensionLoader.getExtensionLoader(Exchanger.class).getExtension(type);
     }
 

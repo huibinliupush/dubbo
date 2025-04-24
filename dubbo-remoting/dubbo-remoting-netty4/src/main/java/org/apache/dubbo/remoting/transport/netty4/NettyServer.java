@@ -89,8 +89,15 @@ public class NettyServer extends AbstractServer implements RemotingServer {
     @Override
     protected void doOpen() throws Throwable {
         bootstrap = new ServerBootstrap();
-
+        // Server 端的 IO 线程跟着 port 来，这里指的商榷
         bossGroup = NettyEventLoopFactory.eventLoopGroup(1, "NettyServerBoss");
+
+        // 感觉这里的 workerGroup 应该设置成静态的，如果需要暴露多种协议，比如 dubbo ,rest 这样就可以共享 Io 线程
+        // 每种协议对应一个 ServerBootstrap，因为不同的协议可能需要单独设置不同的 channelOption, 以及 channel handler
+        // 但背后的 IO 线程我们是可以共享的
+
+        // 但另一方面 dubbo 这里可以为每种协议指定 IO 线程个数 —— IO_THREADS_KEY，所以这里 workerGroup 也可以不用设置成静态
+        // 但我觉得最好还是设置成静态共享 IO 线程的模式
         workerGroup = NettyEventLoopFactory.eventLoopGroup(
                 getUrl().getPositiveParameter(IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS),
                 "NettyServerWorker");
@@ -112,6 +119,7 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                         int idleTimeout = UrlUtils.getIdleTimeout(getUrl());
                         NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyServer.this);
                         if (getUrl().getParameter(SSL_ENABLED_KEY, false)) {
+                            // https://cn.dubbo.apache.org/zh-cn/blog/2020/05/18/dubbo-java-2.7.5-%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90/
                             ch.pipeline().addLast("negotiation",
                                     SslHandlerInitializer.sslServerHandler(getUrl(), nettyServerHandler));
                         }

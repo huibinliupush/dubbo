@@ -75,6 +75,7 @@ public class Transporters {
         } else {
             handler = new ChannelHandlerDispatcher(handlers);
         }
+        // DecodeHandler -> HeaderExchangeHandler -> requestHandler
         return getTransporter().connect(url, handler);
     }
 

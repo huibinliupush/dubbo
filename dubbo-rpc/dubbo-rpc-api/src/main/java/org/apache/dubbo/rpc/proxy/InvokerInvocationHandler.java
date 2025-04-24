@@ -70,7 +70,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
             rpcInvocation.put(Constants.CONSUMER_MODEL, consumerModel);
             rpcInvocation.put(Constants.METHOD_MODEL, consumerModel.getMethodModel(method));
         }
-
+        // org.apache.dubbo.rpc.AsyncRpcResult.recreate
         return invoker.invoke(rpcInvocation).recreate();
     }
 }

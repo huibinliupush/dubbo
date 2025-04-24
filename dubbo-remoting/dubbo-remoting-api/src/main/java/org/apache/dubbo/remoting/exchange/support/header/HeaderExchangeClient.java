@@ -42,6 +42,7 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 
 /**
  * DefaultMessageClient
+ * 处理心跳，重连，以及提供 request send 操作
  */
 public class HeaderExchangeClient implements ExchangeClient {
 
@@ -55,6 +56,7 @@ public class HeaderExchangeClient implements ExchangeClient {
 
     public HeaderExchangeClient(Client client, boolean startTimer) {
         Assert.notNull(client, "Client can't be null");
+        // NettyClient
         this.client = client;
         this.channel = new HeaderExchangeChannel(client);
 
@@ -197,6 +199,7 @@ public class HeaderExchangeClient implements ExchangeClient {
     }
 
     private void startReconnectTask(URL url) {
+        // consumerUrl 中是否设置 RECONNECT_KEY
         if (shouldReconnect(url)) {
             AbstractTimerTask.ChannelProvider cp = () -> Collections.singletonList(HeaderExchangeClient.this);
             int idleTimeout = getIdleTimeout(url);

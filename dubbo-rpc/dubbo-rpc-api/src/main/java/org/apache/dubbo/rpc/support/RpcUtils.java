@@ -98,6 +98,7 @@ public class RpcUtils {
      */
     public static void attachInvocationIdIfAsync(URL url, Invocation inv) {
         if (isAttachInvocationId(url, inv) && getInvocationId(inv) == null && inv instanceof RpcInvocation) {
+            // 异步调用设置 invokeId
             ((RpcInvocation) inv).setAttachment(ID_KEY, String.valueOf(INVOKE_ID.getAndIncrement()));
         }
     }
@@ -186,9 +187,11 @@ public class RpcUtils {
     }
 
     public static InvokeMode getInvokeMode(URL url, Invocation inv) {
+        // 接口方法返回值为 CompletableFuture
+        // 如果是泛化调用，方法名是否为 $INVOKE_ASYNC，泛化异步
         if (isReturnTypeFuture(inv)) {
             return InvokeMode.FUTURE;
-        } else if (isAsync(url, inv)) {
+        } else if (isAsync(url, inv)) { // 接口配置了 async
             return InvokeMode.ASYNC;
         } else {
             return InvokeMode.SYNC;

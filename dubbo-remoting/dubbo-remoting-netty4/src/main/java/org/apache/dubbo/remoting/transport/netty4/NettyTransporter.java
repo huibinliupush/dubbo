@@ -32,12 +32,13 @@ public class NettyTransporter implements Transporter {
 
     @Override
     public RemotingServer bind(URL url, ChannelHandler handler) throws RemotingException {
-        // ChannelHandlerDispatcher : DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
+        // DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
         return new NettyServer(url, handler);
     }
 
     @Override
     public Client connect(URL url, ChannelHandler handler) throws RemotingException {
+        // DecodeHandler -> HeaderExchangeHandler -> requestHandler
         return new NettyClient(url, handler);
     }
 

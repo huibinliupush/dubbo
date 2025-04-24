@@ -38,7 +38,7 @@ public class Request {
     private boolean mEvent = false;
 
     private boolean mBroken = false;
-
+    // invocation
     private Object mData;
 
     public Request() {

@@ -197,6 +197,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                 }
             }
         } else if (message instanceof Response) {
+            // complete future
             handleResponse(channel, (Response) message);
         } else if (message instanceof String) {
             if (isClientSide(channel)) {

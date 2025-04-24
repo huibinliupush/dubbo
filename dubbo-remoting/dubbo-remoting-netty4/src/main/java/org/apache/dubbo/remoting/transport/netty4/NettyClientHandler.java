@@ -53,10 +53,14 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         this.url = url;
         this.handler = handler;
     }
-
+    // connect 事件产生，Netty 会先通知 connect future ,然后触发 channelActive
+    // connect future 的处理 see：
+    // org.apache.dubbo.remoting.transport.netty4.NettyClient.doConnect
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        // 建立 netty native channel 与 dubbo channel 之间的映射
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
+        // 从 NettyClient 相关回调方法开始, NettyClient 是 dubbo pipine 中的第一个 handler
         handler.connected(channel);
         if (logger.isInfoEnabled()) {
             logger.info("The connection of " + channel.getLocalAddress() + " -> " + channel.getRemoteAddress() + " is established.");
@@ -67,6 +71,7 @@ public class NettyClientHandler extends ChannelDuplexHandler {
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
         try {
+            // 从 NettyClient 相关回调方法开始
             handler.disconnected(channel);
         } finally {
             NettyChannel.removeChannel(ctx.channel());
@@ -98,11 +103,12 @@ public class NettyClientHandler extends ChannelDuplexHandler {
                 handler.sent(channel, msg);
                 return;
             }
-
+            // 客户端发送 request, netty 层面异常，但还是在本地，那么就返回用户一个 ErrorResponse
             Throwable t = future.cause();
             if (t != null && isRequest) {
                 Request request = (Request) msg;
                 Response response = buildErrorResponse(request, t);
+                // 向用户返回错误响应
                 handler.received(channel, response);
             }
         });
@@ -111,6 +117,7 @@ public class NettyClientHandler extends ChannelDuplexHandler {
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         // send heartbeat when read idle.
+        // client 空闲则发送心跳，*** 注意 ***   心跳的发送是等空闲了才发送，而不是定时发送，因为平时正常的发送 request 也算是心跳了
         if (evt instanceof IdleStateEvent) {
             try {
                 NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
@@ -123,6 +130,7 @@ public class NettyClientHandler extends ChannelDuplexHandler {
                 req.setEvent(HEARTBEAT_EVENT);
                 channel.send(req);
             } finally {
+                // 如果已经断连，则从缓存中删除，markActive = false
                 NettyChannel.removeChannelIfDisconnected(ctx.channel());
             }
         } else {

@@ -73,9 +73,11 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
 
     public DubboInvoker(Class<T> serviceType, URL url, ExchangeClient[] clients, Set<Invoker<?>> invokers) {
         super(serviceType, url, new String[]{INTERFACE_KEY, GROUP_KEY, TOKEN_KEY});
+        // 一个 provider 一个 invoker, 里边对应多个 clients (连接的抽象)（默认情况下是共享连接）
         this.clients = clients;
         // get version.
         this.version = url.getParameter(VERSION_KEY, "0.0.0");
+        // DubboProtocal 中缓存的所有 providerUrl 对应的 invoker (一个 provider 对应一个 invoker)
         this.invokers = invokers;
     }
 
@@ -90,21 +92,31 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         if (clients.length == 1) {
             currentClient = clients[0];
         } else {
+            // 轮询的方式获取底层 client 连接
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
         try {
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
             int timeout = calculateTimeout(invocation, methodName);
             if (isOneway) {
+                // 是否等待数据发送成功（等待数据写入到 socket）
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
+                // 直接发送数据，只有 request 不会有 response
                 currentClient.send(inv, isSent);
                 return AsyncRpcResult.newDefaultAsyncResult(invocation);
             } else {
+                // 由 executor 执行 request future 的超时通知操作，避免在时间轮中执行
+                // request future 正常通知是在 dubbo 线程中进行
                 ExecutorService executor = getCallbackExecutor(getUrl(), inv);
+                // 发送 request 请求，response 回来之后会通知 CompletableFuture
+                // 如果 reference 设置了异步请求，那会在
                 CompletableFuture<AppResponse> appResponseFuture =
                         currentClient.request(inv, timeout, executor).thenApply(obj -> (AppResponse) obj);
                 // save for 2.6.x compatibility, for example, TraceFilter in Zipkin uses com.alibaba.xxx.FutureAdapter
                 FutureContext.getContext().setCompatibleFuture(appResponseFuture);
+                // 在 org.apache.dubbo.rpc.protocol.AbstractInvoker.invoke 中
+                // 会将这里的 appResponseFuture 设置到 RpcContext 中，用户可以从 RpcContext 中获取 appResponseFuture 来实现客户端异步
+                // 如果客户端是同步的，那么就会在 org.apache.dubbo.rpc.protocol.AsyncToSyncInvoker.invoke 将异步转化为同步
                 AsyncRpcResult result = new AsyncRpcResult(appResponseFuture, inv);
                 result.setExecutor(executor);
                 return result;

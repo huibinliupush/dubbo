@@ -37,14 +37,14 @@ import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_TIMEOUT;
 import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 
 /**
- * ExchangeReceiver
+ * ExchangeReceiver， 实现 request 和 send 语义
  */
 final class HeaderExchangeChannel implements ExchangeChannel {
 
     private static final Logger logger = LoggerFactory.getLogger(HeaderExchangeChannel.class);
 
     private static final String CHANNEL_KEY = HeaderExchangeChannel.class.getName() + ".CHANNEL";
-    // DubboChannel（NettyChannel类型）
+    // NettyClient
     private final Channel channel;
 
     private volatile boolean closed = false;
@@ -53,6 +53,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         if (channel == null) {
             throw new IllegalArgumentException("channel == null");
         }
+        // NettyClient
         this.channel = channel;
     }
 
@@ -120,6 +121,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         return request(request, channel.getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT), executor);
     }
 
+    // 这里的参数 request 就是 dubboInvoker 传递进来的 invocation
     @Override
     public CompletableFuture<Object> request(Object request, int timeout, ExecutorService executor) throws RemotingException {
         if (closed) {
@@ -129,9 +131,11 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         Request req = new Request();
         req.setVersion(Version.getProtocolVersion());
         req.setTwoWay(true);
+        // invocation
         req.setData(request);
         // remote 端响应回来，会调用该 future 的 comlpete 方法
         // org.apache.dubbo.remoting.exchange.support.DefaultFuture.received(org.apache.dubbo.remoting.Channel, org.apache.dubbo.remoting.exchange.Response, boolean)
+        // 如果 future 超时，executor 可以用来执行 notifyFutureTimeout,避免在时间轮中执行
         DefaultFuture future = DefaultFuture.newFuture(channel, req, timeout, executor);
         try {
             channel.send(req);

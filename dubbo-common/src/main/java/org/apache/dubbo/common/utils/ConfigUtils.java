@@ -143,18 +143,21 @@ public class ConfigUtils {
         matcher.appendTail(sb);
         return sb.toString();
     }
-
+    // 获取 dubbo.property 文件路径
     public static Properties getProperties() {
         if (PROPERTIES == null) {
             synchronized (ConfigUtils.class) {
                 if (PROPERTIES == null) {
+                    // 先从系统变量 dubbo.properties.file 中获取
                     String path = System.getProperty(CommonConstants.DUBBO_PROPERTIES_KEY);
                     if (path == null || path.length() == 0) {
+                        // 在从环境变量中获取
                         path = System.getenv(CommonConstants.DUBBO_PROPERTIES_KEY);
                         if (path == null || path.length() == 0) {
                             path = CommonConstants.DEFAULT_DUBBO_PROPERTIES;
                         }
                     }
+                    // 从 classpath 中获取
                     PROPERTIES = ConfigUtils.loadProperties(path, false, true);
                 }
             }

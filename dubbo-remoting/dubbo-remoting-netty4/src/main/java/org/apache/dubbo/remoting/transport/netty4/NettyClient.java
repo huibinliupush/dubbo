@@ -54,6 +54,9 @@ public class NettyClient extends AbstractClient {
     private static final Logger logger = LoggerFactory.getLogger(NettyClient.class);
     /**
      * netty client bootstrap
+     * 静态的，一个 cosumer 应用所有的连接（client）都由这里的 NIO_EVENT_LOOP_GROUP 进行管理（consumer 端的 IO 线程）
+     * 和你预想的一样
+     * 一个 consumer 对应多个 provider,那就会对应多个 channel,这些 channel 全部由这里的 NIO_EVENT_LOOP_GROUP 管理
      */
     private static final EventLoopGroup NIO_EVENT_LOOP_GROUP = eventLoopGroup(Constants.DEFAULT_IO_THREADS, "NettyClientWorker");
 
@@ -80,7 +83,7 @@ public class NettyClient extends AbstractClient {
     	// you can customize name and type of client thread pool by THREAD_NAME_KEY and THREADPOOL_KEY in CommonConstants.
     	// the handler will be wrapped: MultiMessageHandler->HeartbeatHandler->handler
 
-        // // MultiMessageHandler -> HeartbeatHandler -> Dispatcher
+        // MultiMessageHandler -> HeartbeatHandler -> AllChannelhandler -> DecodeHandler -> HeaderExchangeHandler -> requestHandler
     	super(url, wrapChannelHandler(url, handler));
     }
 
@@ -92,6 +95,8 @@ public class NettyClient extends AbstractClient {
     @Override
     protected void doOpen() throws Throwable {
         final NettyClientHandler nettyClientHandler = new NettyClientHandler(getUrl(), this);
+        // 每个 client 创建一个 Bootstrap 也是合理的，毕竟每个 client 它的连接参数可能配置的都不一样
+        // 只要这里的 NIO_EVENT_LOOP_GROUP 是一个静态的就 OK，IO 线程是跟着进程走的
         bootstrap = new Bootstrap();
         bootstrap.group(NIO_EVENT_LOOP_GROUP)
                 .option(ChannelOption.SO_KEEPALIVE, true)
@@ -108,6 +113,7 @@ public class NettyClient extends AbstractClient {
                 int heartbeatInterval = UrlUtils.getHeartbeat(getUrl());
 
                 if (getUrl().getParameter(SSL_ENABLED_KEY, false)) {
+                    // https://cn.dubbo.apache.org/zh-cn/blog/2020/05/18/dubbo-java-2.7.5-%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90/
                     ch.pipeline().addLast("negotiation", SslHandlerInitializer.sslClientHandler(getUrl(), nettyClientHandler));
                 }
 
@@ -116,7 +122,7 @@ public class NettyClient extends AbstractClient {
                         .addLast("decoder", adapter.getDecoder())
                         .addLast("encoder", adapter.getEncoder())
                         .addLast("client-idle-handler", new IdleStateHandler(heartbeatInterval, 0, 0, MILLISECONDS))
-                        .addLast("handler", nettyClientHandler);
+                        .addLast("handler", nettyClientHandler);// dubbo pipeline (最开始是 NettyClient),而 NettyClient 本身包装了其他 DubboHandler
 
                 String socksProxyHost = ConfigUtils.getProperty(SOCKS_PROXY_HOST);
                 if(socksProxyHost != null) {
@@ -134,7 +140,7 @@ public class NettyClient extends AbstractClient {
         ChannelFuture future = bootstrap.connect(getConnectAddress());
         try {
             boolean ret = future.awaitUninterruptibly(getConnectTimeout(), MILLISECONDS);
-
+            // connect 事件产生，Netty 会先通知这里的 connect future ,然后触发 channelActive
             if (ret && future.isSuccess()) {
                 Channel newChannel = future.channel();
                 try {
@@ -163,6 +169,8 @@ public class NettyClient extends AbstractClient {
                             NettyChannel.removeChannelIfDisconnected(newChannel);
                         }
                     } else {
+                        // 在 NettyClientHandler.channelActive 的回调函数中会建立 newChannel 到 dubboChannel 之间的映射
+                        // org.apache.dubbo.remoting.transport.netty4.NettyClientHandler.channelActive
                         NettyClient.this.channel = newChannel;
                     }
                 }

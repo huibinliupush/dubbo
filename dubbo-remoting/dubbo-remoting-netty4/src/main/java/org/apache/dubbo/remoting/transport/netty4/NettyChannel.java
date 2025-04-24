@@ -44,6 +44,10 @@ final class NettyChannel extends AbstractChannel {
     private static final Logger logger = LoggerFactory.getLogger(NettyChannel.class);
     /**
      * the cache for netty channel and dubbo channel
+     * 同一个 dubbo 进程可能既是 consumer 也是 provider
+     * 那么客户端的所有 channel 以及服务端的所有 channel 都会在这里
+     *
+     * key: netty native channel   value : dubbo channel
      */
     private static final ConcurrentMap<Channel, NettyChannel> CHANNEL_MAP = new ConcurrentHashMap<Channel, NettyChannel>();
     /**

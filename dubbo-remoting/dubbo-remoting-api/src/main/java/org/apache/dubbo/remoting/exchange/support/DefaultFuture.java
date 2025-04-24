@@ -110,6 +110,10 @@ public class DefaultFuture extends CompletableFuture<Object> {
         final DefaultFuture future = new DefaultFuture(channel, request, timeout);
         future.setExecutor(executor);
         // ThreadlessExecutor needs to hold the waiting future in case of circuit return.
+
+        // https://cn.dubbo.apache.org/zh-cn/blog/2020/05/18/dubbo-java-2.7.5-%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90/
+        // see: org.apache.dubbo.remoting.transport.dispatcher.WrappedChannelHandler#getPreferredExecutorService(java.lang.Object)
+        // 用于其他的consumer线程模型，response 直接在用户线程上执行
         if (executor instanceof ThreadlessExecutor) {
             ((ThreadlessExecutor) executor).setWaitingFuture(future);
         }
@@ -219,6 +223,10 @@ public class DefaultFuture extends CompletableFuture<Object> {
 
         // the result is returning, but the caller thread may still waiting
         // to avoid endless waiting for whatever reason, notify caller thread to return.
+
+        // https://cn.dubbo.apache.org/zh-cn/blog/2020/05/18/dubbo-java-2.7.5-%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90/
+        // see: org.apache.dubbo.remoting.transport.dispatcher.WrappedChannelHandler#getPreferredExecutorService(java.lang.Object)
+        // 用于其他的consumer线程模型，response 直接在用户线程上执行
         if (executor != null && executor instanceof ThreadlessExecutor) {
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
             if (threadlessExecutor.isWaiting()) {

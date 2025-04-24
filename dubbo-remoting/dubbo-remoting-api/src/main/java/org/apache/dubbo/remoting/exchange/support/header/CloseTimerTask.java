@@ -42,6 +42,7 @@ public class CloseTimerTask extends AbstractTimerTask {
             Long lastWrite = lastWrite(channel);
             Long now = now();
             // check ping & pong at server
+            // 读或者写空闲时间达到 idleTimeout ，服务端关闭连接
             if ((lastRead != null && now - lastRead > idleTimeout)
                     || (lastWrite != null && now - lastWrite > idleTimeout)) {
                 logger.warn("Close channel " + channel + ", because idleCheck timeout: "

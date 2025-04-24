@@ -53,9 +53,9 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
 
     public AbstractClient(URL url, ChannelHandler handler) throws RemotingException {
         super(url, handler);
-
+        // 断连需不需要自动重连
         needReconnect = url.getParameter(Constants.SEND_RECONNECT_KEY, false);
-
+        // 创建 executor, consumer 端为 cachedThreadPool
         initExecutor(url);
 
         try {
@@ -90,6 +90,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
 
     private void initExecutor(URL url) {
         url = ExecutorUtil.setThreadName(url, CLIENT_THREAD_POOL_NAME);
+        // cachedThreadPool
         url = url.addParameterIfAbsent(THREADPOOL_KEY, DEFAULT_CLIENT_THREADPOOL);
         executor = executorRepository.createExecutorIfAbsent(url);
     }
@@ -170,6 +171,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         if (needReconnect && !isConnected()) {
             connect();
         }
+        // NettyChannel
         Channel channel = getChannel();
         //TODO Can the value returned by getChannel() be null? need improvement.
         if (channel == null || !channel.isConnected()) {

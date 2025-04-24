@@ -104,6 +104,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private final Class<T> serviceType; // Initialization at construction time, assertion not null
     private final Map<String, String> queryMap; // Initialization at construction time, assertion not null
     // 只保留 Consumer 属性的 registerURL(其他 registry 属性全部删除)，也就是由 queryMap 集合重新生成的 URL。
+    // zookeeper 协议
     private final URL directoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
     private final boolean multiGroup;
     private Protocol protocol; // Initialization at the time of injection, the assertion is not null
@@ -112,6 +113,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private boolean shouldRegister;
     private boolean shouldSimplified;
     // 初始情况下和 directoryUrl 一样，后续再 notify 中会被重新覆盖（根据动态配置的变化重新覆盖 overrideDirectoryUrl）
+    // zookeeper 协议
     private volatile URL overrideDirectoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
 
     private volatile URL registeredConsumerUrl;
@@ -461,6 +463,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         enabled = url.getParameter(ENABLED_KEY, true);
                     }
                     if (enabled) {
+                        // url 为覆盖移植后的 providerURL
                         invoker = new InvokerDelegate<>(protocol.refer(serviceType, url), url, providerUrl);
                     }
                 } catch (Throwable t) {
@@ -494,6 +497,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
         // The combination of directoryUrl and override is at the end of notify, which can't be handled here
         // 用新生成的 providerUrl 重新覆盖一遍 overrideDirectoryUrl
+        // zookeeper 协议
         this.overrideDirectoryUrl = this.overrideDirectoryUrl.addParametersIfAbsent(providerUrl.getParameters()); // Merge the provider side parameters
 
         if ((providerUrl.getPath() == null || providerUrl.getPath()

@@ -75,6 +75,8 @@ public class DefaultExecutorRepository implements ExecutorRepository {
         if (CONSUMER_SIDE.equalsIgnoreCase(url.getParameter(SIDE_KEY))) {
             componentKey = CONSUMER_SIDE;
         }
+        // 第一维度按照：provider端（fixed）， consumer端(cached) 来划分 executors
+        // 第二维度按照: provider port 划分 executors，每个 port 分配一个 executors
         Map<Integer, ExecutorService> executors = data.computeIfAbsent(componentKey, k -> new ConcurrentHashMap<>());
         Integer portKey = url.getPort();
         ExecutorService executor = executors.computeIfAbsent(portKey, k -> createExecutor(url));

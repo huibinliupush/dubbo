@@ -78,6 +78,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         }
         this.type = type;
         this.url = url;
+        // consumerUrl 中的 INTERFACE_KEY, GROUP_KEY, TOKEN_KEY 这些值
         this.attachment = attachment == null ? null : Collections.unmodifiableMap(attachment);
     }
 
@@ -143,7 +144,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         if (CollectionUtils.isNotEmptyMap(attachment)) {
             invocation.addObjectAttachmentsIfAbsent(attachment);
         }
-
+        // RpcContext 中的 Attachments 全部塞进 invocation 中，远程传递
         Map<String, Object> contextAttachments = RpcContext.getContext().getObjectAttachments();
         if (CollectionUtils.isNotEmptyMap(contextAttachments)) {
             /**
@@ -154,8 +155,10 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
              */
             invocation.addObjectAttachments(contextAttachments);
         }
-
+        // 更具接口方法返回值是否为 CompletableFuture 或者 url 中是否配置了 async
+        // 来决定调用模式是同步的还是异步的
         invocation.setInvokeMode(RpcUtils.getInvokeMode(url, invocation));
+        // 如果是异步调用，在 invocation 中设置 invokeId
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
 
         AsyncRpcResult asyncResult;
@@ -180,6 +183,11 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         } catch (Throwable e) {
             asyncResult = AsyncRpcResult.newDefaultAsyncResult(null, e, invocation);
         }
+        // 这里是异步重点，当 invoke 返回的时候，会将 asyncResult.getResponseFuture() 设置到 RpcContext.getContext()
+        // 用户可以通过 RpcContext 获取 future
+
+        // ResponseFuture 的类型为 CompletableFuture<AppResponse>，返回值是 AppResponse，这是一个 dubbo 内部的响应模型
+        // FutureAdapter 的作用就是将 AppResponse 转换为真正的结果 future(方法的返回值) appResponse.getValue() 的 future
         RpcContext.getContext().setFuture(new FutureAdapter(asyncResult.getResponseFuture()));
         return asyncResult;
     }

@@ -263,8 +263,13 @@ public class HeaderExchangeServer implements ExchangeServer {
     private void startIdleCheckTask(URL url) {
         if (!server.canHandleIdle()) {
             AbstractTimerTask.ChannelProvider cp = () -> unmodifiableCollection(HeaderExchangeServer.this.getChannels());
+            // heartBeat * 3
             int idleTimeout = getIdleTimeout(url);
+            // heartBeat
             long idleTimeoutTick = calculateLeastDuration(idleTimeout);
+            // idleTimeoutTick 心跳发送间隔，连接空闲时间 idleTimeout
+            // 每个 idleTimeoutTick 间隔，检查 channel 读或者写的空闲时间是否达到 idleTimeout
+            // 已经达到则关闭连接
             CloseTimerTask closeTimerTask = new CloseTimerTask(cp, idleTimeoutTick, idleTimeout);
             this.closeTimerTask = closeTimerTask;
 

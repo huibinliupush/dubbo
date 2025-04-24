@@ -64,13 +64,15 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         setReadTimestamp(channel);
-        if (isHeartbeatRequest(message)) {
+        // 当空闲事件产生的时候，客户端方面会发送心跳 request(two way)
+        // see : org.apache.dubbo.remoting.transport.netty4.NettyClientHandler.userEventTriggered
+        if (isHeartbeatRequest(message)) { // 服务端接收心跳 request
             Request req = (Request) message;
             if (req.isTwoWay()) {
                 Response res = new Response(req.getId(), req.getVersion());
                 res.setEvent(HEARTBEAT_EVENT);
                 // NettyChannel
-                channel.send(res);
+                channel.send(res); // 服务端收到客户端的心跳 request 之后会发送心跳 response
                 if (logger.isInfoEnabled()) {
                     int heartbeat = channel.getUrl().getParameter(Constants.HEARTBEAT_KEY, 0);
                     if (logger.isDebugEnabled()) {
@@ -82,7 +84,8 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
             }
             return;
         }
-        if (isHeartbeatResponse(message)) {
+        // 服务端收到客户端的心跳 request 之后会发送心跳 response
+        if (isHeartbeatResponse(message)) { // 客户端接收心跳 response
             if (logger.isDebugEnabled()) {
                 logger.debug("Receive heartbeat response in thread " + Thread.currentThread().getName());
             }
