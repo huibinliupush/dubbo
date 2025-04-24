@@ -20,6 +20,8 @@ import org.apache.dubbo.config.annotation.Argument;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.apache.dubbo.config.annotation.Method;
 import org.apache.dubbo.demo.BigDeDto;
+import org.apache.dubbo.demo.CallbackListener;
+import org.apache.dubbo.demo.CallbackService;
 import org.apache.dubbo.demo.DemoService;
 import org.springframework.stereotype.Component;
 
@@ -28,10 +30,13 @@ import java.util.concurrent.CompletableFuture;
 @Component("demoServiceComponent")
 public class DemoServiceComponent implements DemoService {
     @DubboReference(check = false,
-            methods = {@Method(name = "sayHello", timeout = 250, retries = 3)}, mock = "force:return fake")
-            // parameters = {"sayHello.mock","force:return fake"}) 这里有 bug,解析异常。会把 ： 替换为 ,
-            // see org.apache.dubbo.config.spring.beans.factory.annotation.ReferenceBeanBuilder.preConfigureBean
+            methods = { @Method(name = "sayHello", timeout = 250, retries = 3) }, mock = "force:return fake")
+    // parameters = {"sayHello.mock","force:return fake"}) 这里有 bug,解析异常。会把 ： 替换为 ,
+    // see org.apache.dubbo.config.spring.beans.factory.annotation.ReferenceBeanBuilder.preConfigureBean
     private DemoService demoService; // 同一字段放在不同类中也是不同的代理 ？ 错，还是一个代理
+
+    @DubboReference(check = false )
+    private CallbackService callbackService;
 
     private DemoService demoService1;
 
@@ -67,5 +72,14 @@ public class DemoServiceComponent implements DemoService {
     @Override
     public DemoService wrapperReturnVoid(Integer warpperField) {
         return null;
+    }
+
+    public void addListener(String key, CallbackListener listener) {
+        // 在发起远程调用的时候，encode 阶段，会生成 CallbackListener 的 export (并不会 openServer，而是复用 client 连接)
+        // org.apache.dubbo.rpc.protocol.dubbo.CallbackServiceCodec.exportOrUnexportCallbackService
+
+        // provider 在收到 addListener 的调用请求之后，会在解码阶段（decodeHandle）中为参数 listener 生成 reference 代理
+        // org.apache.dubbo.rpc.protocol.dubbo.CallbackServiceCodec.referOrDestroyCallbackService
+        callbackService.addListener(key,listener);
     }
 }

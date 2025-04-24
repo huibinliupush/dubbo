@@ -31,4 +31,5 @@ public interface DemoService {
     }
 
     void testBigDecimal(BigDeDto bigDeDto);
+
 }

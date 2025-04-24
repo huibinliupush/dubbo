@@ -128,6 +128,7 @@ class CallbackServiceCodec {
                     Invoker<?> invoker = PROXY_FACTORY.getInvoker(inst, clazz, exportUrl);
                     // should destroy resource?
                     Exporter<?> exporter = PROTOCOL.export(invoker);
+                    // dubbo://192.168.2.101:57101/org.apache.dubbo.demo.CallbackListener.2146399153?addListener.1.callback=true&addListener.return=true&anyhost=true&application=dubbo-demo-annotation-consumer&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.CallbackListener&is_callback_service=true&isserver=false&methods=changed&owner=provider2&pid=57327&register.ip=192.168.2.101&release=&remote.application=dubbo-demo-annotation-provider2&side=consumer&sticky=false&timestamp=1745496177303
                     // this is used for tracing if instid has published service or not.
                     channel.setAttribute(cacheKey, exporter);
                     logger.info("Export a callback service :" + exportUrl + ", on " + channel + ", url is: " + url);

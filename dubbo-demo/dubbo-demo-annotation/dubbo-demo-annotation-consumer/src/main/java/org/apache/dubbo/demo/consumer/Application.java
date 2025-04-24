@@ -36,7 +36,7 @@ public class Application {
     public static void main(String[] args) {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ConsumerConfiguration.class);
         context.start();
-        DemoService service = context.getBean("demoServiceComponent", DemoServiceComponent.class);
+        DemoServiceComponent service = context.getBean("demoServiceComponent", DemoServiceComponent.class);
         String hello = service.sayHello("world");
         System.out.println("result :" + hello);
 
@@ -44,6 +44,8 @@ public class Application {
         deDto.setDecimal(new BigDecimal(20));
         deDto.setName("hessian bigdecimal");
         service.testBigDecimal(deDto);
+
+        service.addListener("foo.bar", msg -> System.out.println("callback:" + msg));
     }
 
     @Configuration
