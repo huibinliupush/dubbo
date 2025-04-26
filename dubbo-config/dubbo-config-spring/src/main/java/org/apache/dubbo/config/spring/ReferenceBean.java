@@ -63,6 +63,16 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         SpringExtensionFactory.addApplicationContext(applicationContext);
     }
 
+    /**
+     *
+     * BeanFactory 是用来产生 spring 中所有的 bean 的，当然包括产生 FactoryBean，相当于是所有 bean 的一个容器
+     * FactoryBean 也是用来产生 bean 的，但这个 bean 是特定类型的 bean, 比如这里的 ReferenceBean，专门用来产生 proxy
+     *
+     * BeanFactory 产生 FactoryBean，FactoryBean 产生具体的 Bean
+     *
+     * 在 spring 中 getBean 的时候，首先会通过 BeanFactory 去 getBean，如果通过 beanId 获取到的是一个正常的 bean 那么就直接返回
+     * 如果获取到的是一个 FactoryBean（beanId），那么就需要调用 FactoryBean 的 getObject 方法获取 bean
+     */
     @Override
     public Object getObject() {
         return get();

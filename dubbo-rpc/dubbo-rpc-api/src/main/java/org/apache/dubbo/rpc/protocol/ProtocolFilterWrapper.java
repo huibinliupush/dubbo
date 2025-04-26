@@ -97,6 +97,8 @@ public class ProtocolFilterWrapper implements Protocol {
                             if (filter instanceof ListenableFilter) {
                                 ListenableFilter listenableFilter = ((ListenableFilter) filter);
                                 try {
+                                    // 每次创建新的 Filter.Listener
+                                    // see : org.apache.dubbo.demo.provider.filter.YourProjectFilter
                                     Filter.Listener listener = listenableFilter.listener(invocation);
                                     if (listener != null) {
                                         listener.onError(e, invoker, invocation);
@@ -109,6 +111,7 @@ public class ProtocolFilterWrapper implements Protocol {
                                 Filter.Listener listener = (Filter.Listener) filter;
                                 listener.onError(e, invoker, invocation);
                             }
+                            // 这里可以看出 filter 链中的异常是可以传播的
                             throw e;
                         } finally {
 
@@ -116,6 +119,9 @@ public class ProtocolFilterWrapper implements Protocol {
 
                         //如果请求正常返回结果则回调filter监听器的onResponse方法，
                         //如果请求执行过程中发生异常则回调filter监听器的onError方法，（整个 Filter 链中有异常都会回调）
+
+                        // 在同一个 RpcContext 中调用该回调函数 (r, t) ->{}
+                        // see : org.apache.dubbo.rpc.AsyncRpcResult.whenCompleteWithContext
                         return asyncResult.whenCompleteWithContext((r, t) -> {
                             if (filter instanceof ListenableFilter) {
                                 ListenableFilter listenableFilter = ((ListenableFilter) filter);

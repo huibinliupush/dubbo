@@ -156,7 +156,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
 
         //判断引用的dubbo服务是否为本地暴露的服务，如果是本地服务后边直接 反射调用服务实例的具体方法
         // 1. serviceBean 在当前springContext中
-        // 2. referenceBean.isInjvm() = true(默认)
+        // 2. referenceBean.isInjvm() = FALSE
         boolean localServiceBean = isLocalServiceBean(referencedBeanName, referenceBean, attributes);
 
         // localServiceBean = true ，那么就直接调用本地 dubboservice, 就不会注册 ReferenceBean
@@ -267,7 +267,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
 
     /**
      * Is Local Service bean or not?
-     * 是否为本地暴露服务的依据是：1. serviceBean是否存在当前springContext中。2.暴露协议不能是inJvm
+     * 是否为本地暴露服务的依据是：1. serviceBean是否存在当前springContext中。2.暴露协议不能是inJvm （FALSE）
      * @param referencedBeanName the bean name to the referenced bean
      * @return If the target referenced bean is existed, return <code>true</code>, or <code>false</code>
      * @since 2.7.6
@@ -306,6 +306,13 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
      */
     private Object getOrCreateProxy(String referencedBeanName, ReferenceBean referenceBean, boolean localServiceBean,
                                     Class<?> serviceInterfaceType) {
+
+        /**
+         * 通过注解的方式，设置 injvm = FALSE ，则直接走本地，不走 filter 链
+         * 但是通过 xml 的方式就只能走 filter 链本地调用，因为 xml 的方式没有这里判断直接就是下面的 getObject
+         * org.apache.dubbo.config.spring.ReferenceBean#getObject()
+         * */
+        // localServiceBean + injvm = FALSE，直接走本地，不走 filter 链
         if (localServiceBean) { // If the local @Service Bean exists, build a proxy of Service
             // 调用本地暴露的服务时  直接反射调用service类的实现 serviceImpl(代理里直接调用实现类的方法 不走那些invoker链)
             // 该 Proxy 实现 serviceInterfaceType 接口，并将接口中的所有方法代理给 ReferencedBeanInvocationHandler（反射调用 demeServiceImpl 中方法）
@@ -313,7 +320,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AbstractAnnotationBean
                     newReferencedBeanInvocationHandler(referencedBeanName));
         } else {
             // 暴露协议为inJvm的的时候需要立马暴露，调用服务虽然也是本地，但是需要走filter链
-            // 1. ServiceBean 在本地并且 @DubboReference(injvm = false),那么就会调用 ServiceBean 的 exporter 走 filter链
+            // 1. ServiceBean 在本地并且 @DubboReference(injvm = true),那么就会调用 ServiceBean 的 exporter 走 filter链
             // https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-call/#%E9%85%8D%E7%BD%AE
             // 如果存在本地 ServiceBean 就立马将它暴露，如果不在这里暴露，那么后面创建 reference 代理的时候就会报错
             // no provider avliable

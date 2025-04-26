@@ -436,12 +436,16 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
     protected boolean shouldJvmRefer(Map<String, String> map) {
         URL tmpUrl = new URL("temp", "localhost", 0, map);
         boolean isJvmRefer;
+        // 如果设置了 injvm 则优先根据 injvm 的设置来
+        // 如果没有设置 injvm , 则根据 scope 的设置来
         if (isInjvm() == null) {
             // if a url is specified, don't do local reference
+            // 直连 provider
             if (url != null && url.length() > 0) {
                 isJvmRefer = false;
             } else {
                 // by default, reference local service if there is
+                // 则根据 scope 的设置来
                 isJvmRefer = InjvmProtocol.getInjvmProtocol().isInjvmRefer(tmpUrl);
             }
         } else {

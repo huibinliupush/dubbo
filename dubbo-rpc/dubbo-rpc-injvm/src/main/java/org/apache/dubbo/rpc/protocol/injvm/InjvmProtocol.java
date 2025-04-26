@@ -112,6 +112,8 @@ public class InjvmProtocol extends AbstractProtocol implements Protocol {
             return false;
         } else if (getExporter(exporterMap, url) != null) {
             // by default, go through local reference if there's the service exposed locally
+            // 不设置 SCOPE ，不设置 injvm 的情况
+            // 如果本地存在一个 local service exporter ，那么就自动本地引用
             return true;
         } else {
             return false;
