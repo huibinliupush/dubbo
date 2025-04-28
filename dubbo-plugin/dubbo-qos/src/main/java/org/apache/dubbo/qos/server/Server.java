@@ -96,7 +96,7 @@ public class Server {
 
             @Override
             protected void initChannel(Channel ch) throws Exception {
-                ch.pipeline().addLast(new QosProcessHandler(welcome, acceptForeignIp));
+                ch.pipeline().addLast(new QosProcessHandler(welcome, acceptForeignIp)); // 根据 http 协议或者 telnet 协议动态添加 channelHandler
             }
         });
         try {

@@ -103,13 +103,20 @@ public class HeaderExchangeServer implements ExchangeServer {
 
     @Override
     public void close(final int timeout) {
+        // 先设置 close 标识 为 true , 再有连接进来，server 会直接断开
         startClose();
         if (timeout > 0) {
             final long max = (long) timeout;
             final long start = System.currentTimeMillis();
             if (getUrl().getParameter(Constants.CHANNEL_SEND_READONLYEVENT_KEY, true)) {
+                // 向所有 client 发送 read only 事件，client 在收到 read only 事件之后，channel 就会变为只读，不能在发送数据了
                 sendChannelReadOnlyEvent();
             }
+            // 这里循环等待所有 client 主动关闭连接，其实 client 在收到 read only 事件之后就应该关闭了
+            // 让 client 主动去关，避免大量 timewait 连接
+
+            // client 端也会等待一段时间，如果等待超时，连接上还有未响应的 futrue,
+            // 则会自己创建一个状态码将连接关闭的 Response 交给 DefaultFuture 处理
             while (HeaderExchangeServer.this.isRunning()
                     && System.currentTimeMillis() - start < max) {
                 try {
@@ -120,6 +127,7 @@ public class HeaderExchangeServer implements ExchangeServer {
             }
         }
         doClose();
+        // 超时强制关闭 ： org.apache.dubbo.remoting.transport.netty4.NettyServer.doClose
         server.close(timeout);
     }
 
@@ -261,6 +269,7 @@ public class HeaderExchangeServer implements ExchangeServer {
     }
 
     private void startIdleCheckTask(URL url) {
+        // netty server 返回 true
         if (!server.canHandleIdle()) {
             AbstractTimerTask.ChannelProvider cp = () -> unmodifiableCollection(HeaderExchangeServer.this.getChannels());
             // heartBeat * 3

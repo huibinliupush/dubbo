@@ -42,6 +42,9 @@ public class HeartbeatTimerTask extends AbstractTimerTask {
     @Override
     protected void doTask(Channel channel) {
         try {
+            // 超过 heartbeat 的时间没有读取数据或者没有发送数据
+            // 那么就需要发送心跳
+            // The channel has no data-transmission exceeds a heartbeat period,Send heartbeat to remote channel
             Long lastRead = lastRead(channel);
             Long lastWrite = lastWrite(channel);
             if ((lastRead != null && now() - lastRead > heartbeat)

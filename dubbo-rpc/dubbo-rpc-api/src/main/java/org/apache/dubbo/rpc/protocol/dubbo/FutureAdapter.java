@@ -46,6 +46,7 @@ public class FutureAdapter<V> extends CompletableFuture<V> {
                 if (appResponse.hasException()) {
                     this.completeExceptionally(appResponse.getException());
                 } else {
+                    // complete FutureAdapter
                     this.complete((V) appResponse.getValue());
                 }
             }

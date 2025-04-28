@@ -73,12 +73,13 @@ public class ExchangeCodec extends TelnetCodec {
             super.encode(channel, buffer, msg);
         }
     }
-
+    // 负责处理请求头
     @Override
     public Object decode(Channel channel, ChannelBuffer buffer) throws IOException {
         int readable = buffer.readableBytes();
         byte[] header = new byte[Math.min(readable, HEADER_LENGTH)];
         buffer.readBytes(header);
+        // 交给 dubboCodec 处理请求体
         return decode(channel, buffer, readable, header);
     }
 

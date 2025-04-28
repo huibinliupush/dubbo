@@ -144,6 +144,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             // 调用 interface 接口的 onDisconnect 方法
             handler.disconnected(exchangeChannel);
         } finally {
+            // 关闭 channel 上的 future
             DefaultFuture.closeChannel(channel);
             HeaderExchangeChannel.removeChannel(channel);
         }
@@ -186,6 +187,10 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             Request request = (Request) message;
             if (request.isEvent()) {
                 // 除心跳事件之外的其他事件，处理 read only 事件
+                // server 关闭的时候会向 client 发送 read only 事件 : org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeServer.close(int)
+                // client 这里收到 server 发送的 read only 事件之后，会设置 channel 属性 CHANNEL_ATTRIBUTE_READONLY_KEY 为 true
+                // 此后 client 就不能向 server 发送数据 : org.apache.dubbo.rpc.protocol.dubbo.DubboInvoker.isAvailable
+                // 在路由的时候，不会将请求路由到 isAvailable = false 的 dubboInvoker 中（不可写）
                 handlerEvent(channel, request);
             } else {
                 if (request.isTwoWay()) {
@@ -205,6 +210,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                 logger.error(e.getMessage(), e);
             } else {
                 // telnet 协议的实现
+                // org.apache.dubbo.remoting.telnet.support.TelnetHandlerAdapter.telnet
                 String echo = handler.telnet(channel, (String) message);
                 if (echo != null && echo.length() > 0) {
                     channel.send(echo);

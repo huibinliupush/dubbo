@@ -33,7 +33,9 @@ import java.util.concurrent.TimeoutException;
  * https://cn.dubbo.apache.org/zh-cn/blog/2020/05/18/dubbo-java-2.7.5-%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90/
  * see: org.apache.dubbo.remoting.transport.dispatcher.WrappedChannelHandler#getPreferredExecutorService(java.lang.Object)
  *
- * 用于其他的consumer线程模型，response 直接在用户线程上执行
+ * 用于其他的consumer线程模型 (DirectChannelHandler)，decode,headerExchanger,dubboRequetHandler 直接在用户线程上执行
+ * see : org.apache.dubbo.remoting.transport.dispatcher.direct.DirectChannelHandler#received(org.apache.dubbo.remoting.Channel, java.lang.Object)
+ * org.apache.dubbo.rpc.protocol.AsyncToSyncInvoker#invoke(org.apache.dubbo.rpc.Invocation)
  *
  * The most important difference between this Executor and other normal Executor is that this one doesn't manage
  * any thread.
@@ -76,6 +78,10 @@ public class ThreadlessExecutor extends AbstractExecutorService {
     /**
      * Waits until there is a task, executes the task and all queued tasks (if there're any). The task is either a normal
      * response or a timeout response.
+     *
+     * 调用线程（业务）负责执行 queue 里边的 task
+     * see : org.apache.dubbo.rpc.AsyncRpcResult#get()
+     * org.apache.dubbo.rpc.protocol.AsyncToSyncInvoker#invoke(org.apache.dubbo.rpc.Invocation)
      */
     public void waitAndDrain() throws InterruptedException {
         /**
@@ -90,11 +96,12 @@ public class ThreadlessExecutor extends AbstractExecutorService {
         if (finished) {
             return;
         }
-
+        // 调用线程这里阻塞等待 task
         Runnable runnable = queue.take();
 
         synchronized (lock) {
             waiting = false;
+            // 调用线程执行
             runnable.run();
         }
 
@@ -132,8 +139,34 @@ public class ThreadlessExecutor extends AbstractExecutorService {
      * If the calling thread is still waiting for a callback task, add the task into the blocking queue to wait for schedule.
      * Otherwise, submit to shared callback executor directly.
      *
+     * DirectChannelHandler 会将 decodeHandler, headerExchangerHandler , dubboRequestHandler 里的任务交给用户线程执行
+     * see : org.apache.dubbo.remoting.transport.dispatcher.direct.DirectChannelHandler#received(org.apache.dubbo.remoting.Channel, java.lang.Object)
+     * org.apache.dubbo.remoting.transport.dispatcher.all.AllChannelHandler#received(org.apache.dubbo.remoting.Channel, java.lang.Object)
+     *
+     * 用户线程在 org.apache.dubbo.rpc.AsyncRpcResult#get() 上调用 waitAndDrain 等待 task 中的任务
+     * 远端的响应结果到来之后，会向 task 添加反序列化等任务，等待线程被唤醒执行（前提是线程模型是 DirectChannelHandler）
+     *
+     * org.apache.dubbo.rpc.protocol.AsyncToSyncInvoker#invoke(org.apache.dubbo.rpc.Invocation)
+     *
      * @param runnable
      */
+
+
+    /**
+     *    1. 同步请求线程会在 AsyncToSyncInvoker#invoke 中进行等待，调用 waitAndDrain 方法阻塞在 ThreadLessExecutor 上
+     *
+     *    2. AllChannelHandler 中会通过 responseId 拿到对应的 future, 获取 future 中的 ThreadLessExecutor
+     *       然后向 ThreadLessExecutor 添加 decodeHandler, headerExchangerHandler , dubboRequestHandler 里的任务交给用户线程执行
+     *       org.apache.dubbo.remoting.transport.dispatcher.all.AllChannelHandler#received(org.apache.dubbo.remoting.Channel, java.lang.Object)
+     *
+     *
+     *    3. 同步请求线程从 ThreadLessExecutor 中被唤醒（waitAndDrain），因为 AllChannelHandler 已经添加了任务，然后同步请求线程执行任务
+     *       org.apache.dubbo.remoting.exchange.support.DefaultFuture#received(org.apache.dubbo.remoting.Channel, org.apache.dubbo.remoting.exchange.Response, boolean)
+     *       在 DefaultFuture#received 中 complete future
+     *
+ *        需要注意的是，一次同步请求，就会创建一个 ThreadLessExecutor，用于同步线程等待响应结果，并执行反序列化，receive 等操作
+     *
+     * */
     @Override
     public void execute(Runnable runnable) {
         synchronized (lock) {
@@ -141,7 +174,7 @@ public class ThreadlessExecutor extends AbstractExecutorService {
                 // 没有线程 wait ,交给  sharedExecutor 执行
                 sharedExecutor.execute(runnable);
             } else {
-                // 有线程正在 waiting,将任务放入 queue 中
+                // 有线程正在 waiting,将任务放入 queue 中,由等待线程执行
                 queue.add(runnable);
             }
         }

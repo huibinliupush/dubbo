@@ -138,6 +138,9 @@ public class NettyServerHandler extends ChannelDuplexHandler {
         handler.sent(channel, msg);
     }
 
+    /**
+     * 只要 server 没有收到 client 端的任何消息（包括心跳） 的时间超过 idleTimeout(3 * heartbeat) 就断开连接
+     * */
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         // server will close channel when server don't receive any heartbeat from client util timeout.

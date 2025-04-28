@@ -71,6 +71,9 @@ public class InvokerInvocationHandler implements InvocationHandler {
             rpcInvocation.put(Constants.METHOD_MODEL, consumerModel.getMethodModel(method));
         }
         // org.apache.dubbo.rpc.AsyncRpcResult.recreate
+        // 异步方法直接放回 future (方法签名中的返回值就是 furure)
+        // 同步方法异步模式（xml中配置 Async 或者调用 RpcContext AsyncCall），这里就直接返回 null
+        // 用户需要从 RpcContext 中去获取 future
         return invoker.invoke(rpcInvocation).recreate();
     }
 }

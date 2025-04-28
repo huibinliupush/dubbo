@@ -60,7 +60,7 @@ public class HeaderExchangeClient implements ExchangeClient {
         this.client = client;
         this.channel = new HeaderExchangeChannel(client);
 
-        if (startTimer) {
+        if (startTimer) { // true
             URL url = client.getUrl();
             startReconnectTask(url);
             startHeartBeatTask(url);
@@ -189,10 +189,15 @@ public class HeaderExchangeClient implements ExchangeClient {
     }
 
     private void startHeartBeatTask(URL url) {
+        // NettyClient 返回 true
         if (!client.canHandleIdle()) {
             AbstractTimerTask.ChannelProvider cp = () -> Collections.singletonList(HeaderExchangeClient.this);
+            // 心跳间隔
             int heartbeat = getHeartbeat(url);
+            // 按照三分之一 heartbeat 的间隔执行一次 heartBeatTimerTask
+            // 至少间隔 1000ms
             long heartbeatTick = calculateLeastDuration(heartbeat);
+            // channel 上没有数据传输的时间已经超过 heartbeat 的间隔，就需要发送数据
             this.heartBeatTimerTask = new HeartbeatTimerTask(cp, heartbeatTick, heartbeat);
             IDLE_CHECK_TIMER.newTimeout(heartBeatTimerTask, heartbeatTick, TimeUnit.MILLISECONDS);
         }
@@ -202,8 +207,11 @@ public class HeaderExchangeClient implements ExchangeClient {
         // consumerUrl 中是否设置 RECONNECT_KEY
         if (shouldReconnect(url)) {
             AbstractTimerTask.ChannelProvider cp = () -> Collections.singletonList(HeaderExchangeClient.this);
+            // heartbeatTimeout : 3 * heartbeat
             int idleTimeout = getIdleTimeout(url);
+            // idleTimeout / 3
             long heartbeatTimeoutTick = calculateLeastDuration(idleTimeout);
+            // client 发送心跳之后，如果超过 idleTimeout 的时间没有收到对端的心跳 response，那么 client 主动关闭连接，并开始重连
             this.reconnectTimerTask = new ReconnectTimerTask(cp, heartbeatTimeoutTick, idleTimeout);
             IDLE_CHECK_TIMER.newTimeout(reconnectTimerTask, heartbeatTimeoutTick, TimeUnit.MILLISECONDS);
         }
@@ -223,6 +231,7 @@ public class HeaderExchangeClient implements ExchangeClient {
      * Each interval cannot be less than 1000ms.
      */
     private long calculateLeastDuration(int time) {
+        // 每隔 （time / HEARTBEAT_CHECK_TICK）的时间，检查一次
         if (time / HEARTBEAT_CHECK_TICK <= 0) {
             return LEAST_HEARTBEAT_DURATION;
         } else {

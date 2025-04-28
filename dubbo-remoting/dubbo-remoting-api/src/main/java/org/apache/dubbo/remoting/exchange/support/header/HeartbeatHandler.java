@@ -85,7 +85,7 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
             return;
         }
         // 服务端收到客户端的心跳 request 之后会发送心跳 response
-        if (isHeartbeatResponse(message)) { // 客户端接收心跳 response
+        if (isHeartbeatResponse(message)) { // 客户端接收心跳 response,client 超过 3 * heartbeat 的时间没有收到对端心跳 response 就重连
             if (logger.isDebugEnabled()) {
                 logger.debug("Receive heartbeat response in thread " + Thread.currentThread().getName());
             }

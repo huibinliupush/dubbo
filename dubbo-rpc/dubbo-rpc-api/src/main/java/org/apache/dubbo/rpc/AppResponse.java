@@ -88,6 +88,8 @@ public class AppResponse implements Result {
             }
             throw exception;
         }
+        // 异步调用，这里的 result 是空的
+        // 客户端需要从 RpcContext 中获取 future
         return result;
     }
 

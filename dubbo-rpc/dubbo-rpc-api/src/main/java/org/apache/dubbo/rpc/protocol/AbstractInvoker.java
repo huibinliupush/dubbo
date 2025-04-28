@@ -157,6 +157,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         }
         // 更具接口方法返回值是否为 CompletableFuture 或者 url 中是否配置了 async
         // 来决定调用模式是同步的还是异步的
+        // 例子 ： org.apache.dubbo.samples.async.AsyncConsumer.main
         invocation.setInvokeMode(RpcUtils.getInvokeMode(url, invocation));
         // 如果是异步调用，在 invocation 中设置 invokeId
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
@@ -195,6 +196,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
     protected ExecutorService getCallbackExecutor(URL url, Invocation inv) {
         ExecutorService sharedExecutor = ExtensionLoader.getExtensionLoader(ExecutorRepository.class).getDefaultExtension().getExecutor(url);
         if (InvokeMode.SYNC == RpcUtils.getInvokeMode(getUrl(), inv)) {
+            // 一次 RPC 请求，创建一个 ThreadlessExecutor
             return new ThreadlessExecutor(sharedExecutor);
         } else {
             return sharedExecutor;

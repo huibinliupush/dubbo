@@ -722,6 +722,7 @@ public class RpcContext {
         try {
             try {
                 setAttachment(ASYNC_KEY, Boolean.TRUE.toString());
+                // 同步方法异步调用，这里返回 null
                 final T o = callable.call();
                 //local invoke will return directly
                 if (o != null) {
@@ -731,6 +732,9 @@ public class RpcContext {
                     return CompletableFuture.completedFuture(o);
                 } else {
                     // The service has a normal sync method signature, should get future from RpcContext.
+                    // service 是一个同步调用的方法，但是设置了异步调用的模式，或者直接调用该方法
+                    // 在同步方法异步调用的时候，就会返回 null
+                    // 用户需要从 RpcContext 中获取 future
                 }
             } catch (Exception e) {
                 throw new RpcException(e);
@@ -742,6 +746,9 @@ public class RpcContext {
             exceptionFuture.completeExceptionally(e);
             return exceptionFuture;
         }
+        // service 是一个同步调用的方法，但是设置了异步调用的模式，或者直接调用该方法
+        // 在同步方法异步调用的时候，就会返回 null
+        // 用户需要从 RpcContext 中获取 future
         return ((CompletableFuture<T>) getContext().getFuture());
     }
 

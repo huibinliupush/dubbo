@@ -114,6 +114,9 @@ public class WrappedChannelHandler implements ChannelHandlerDelegate {
             if (responseFuture == null) {
                 return getSharedExecutorService();
             } else {
+                // 同步调用这里的是 ThreadlessExecutor
+                // see : org.apache.dubbo.rpc.protocol.dubbo.DubboInvoker.doInvoke
+                // org.apache.dubbo.remoting.exchange.support.DefaultFuture.newFuture
                 ExecutorService executor = responseFuture.getExecutor();
                 if (executor == null || executor.isShutdown()) {
                     executor = getSharedExecutorService();

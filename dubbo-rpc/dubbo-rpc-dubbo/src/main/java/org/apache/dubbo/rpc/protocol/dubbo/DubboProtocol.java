@@ -410,7 +410,7 @@ public class DubboProtocol extends AbstractProtocol {
                 //默认开启心跳检测，默认心跳间隔时间60s
                 .addParameterIfAbsent(HEARTBEAT_KEY, String.valueOf(DEFAULT_HEARTBEAT))
                 //指定编码解码器扩展
-                .addParameter(CODEC_KEY, DubboCodec.NAME)
+                .addParameter(CODEC_KEY, DubboCodec.NAME)// DubboCountCodec
                 .build();
         //<dubbo:protocol server=""> 指定provider端的网络框架实现 默认为netty
         String str = url.getParameter(SERVER_KEY, DEFAULT_REMOTING_SERVER);

@@ -55,6 +55,8 @@ public class AsyncRpcResult implements Result {
      */
     private RpcContext storedContext;
     private RpcContext storedServerContext;
+
+    // 同步调用这里的是 ThreadlessExecutor
     private Executor executor;
 
     private Invocation invocation;
@@ -167,6 +169,7 @@ public class AsyncRpcResult implements Result {
      */
     @Override
     public Result get() throws InterruptedException, ExecutionException {
+        // RPC 同步调用这里的是 ThreadlessExecutor
         if (executor != null && executor instanceof ThreadlessExecutor) {
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
             threadlessExecutor.waitAndDrain();
@@ -186,10 +189,13 @@ public class AsyncRpcResult implements Result {
     @Override
     public Object recreate() throws Throwable {
         RpcInvocation rpcInvocation = (RpcInvocation) invocation;
+        // 异步方法直接返回 future
         if (InvokeMode.FUTURE == rpcInvocation.getInvokeMode()) {
             return RpcContext.getContext().getFuture();
         }
-
+        // 如果是同步方法异步模式，这里的返回值就是 null，用户需要从 RpcContext 中获取 future
+        // see : org.apache.dubbo.rpc.RpcContext.asyncCall(java.util.concurrent.Callable<T>)
+        // org.apache.dubbo.samples.async.AsyncConsumer.main
         return getAppResponse().recreate();
     }
 

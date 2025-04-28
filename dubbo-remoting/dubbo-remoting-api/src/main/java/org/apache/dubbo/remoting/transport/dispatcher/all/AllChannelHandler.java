@@ -58,6 +58,7 @@ public class AllChannelHandler extends WrappedChannelHandler {
 
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
+        // 通过是同步调用之后，响应回来的 response, 这里的是 ThreadlessExecutor
         ExecutorService executor = getPreferredExecutorService(message);
         try {
             // 由 Netty 的 IO 线程传递给 Dubbo 线程 executor 执行

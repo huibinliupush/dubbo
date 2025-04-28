@@ -224,6 +224,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
             try {
                 Channel channel = getChannel();
                 if (channel != null) {
+                    // 关闭连接
                     channel.close();
                 }
             } catch (Throwable e) {

@@ -39,6 +39,7 @@ public class DirectChannelHandler extends WrappedChannelHandler {
         ExecutorService executor = getPreferredExecutorService(message);
         if (executor instanceof ThreadlessExecutor) {
             try {
+                // 直接将 decode(反序列化，headerExchanger,requestHandler) 的任务交给用户线程执行
                 executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.RECEIVED, message));
             } catch (Throwable t) {
                 throw new ExecutionException(message, channel, getClass() + " error when process received event .", t);

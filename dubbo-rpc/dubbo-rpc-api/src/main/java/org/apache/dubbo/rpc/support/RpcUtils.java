@@ -186,12 +186,14 @@ public class RpcUtils {
         return $ECHO.equals(method);
     }
 
+    // see : org.apache.dubbo.samples.async.AsyncConsumer.main
     public static InvokeMode getInvokeMode(URL url, Invocation inv) {
         // 接口方法返回值为 CompletableFuture
         // 如果是泛化调用，方法名是否为 $INVOKE_ASYNC，泛化异步
         if (isReturnTypeFuture(inv)) {
             return InvokeMode.FUTURE;
         } else if (isAsync(url, inv)) { // 接口配置了 async
+            // org.apache.dubbo.rpc.RpcContext.asyncCall(java.util.concurrent.Callable<T>)
             return InvokeMode.ASYNC;
         } else {
             return InvokeMode.SYNC;

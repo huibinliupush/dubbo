@@ -40,10 +40,14 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
 
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
+        // message -  DecodeableRpcInvocation
+        // 在 DubboCodec.decodeBody() 方法中有如下代码片段，
+        // 其中会根据 DECODE_IN_IO_THREAD_KEY 这个参数决定是否在 DubboCodec 中进行解码（DubboCodec 是在 IO 线程中调用的）。
+        // 如果不在 iO 线程中解码，DubboCodec 就会直接返回 DecodeableRpcInvocation，然后在这里由 dubbo 线程解码
         if (message instanceof Decodeable) {
             decode(message);
         }
-        // 反序列化请求或者响应内容
+        // 反序列化请求或者响应内容，已经在 io 线程中通过 DubboCodec 解码了
         // 此时内容已经被解码出来但是还未被反序列化
         if (message instanceof Request) {
             decode(((Request) message).getData());

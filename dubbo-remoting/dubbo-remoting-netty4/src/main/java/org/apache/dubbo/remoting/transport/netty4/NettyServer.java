@@ -142,6 +142,7 @@ public class NettyServer extends AbstractServer implements RemotingServer {
 
     @Override
     protected void doClose() throws Throwable {
+        // 其实这里直接调用 netty 的 shutdownGracefully 就可以 ？
         try {
             if (channel != null) {
                 // unbind.
@@ -155,6 +156,8 @@ public class NettyServer extends AbstractServer implements RemotingServer {
             if (channels != null && channels.size() > 0) {
                 for (org.apache.dubbo.remoting.Channel channel : channels) {
                     try {
+                        // 强制关闭，但在这之前，server 会等待 client 主动关闭（收到 read only 事件）
+                        // org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeServer.close(int)
                         channel.close();
                     } catch (Throwable e) {
                         logger.warn(e.getMessage(), e);

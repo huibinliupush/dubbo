@@ -64,7 +64,8 @@ public class QosProcessHandler extends ByteToMessageDecoder {
 
         }, 500, TimeUnit.MILLISECONDS);
     }
-
+    // 根据 http 协议或者 telnet 协议动态添加 channelHandler
+    // QosProcessHandler 只会被执行一次，主要用于根据不同的协议设置不同的 channelHandler
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         if (in.readableBytes() < 1) {

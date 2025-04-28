@@ -114,6 +114,32 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         });
     }
 
+    /**
+     *  1. 当客户端读空闲（这里有问题）超过 heartbeat 的时间，就会在这里向服务端发送心跳 request （应该是读或写空闲就发送心跳）
+     *     写空闲了，说明 client 很长时间没发送消息了，这时需要向 server 发送消息，否则 server idleTimeout 就关连接了
+     *     ** ： 突然觉得这里只是读空闲也没问题，因为写空闲了（没有发送数据），自然就会读空闲（没有响应数据）
+     *
+     *  2. 客户端读空闲超过 heartbeat，同时也会检查 channel 是否连接，否则就断开重连
+     *  3. 如果读空闲时间超过 idleTimeout(3 * hearbeat) , 那么客户单就断开重连，场景是 client 发出心跳，server 未响应
+     *  org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeClient.startReconnectTask
+     *
+     *
+     *  优化：其实这里完全可以省去 HeartbeatHandler 以及 HeaderExchangeClient 中的 startReconnectTask
+     *  startReconnectTask 主要是每隔 heartbeat 间隔来检查一下 channel 是否 connect 这个已经在 userEventTriggered 方法中有了 removeChannelIfDisconnected
+     *  另外会检查 client 发出的心跳 request 是否超时 —— 读空闲超过 idleTimeout(3 * heartbeat),如果空闲就断开重连
+     *
+     *  但其实  startReconnectTask 的功能完全可以在 userEventTriggered 中实现，因为 IdleStateHandler 中的读空闲时间设置的是 heartbeatInterval
+     *  所以在经过 heartbeatInterval 间隔之后，会产生 IdleStateEvent 事件，这里直接发送心跳 request
+     *
+     *  那么心跳 request 超时如何检测呢 ？不依赖 startReconnectTask 的话，netty 实现的 IdleStateHandler 中，产生的 IdleStateEvent 是
+     *  1 : IdleStateEvent.FIRST_READER_IDLE_STATE_EVENT, 当第一次产生空闲事件时触发，这里我们可以实现原有逻辑 —— 发送心跳 request
+     *  2 : IdleStateEvent.READER_IDLE_STATE_EVENT , 第一次空闲事件产生之后，持续产生空闲事件，也就是说在后面的时间里，仍然没有 server 的响应
+ *          那么就断开重连，这里我们可以设计一个计数，如果连续产生两次 READER_IDLE_STATE_EVENT 事件就断开重连（考虑到客户端要进行重试）
+     *
+     *  HeartbeatHandler 还是不能省，因为它要处理接收心跳包的逻辑（心跳requst,response），但可以不记录相关 timestamp, 只实现 received 方法
+*       org.apache.dubbo.remoting.exchange.support.header.HeartbeatHandler#received(org.apache.dubbo.remoting.Channel, java.lang.Object)
+     *
+     * */
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         // send heartbeat when read idle.
@@ -132,6 +158,7 @@ public class NettyClientHandler extends ChannelDuplexHandler {
             } finally {
                 // 如果已经断连，则从缓存中删除，markActive = false
                 NettyChannel.removeChannelIfDisconnected(ctx.channel());
+                // 完整心跳方案还要再加上：org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeClient.startReconnectTask
             }
         } else {
             super.userEventTriggered(ctx, evt);

@@ -51,6 +51,8 @@ public class ReconnectTimerTask extends AbstractTimerTask {
                     logger.error("Fail to connect to " + channel, e);
                 }
             // check pong at client
+            // client channel 上如果超过 heartbeat 的时间没有数据传输（读方向或者写方向），那么 client 就会主动发送心跳请求
+            // 如果超过 idleTimeout 没有收到对端的心跳响应，那么就关闭连接（客户端主动关闭），然后重连
             } else if (lastRead != null && now - lastRead > idleTimeout) {
                 logger.warn("Reconnect to channel " + channel + ", because heartbeat read idle time out: "
                         + idleTimeout + "ms");

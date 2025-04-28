@@ -47,7 +47,8 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 public class DefaultFuture extends CompletableFuture<Object> {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultFuture.class);
-
+    
+    // 这里的设计应该是 key 为 channel , value 为 idSet, 这样如果 channel 上的请求特别多的时候，处理起来更高效
     private static final Map<Long, Channel> CHANNELS = new ConcurrentHashMap<>();
 
     private static final Map<Long, DefaultFuture> FUTURES = new ConcurrentHashMap<>();
@@ -84,8 +85,12 @@ public class DefaultFuture extends CompletableFuture<Object> {
         this.id = request.getId();
         this.timeout = timeout > 0 ? timeout : channel.getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
         // put into waiting map.
+        // 一个请求对应一条记录
         FUTURES.put(id, this);
-        CHANNELS.put(id, channel);
+        // 同样也是一个请求对应一条记录，主要是用来记录请求与 channel 之间的对应关系，哪个请求是由哪个 channel 发送的
+        // 当 channel disConnect 之后，会利用这里的 CHANNELS 将该 channel 上的所有 future 关闭掉
+        // org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeHandler.disconnected
+        CHANNELS.put(id, channel); // 这里的设计应该是 key 为 channel , value 为 idSet, 这样如果 channel 上的请求特别多的时候，处理起来更高效
     }
 
     /**
@@ -108,6 +113,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
      */
     public static DefaultFuture newFuture(Channel channel, Request request, int timeout, ExecutorService executor) {
         final DefaultFuture future = new DefaultFuture(channel, request, timeout);
+        // 同步调用这里的是 ThreadlessExecutor
         future.setExecutor(executor);
         // ThreadlessExecutor needs to hold the waiting future in case of circuit return.
 
@@ -296,6 +302,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
             }
 
             if (future.getExecutor() != null) {
+                // 对于 ThreadlessExecutor 来说（RPC 同步调用）这里由用户线程执行 notifyTimeout
                 future.getExecutor().execute(() -> notifyTimeout(future));
             } else {
                 notifyTimeout(future);

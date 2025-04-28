@@ -103,10 +103,13 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
                 // 直接发送数据，只有 request 不会有 response
                 currentClient.send(inv, isSent);
+                // 返回一个空 value 已经 complete 的future
                 return AsyncRpcResult.newDefaultAsyncResult(invocation);
             } else {
                 // 由 executor 执行 request future 的超时通知操作，避免在时间轮中执行
                 // request future 正常通知是在 dubbo 线程中进行
+                // 同步模式使用 ThreadlessExecutor，异步模式使用 sharedExecutor （url 中配置的线程池）
+                // 一次 RPC 请求，创建一个 ThreadlessExecutor（同步调用）
                 ExecutorService executor = getCallbackExecutor(getUrl(), inv);
                 // 发送 request 请求，response 回来之后会通知 CompletableFuture
                 // 如果 reference 设置了异步请求，那会在
@@ -118,6 +121,7 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
                 // 会将这里的 appResponseFuture 设置到 RpcContext 中，用户可以从 RpcContext 中获取 appResponseFuture 来实现客户端异步
                 // 如果客户端是同步的，那么就会在 org.apache.dubbo.rpc.protocol.AsyncToSyncInvoker.invoke 将异步转化为同步
                 AsyncRpcResult result = new AsyncRpcResult(appResponseFuture, inv);
+                // 同步调用这里的是 ThreadlessExecutor
                 result.setExecutor(executor);
                 return result;
             }
