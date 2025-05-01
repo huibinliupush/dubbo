@@ -50,7 +50,9 @@ public class ExchangeCodec extends TelnetCodec {
     protected static final int HEADER_LENGTH = 16;
     // magic header.
     protected static final short MAGIC = (short) 0xdabb;
+    // 0xda
     protected static final byte MAGIC_HIGH = Bytes.short2bytes(MAGIC)[0];
+    // 0xbb
     protected static final byte MAGIC_LOW = Bytes.short2bytes(MAGIC)[1];
     // message flag.
     protected static final byte FLAG_REQUEST = (byte) 0x80; // 1000 0000
@@ -126,6 +128,11 @@ public class ExchangeCodec extends TelnetCodec {
         }
 
         // limit input stream.
+        /**
+         *
+         * 注意这里的 ChannelBufferInputStream 在解码完不能释放 buffer, 因为 buffer 中会包含多个消息
+         * 如果解码出一个消息就释放，那么剩下的消息就丢失了，buffer 最终的释放是在 io.netty.handler.codec.ByteToMessageDecoder#channelRead(io.netty.channel.ChannelHandlerContext, java.lang.Object)
+         * */
         ChannelBufferInputStream is = new ChannelBufferInputStream(buffer, len);
 
         try {

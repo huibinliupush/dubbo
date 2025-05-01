@@ -106,6 +106,20 @@ public class DubboCodec extends ExchangeCodec {
                         } else {
                             // 在 dubbo 线程或者用户线程中对消息体进行解码
                             // see : org.apache.dubbo.remoting.transport.DecodeHandler.received
+                            // 由于这里我们要在非 IO 线程中进行解码，所以要将待解码的字节（消息体）转存到另一个 buffer 中 UnsafeByteArrayInputStream
+                            // 在 readMessageData 中创建新的 buffer (is 中还未解码的消息体数据转到新 buffer 中)
+                            // UnsafeByteArrayInputStream - > byte[] mData
+                            // 这样在原有的 is 在 io 线程解码完就可以释放了，随后在其他线程中依据 UnsafeByteArrayInputStream 在解码消息体
+
+                            /**
+                             * 优化点：其实这里可以省去拷贝的开销，直接对原有 buffer 执行 retainSlice() 操作，引用计数 + 1 即可
+                             * 然后利用 buffer 的 slice 视图创建 ChannelBufferInputStream（派生类）。slice 视图指定可操作 buffer 的范围（消息体大小）
+                             * 业务线程解码完消息体的时候进行 release, 引用计数 - 1
+                             *
+                             * 注意这里不能使用原有的 ChannelBufferInputStream，因为我们后续在业务线程中解码完需要释放 slice buffer
+                             * 而原有的 ChannelBufferInputStream 在解码完却不能释放 buffer, 因为 buffer 中会包含多个消息
+                             * 如果解码出一个消息就释放，那么剩下的消息就丢失了，buffer 最终的释放是在 io.netty.handler.codec.ByteToMessageDecoder#channelRead(io.netty.channel.ChannelHandlerContext, java.lang.Object)
+                             * */
                             result = new DecodeableRpcResult(channel, res,
                                     new UnsafeByteArrayInputStream(readMessageData(is)),
                                     (Invocation) getRequestData(id), proto);
