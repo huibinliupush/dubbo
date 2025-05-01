@@ -123,6 +123,7 @@ public class RpcInvocation implements Invocation, Serializable {
 
     public RpcInvocation(Method method, String serviceName, Object[] arguments, Map<String, Object> attachment, Map<Object, Object> attributes) {
         this(method.getName(), serviceName, method.getParameterTypes(), arguments, attachment, null, attributes);
+        // 真实的返回类型，比如 CompleteFuture
         this.returnType = method.getReturnType();
     }
 
@@ -147,6 +148,9 @@ public class RpcInvocation implements Invocation, Serializable {
     }
 
     private void initParameterDesc() {
+        // org.apache.dubbo.rpc.model.ServiceDescriptor.ServiceDescriptor
+        // 在创建 ServiceDescriptor 的时候（registry）会初始化 MethodDescriptor
+        // org.apache.dubbo.rpc.model.MethodDescriptor.MethodDescriptor
         ServiceRepository repository = ApplicationModel.getServiceRepository();
         if (StringUtils.isNotEmpty(serviceName)) {
             ServiceDescriptor serviceDescriptor = repository.lookupService(serviceName);
@@ -155,6 +159,13 @@ public class RpcInvocation implements Invocation, Serializable {
                 if (methodDescriptor != null) {
                     this.parameterTypesDesc = methodDescriptor.getParamDesc();
                     this.compatibleParamSignatures = methodDescriptor.getCompatibleParamSignatures();
+                    // 返回真实的泛型类型
+                    // 比如 CompleteFuture<String>
+                    // 这里的 returnTypes 就是 String 类型
+                    // 在解码 CompleteFuture<String> 类型的返回值时，客户端会使用 String 类型来反序列化
+                    // 因为 server 端在序列化的时候设置的就是 value, 客户端反序列化的也是 value, 然后将 value 设置到 requestFuture 中
+                    // org.apache.dubbo.rpc.protocol.dubbo.DecodeableRpcResult.handleValue
+                    // org.apache.dubbo.common.utils.ReflectUtils.getReturnTypes
                     this.returnTypes = methodDescriptor.getReturnTypes();
                 }
             }

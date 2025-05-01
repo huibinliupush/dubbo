@@ -369,7 +369,11 @@ public class DubboProtocol extends AbstractProtocol {
         //获取providerUrl中的服务地址 ip:port
         String key = url.getAddress();
         //client can export a service which's only for server to invoke（call back 逻辑）
-        //用于服务提供者端调用
+        // isServer = true ，用于正常的 provider 端暴露服务，这时就需要创建 server
+        // isServer = false , 用于 consumer 端本地暴露 callbackService ，这时就不需要再创建 server 了
+        // 直接复用原有的 client -> server 的连接，只能 server 去调用 callbackService
+        // 在 client 发起 request 请求的时候，在 encode 阶段，如果发现参数是 callbackService，则本地暴露 callbackService（不创建server）
+        // org.apache.dubbo.rpc.protocol.dubbo.CallbackServiceCodec.exportOrUnexportCallbackService
         boolean isServer = url.getParameter(IS_SERVER_KEY, true);
         if (isServer) {
             //ProtocolServer代表一个暴露的服务进程，一个端口对应一个ProtocolServer

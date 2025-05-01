@@ -31,18 +31,23 @@ import java.io.IOException;
 import static org.apache.dubbo.rpc.Constants.INPUT_KEY;
 import static org.apache.dubbo.rpc.Constants.OUTPUT_KEY;
 
+// 感觉完全不需要 DubboCountCodec，MultiMessageHandler。直接 DubboCodec 就可以，因为 org.apache.dubbo.remoting.transport.netty4.NettyCodecAdapter.InternalDecoder
+// 继承的是 ByteToMessageDecoder，完全可以处理多消息解码的场景
 public final class DubboCountCodec implements Codec2 {
 
     private DubboCodec codec = new DubboCodec();
 
     @Override
     public void encode(Channel channel, ChannelBuffer buffer, Object msg) throws IOException {
+        // 编码 request 消息
+        // 编码 response 消息
         codec.encode(channel, buffer, msg);
     }
 
     @Override
     public Object decode(Channel channel, ChannelBuffer buffer) throws IOException {
         int save = buffer.readerIndex();
+        // 底层封装一个 ArrayList
         MultiMessage result = MultiMessage.create();
         do {
             // ExchangeCodec -> DubboCodec

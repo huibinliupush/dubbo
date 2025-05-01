@@ -27,25 +27,28 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
 import java.math.BigDecimal;
+import java.util.concurrent.Future;
 
 public class Application {
     /**
      * In order to make sure multicast registry works, need to specify '-Djava.net.preferIPv4Stack=true' before
      * launch the application
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception{
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ConsumerConfiguration.class);
         context.start();
         DemoServiceComponent service = context.getBean("demoServiceComponent", DemoServiceComponent.class);
-        String hello = service.sayHello("world");
-        System.out.println("result :" + hello);
-
-        BigDeDto deDto = new BigDeDto();
-        deDto.setDecimal(new BigDecimal(20));
-        deDto.setName("hessian bigdecimal");
-        service.testBigDecimal(deDto);
-
-        service.addListener("foo.bar", msg -> System.out.println("callback:" + msg));
+//        String hello = service.sayHello("world");
+//        System.out.println("result :" + hello);
+//
+//        BigDeDto deDto = new BigDeDto();
+//        deDto.setDecimal(new BigDecimal(20));
+//        deDto.setName("hessian bigdecimal");
+//        service.testBigDecimal(deDto);
+//
+//        service.addListener("foo.bar", msg -> System.out.println("callback:" + msg));
+        Future<String> future = service.sayHelloAsync("testReturnTypes");
+        System.out.println(future.get());
     }
 
     @Configuration

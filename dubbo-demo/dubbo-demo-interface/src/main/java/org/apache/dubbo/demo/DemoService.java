@@ -26,9 +26,7 @@ public interface DemoService {
 
     DemoService wrapperReturnVoid(Integer warpperField);
 
-    default CompletableFuture<String> sayHelloAsync(String name) {
-        return CompletableFuture.completedFuture(sayHello(name));
-    }
+    CompletableFuture<String> sayHelloAsync(String name);
 
     void testBigDecimal(BigDeDto bigDeDto);
 

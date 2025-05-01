@@ -40,12 +40,15 @@ public abstract class AbstractCodec implements Codec2 {
     private static final String CLIENT_SIDE = "client";
 
     private static final String SERVER_SIDE = "server";
-
+    // size 为 channel 要发送的字节数（被序列化之后的消息体）
     protected static void checkPayload(Channel channel, long size) throws IOException {
+        // 默认 payload 为 8M
         int payload = Constants.DEFAULT_PAYLOAD;
         if (channel != null && channel.getUrl() != null) {
+            // 也可以通过 payload 参数来进行配置
             payload = channel.getUrl().getParameter(Constants.PAYLOAD_KEY, Constants.DEFAULT_PAYLOAD);
         }
+        // 发送的字节数太大超过 payload
         if (payload > 0 && size > payload) {
             ExceedPayloadLimitException e = new ExceedPayloadLimitException(
                 "Data length too large: " + size + ", max payload: " + payload + ", channel: " + channel);

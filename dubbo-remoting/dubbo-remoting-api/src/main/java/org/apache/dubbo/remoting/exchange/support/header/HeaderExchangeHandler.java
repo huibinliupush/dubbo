@@ -80,7 +80,8 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
 
     void handleRequest(final ExchangeChannel channel, Request req) throws RemotingException {
         Response res = new Response(req.getId(), req.getVersion());
-        // BAD_REQUEST
+        // BAD_REQUEST, 在解码的过程中出现错误就会设置 broken
+        // org.apache.dubbo.rpc.protocol.dubbo.DecodeableRpcInvocation.decode()
         if (req.isBroken()) {
             Object data = req.getData();
 

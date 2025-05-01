@@ -36,7 +36,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIMEOUT_KEY;
 public abstract class AbstractEndpoint extends AbstractPeer implements Resetable {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractEndpoint.class);
-
+    // DubboCountCodec
     private Codec2 codec;
 
     private int timeout;
@@ -45,7 +45,8 @@ public abstract class AbstractEndpoint extends AbstractPeer implements Resetable
 
     public AbstractEndpoint(URL url, ChannelHandler handler) {
         super(url, handler);
-        // dubbo
+        // DubboCountCodec
+        // 在 codec spi 文件中，dubbo = DubboCountCodec
         this.codec = getChannelCodec(url);
         this.timeout = url.getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
         this.connectTimeout = url.getPositiveParameter(Constants.CONNECT_TIMEOUT_KEY, Constants.DEFAULT_CONNECT_TIMEOUT);
@@ -102,6 +103,7 @@ public abstract class AbstractEndpoint extends AbstractPeer implements Resetable
     }
 
     protected Codec2 getCodec() {
+        // DubboCountCodec
         return codec;
     }
 

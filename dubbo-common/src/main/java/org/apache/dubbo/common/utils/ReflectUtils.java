@@ -1182,10 +1182,14 @@ public final class ReflectUtils {
     }
 
     public static Type[] getReturnTypes(Method method) {
+        // 返回类型 java.util.concurrent.CompletableFuture
         Class<?> returnType = method.getReturnType();
+        // java.util.concurrent.CompletableFuture<java.lang.String>
         Type genericReturnType = method.getGenericReturnType();
         if (Future.class.isAssignableFrom(returnType)) {
             if (genericReturnType instanceof ParameterizedType) {
+                // java.lang.String , 真实的泛型类型
+                // 因为 client 只需要拿到 future.get() 的值就可以了
                 Type actualArgType = ((ParameterizedType) genericReturnType).getActualTypeArguments()[0];
                 if (actualArgType instanceof ParameterizedType) {
                     returnType = (Class<?>) ((ParameterizedType) actualArgType).getRawType();
@@ -1199,6 +1203,8 @@ public final class ReflectUtils {
                 genericReturnType = null;
             }
         }
+        // 方法的 returnType 为真正的返回类型
+        // 比如 CompletableFuture<string> （这里特殊处理），经过解析之后，returnType 就变为 String 了
         return new Type[]{returnType, genericReturnType};
     }
 

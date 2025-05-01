@@ -98,6 +98,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
                         result.setException(t);
                     }
                 } else {
+                    // 如果方法返回类型为 void , 这里就是 null
                     result.setValue(obj);
                 }
                 return result;

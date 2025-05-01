@@ -59,7 +59,8 @@ final public class NettyCodecAdapter {
     public ChannelHandler getDecoder() {
         return decoder;
     }
-
+    // 如果不指定 MessageToByteEncoder<I> 中的泛型 I ，默认接受类型为 object
+    // 因为这里需要同时编码 request 和 response 两种类型
     private class InternalEncoder extends MessageToByteEncoder {
 
         @Override

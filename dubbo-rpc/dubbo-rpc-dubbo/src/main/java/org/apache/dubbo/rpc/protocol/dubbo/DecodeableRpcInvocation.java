@@ -82,6 +82,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 if (log.isWarnEnabled()) {
                     log.warn("Decode rpc invocation failed: " + e.getMessage(), e);
                 }
+                // 解码中出现错误就 broken
                 request.setBroken(true);
                 request.setData(e);
             } finally {
@@ -95,37 +96,45 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
         throw new UnsupportedOperationException();
     }
 
+    // encode 过程
+    // org.apache.dubbo.rpc.protocol.dubbo.DubboCodec.encodeRequestData(org.apache.dubbo.remoting.Channel, org.apache.dubbo.common.serialize.ObjectOutput, java.lang.Object, java.lang.String)
     @Override
     public Object decode(Channel channel, InputStream input) throws IOException {
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
-
+        // 1. Dubbo version
         String dubboVersion = in.readUTF();
         request.setVersion(dubboVersion);
         setAttachment(DUBBO_VERSION_KEY, dubboVersion);
-
+        // 2. Service name
         String path = in.readUTF();
         setAttachment(PATH_KEY, path);
+        // 3. Service version
         setAttachment(VERSION_KEY, in.readUTF());
-
+        // 4. Method name
         setMethodName(in.readUTF());
-
+        // 5. Method parameter types Desc
         String desc = in.readUTF();
         setParameterTypesDesc(desc);
 
         try {
+            // 存放解码之后的参数
             Object[] args = DubboCodec.EMPTY_OBJECT_ARRAY;
+            // 存放解码之后的参数类型
             Class<?>[] pts = DubboCodec.EMPTY_CLASS_ARRAY;
             if (desc.length() > 0) {
 //                if (RpcUtils.isGenericCall(path, getMethodName()) || RpcUtils.isEcho(path, getMethodName())) {
 //                    pts = ReflectUtils.desc2classArray(desc);
 //                } else {
+                // 获取 service 的元数据
                 ServiceRepository repository = ApplicationModel.getServiceRepository();
                 ServiceDescriptor serviceDescriptor = repository.lookupService(path);
                 if (serviceDescriptor != null) {
                     MethodDescriptor methodDescriptor = serviceDescriptor.getMethod(getMethodName(), desc);
                     if (methodDescriptor != null) {
+                        // 参数类型
                         pts = methodDescriptor.getParameterClasses();
+                        // 返回类型
                         this.setReturnTypes(methodDescriptor.getReturnTypes());
                     }
                 }
@@ -136,10 +145,13 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                     pts = ReflectUtils.desc2classArray(desc);
                 }
 //                }
-
+                // 6. Method arguments(解码 method 参数)
                 args = new Object[pts.length];
                 for (int i = 0; i < args.length; i++) {
                     try {
+                        // 按照参数类型，反序列化参数
+                        // 如果参数类型是一个 callbackService，这里读取出来的就是 null
+                        // 因为在 客户端的 encode 阶段，序列化进去的就是一个 null (callback相关信息会序列化到 attachments)
                         args[i] = in.readObject(pts[i]);
                     } catch (Exception e) {
                         if (log.isWarnEnabled()) {
@@ -149,7 +161,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 }
             }
             setParameterTypes(pts);
-
+            // 7. Attachments
             Map<String, Object> map = in.readAttachments();
             if (map != null && map.size() > 0) {
                 Map<String, Object> attachment = getObjectAttachments();
@@ -162,7 +174,10 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
 
             //decode argument ,may be callback
             for (int i = 0; i < args.length; i++) {
-                args[i] = decodeInvocationArgument(channel, this, pts, i, args[i]);
+                // 如果该参数是一个 callbackService,那么就会在 service 端本地创建一个 reference 引用
+                // 把这个 callbackService 的 reference 引用设置到参数中
+                // 这样一来，在 service 方法中用户拿到的 callbackService 就是一个动态代理了（reference）
+                args[i] = decodeInvocationArgument(channel, this, pts, i, args[i]); // 获取 callback 的 proxy
             }
 
             setArguments(args);

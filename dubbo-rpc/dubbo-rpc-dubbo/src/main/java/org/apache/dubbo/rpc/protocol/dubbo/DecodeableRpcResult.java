@@ -76,13 +76,25 @@ public class DecodeableRpcResult extends AppResponse implements Codec, Decodeabl
             Thread thread = Thread.currentThread();
             log.debug("Decoding in thread -- [" + thread.getName() + "#" + thread.getId() + "]");
         }
-
+        // 获取具体的序列化 KryoObjectInput
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
 
+        /**
+         * response 消息体编码
+         * 1.返回值类型(byte)，标识从服务器端返回的值类型：
+         *      返回空值：RESPONSE_NULL_VALUE 2   (远程方法返回值类型是 void)
+         *      正常响应值： RESPONSE_VALUE 1
+         *      异常：RESPONSE_WITH_EXCEPTION 0
+         * 2.返回值：从服务端返回的响应bytes
+         *
+         * 3.Attachments
+         *
+         * org.apache.dubbo.rpc.protocol.dubbo.DubboCodec#encodeResponseData(org.apache.dubbo.remoting.Channel, org.apache.dubbo.common.serialize.ObjectOutput, java.lang.Object, java.lang.String)
+         * */
         byte flag = in.readByte();
         switch (flag) {
-            case DubboCodec.RESPONSE_NULL_VALUE:
+            case DubboCodec.RESPONSE_NULL_VALUE: // 方法返回值为 void
                 break;
             case DubboCodec.RESPONSE_VALUE:
                 handleValue(in);
@@ -130,18 +142,30 @@ public class DecodeableRpcResult extends AppResponse implements Codec, Decodeabl
     private void handleValue(ObjectInput in) throws IOException {
         try {
             Type[] returnTypes;
+            // 该阶段为 client 收到 server 端的 response , 解码 response
+            // 这里的 invocation 是 client 发送 request 的时候设置的 RpcInvocation
+            // see : org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeChannel.request(java.lang.Object, int, java.util.concurrent.ExecutorService)
             if (invocation instanceof RpcInvocation) {
+                // see : org.apache.dubbo.common.utils.ReflectUtils.getReturnTypes
                 returnTypes = ((RpcInvocation) invocation).getReturnTypes();
             } else {
+                // see : org.apache.dubbo.common.utils.ReflectUtils.getReturnTypes
+                // returnTypes[0]:方法的 returnType ， returnTypes[1]:returnType 中的泛型类
+                // CompleteFutrue<String> , String
                 returnTypes = RpcUtils.getReturnTypes(invocation);
             }
+            // 在 client proxy 创建 RpcInvocation 的时候会生成 returnTypes
+            // see : org.apache.dubbo.rpc.RpcInvocation.initParameterDesc
             Object value = null;
             if (ArrayUtils.isEmpty(returnTypes)) {
                 // This almost never happens?
                 value = in.readObject();
             } else if (returnTypes.length == 1) {
+                // 将返回值反序列化为具体的类型
                 value = in.readObject((Class<?>) returnTypes[0]);
             } else {
+                // 对于方法原始返回类型为 CompleteFuture<String> 来说
+                // 这里的真实 returnType[0] 是 string
                 value = in.readObject((Class<?>) returnTypes[0], returnTypes[1]);
             }
             setValue(value);

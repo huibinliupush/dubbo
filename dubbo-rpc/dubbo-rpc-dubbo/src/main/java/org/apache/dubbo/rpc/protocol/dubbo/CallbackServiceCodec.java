@@ -70,8 +70,10 @@ class CallbackServiceCodec {
             String callback = url.getParameter(methodName + "." + argIndex + ".callback");
             if (callback != null) {
                 if ("true".equalsIgnoreCase(callback)) {
+                    // 方法参数设置了 callback 类型
                     isCallback = CALLBACK_CREATE;
                 } else if ("false".equalsIgnoreCase(callback)) {
+                    // 取消 callbackService
                     isCallback = CALLBACK_DESTROY;
                 }
             }
@@ -84,8 +86,8 @@ class CallbackServiceCodec {
      *
      * @param channel
      * @param url
-     * @param clazz
-     * @param inst
+     * @param clazz 暴露的 callbackService 接口
+     * @param inst  暴露的 callbackService 实例
      * @param export
      * @throws IOException
      */
@@ -94,7 +96,9 @@ class CallbackServiceCodec {
         int instid = System.identityHashCode(inst);
 
         Map<String, String> params = new HashMap<>(3);
-        // no need to new client again
+        // no need to new client again，
+        // 复用原有连接, 在 client 端本地暴露的时候只需要将 callbackServer 的 dubboInvoker 封装成 dubboExport 添加到 exporterMap 即可
+        // see : org.apache.dubbo.rpc.protocol.dubbo.DubboProtocol.openServer
         params.put(IS_SERVER_KEY, Boolean.FALSE.toString());
         // mark it's a callback, for troubleshooting
         params.put(IS_CALLBACK_SERVICE, Boolean.TRUE.toString());
@@ -103,6 +107,7 @@ class CallbackServiceCodec {
             params.put(GROUP_KEY, group);
         }
         // add method, for verifying against method, automatic fallback (see dubbo protocol)
+        // 添加 callbackServer 的方法集合
         params.put(METHODS_KEY, StringUtils.join(Wrapper.getWrapper(clazz).getDeclaredMethodNames(), ","));
 
         Map<String, String> tmpMap = new HashMap<>();
@@ -114,28 +119,40 @@ class CallbackServiceCodec {
         }
         tmpMap.putAll(params);
         tmpMap.remove(VERSION_KEY);// doesn't need to distinguish version for callback
+        // 设置 interface 为 callbackService
         tmpMap.put(INTERFACE_KEY, clazz.getName());
+        // 生成 callbackService 的 exportUrl
+        // clienthost , clientport
         URL exportUrl = new URL(DubboProtocol.NAME, channel.getLocalAddress().getAddress().getHostAddress(), channel.getLocalAddress().getPort(), clazz.getName() + "." + instid, tmpMap);
 
         // no need to generate multiple exporters for different channel in the same JVM, cache key cannot collide.
+        // client 端只需要暴露一个 callbackService 即可，比如，多个 reference 中的 method 都设置了同一个 callbackService 参数
+        // 同一个 client 进程只需要暴露一个 callbackService，这里的 client 是连接的意思
+        // 如果 comsumer 到 provider 设置两条连接，那么 callbackService 会暴露两次，分属不同的连接
+        // 因为 provider 端 callback 的时候是直连的，所以需要根据连接数来暴露 callbackService
         String cacheKey = getClientSideCallbackServiceCacheKey(instid);
         String countKey = getClientSideCountKey(clazz.getName());
         if (export) {
             // one channel can have multiple callback instances, no need to re-export for different instance.
+            // callbackService 第一个暴露的时候走这里，后面 channel 中就有 cacheKey 了
             if (!channel.hasAttribute(cacheKey)) {
                 if (!isInstancesOverLimit(channel, url, clazz.getName(), instid, false)) {
                     ApplicationModel.getServiceRepository().registerService(clazz);
+                    // 获取 callbackService 的 invoker _ abstratProxyInvoker
                     Invoker<?> invoker = PROXY_FACTORY.getInvoker(inst, clazz, exportUrl);
                     // should destroy resource?
+                    // 本地暴露 callbackService(不会创建 service , 复用原有连接)
                     Exporter<?> exporter = PROTOCOL.export(invoker);
                     // dubbo://192.168.2.101:57101/org.apache.dubbo.demo.CallbackListener.2146399153?addListener.1.callback=true&addListener.return=true&anyhost=true&application=dubbo-demo-annotation-consumer&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=org.apache.dubbo.demo.CallbackListener&is_callback_service=true&isserver=false&methods=changed&owner=provider2&pid=57327&register.ip=192.168.2.101&release=&remote.application=dubbo-demo-annotation-provider2&side=consumer&sticky=false&timestamp=1745496177303
                     // this is used for tracing if instid has published service or not.
                     channel.setAttribute(cacheKey, exporter);
                     logger.info("Export a callback service :" + exportUrl + ", on " + channel + ", url is: " + url);
+                    // 设置 channel attribute 中的 countkey，对应的值为该 callbackService 暴露的次数
                     increaseInstanceCount(channel, countKey);
                 }
             }
         } else {
+            // export 设置为 false 即为销毁对应参数中指定的 callbackSerice 对应的 export
             if (channel.hasAttribute(cacheKey)) {
                 Exporter<?> exporter = (Exporter<?>) channel.getAttribute(cacheKey);
                 exporter.unexport();
@@ -149,30 +166,47 @@ class CallbackServiceCodec {
     /**
      * refer or destroy callback service on server side
      *
+     * channel : 服务端到客户端的 channel
+     * url : providerUrl
+     * clazz : callbackService 接口
+     * inv : 序列化到一半的 RpcInvocation
+     * instid : 客户端暴露的 callbackService 实例id (hashcode)
+     * isRefer : true 表示创建 callbackService 的 reference , false 表示销毁 reference
+     *
      * @param url
      */
     @SuppressWarnings("unchecked")
     private static Object referOrDestroyCallbackService(Channel channel, URL url, Class<?> clazz, Invocation inv, int instid, boolean isRefer) {
         Object proxy;
+        // callbackService 的 invoker key ， 类似于 dubboInvoker ，只不过底层的复用这里的 channel
         String invokerCacheKey = getServerSideCallbackInvokerCacheKey(channel, clazz.getName(), instid);
+        // 代理缓存 key
         String proxyCacheKey = getServerSideCallbackServiceCacheKey(channel, clazz.getName(), instid);
+        // 服务端 channel 中会缓存 callbackService 代理
         proxy = channel.getAttribute(proxyCacheKey);
         String countkey = getServerSideCountKey(channel, clazz.getName());
         if (isRefer) {
+            // 第一次生成 proxy (注意，callbackService 是跟着实例来的)
             if (proxy == null) {
                 URL referurl = URL.valueOf("callback://" + url.getAddress() + "/" + clazz.getName() + "?" + INTERFACE_KEY + "=" + clazz.getName());
                 referurl = referurl.addParametersIfAbsent(url.getParameters()).removeParameter(METHODS_KEY);
+                // callback instances 的个数受到 url 参数 CALLBACK_INSTANCES_LIMIT_KEY 的限制，默认为 1
                 if (!isInstancesOverLimit(channel, referurl, clazz.getName(), instid, true)) {
                     ApplicationModel.getServiceRepository().registerService(clazz);
                     @SuppressWarnings("rawtypes")
+                    // 为 reference 生成 invoker , 这里类似于 dubboInvoker
+                    // 底层复用现有的  server -> client 的连接
                     Invoker<?> invoker = new ChannelWrappedInvoker(clazz, channel, referurl, String.valueOf(instid));
+                    // 获取 callbackService 的动态代理，和普通的引用 dubbo 服务流程一样
                     proxy = PROXY_FACTORY.getProxy(new AsyncToSyncInvoker<>(invoker));
+                    // 将 callbackService 的 proxy , invoker 设置到 channel 的 attribute 中
                     channel.setAttribute(proxyCacheKey, proxy);
                     channel.setAttribute(invokerCacheKey, invoker);
                     increaseInstanceCount(channel, countkey);
 
                     //convert error fail fast .
                     //ignore concurrent problem.
+                    // channel 的 CHANNEL_CALLBACK_KEY 中缓存该 channel 引用的所有 callbackService invoker
                     Set<Invoker<?>> callbackInvokers = (Set<Invoker<?>>) channel.getAttribute(CHANNEL_CALLBACK_KEY);
                     if (callbackInvokers == null) {
                         callbackInvokers = new ConcurrentHashSet<>(1);
@@ -183,6 +217,7 @@ class CallbackServiceCodec {
                 }
             }
         } else {
+            // 销毁 callbackService 的 invoker
             if (proxy != null) {
                 Invoker<?> invoker = (Invoker<?>) channel.getAttribute(invokerCacheKey);
                 try {
@@ -263,7 +298,8 @@ class CallbackServiceCodec {
             logger.error(e.getMessage(), e);
         }
     }
-
+    // 编码 method 参数, 主要处理 callback 参数，client 本地暴露 callback 服务
+    // 其他正常参数直接返回
     public static Object encodeInvocationArgument(Channel channel, RpcInvocation inv, int paraIndex) throws IOException {
         // get URL directly
         URL url = inv.getInvoker() == null ? null : inv.getInvoker().getUrl();
@@ -271,13 +307,18 @@ class CallbackServiceCodec {
         Object[] args = inv.getArguments();
         Class<?>[] pts = inv.getParameterTypes();
         switch (callbackStatus) {
+            // callback 参数设置为 true , client 本地就要暴露该 callbackService
             case CallbackServiceCodec.CALLBACK_CREATE:
+                // key: sys_callback_arg  value : 设置 callbackService 实例的 identityHashCode
                 inv.setAttachment(INV_ATT_CALLBACK_KEY + paraIndex, exportOrUnexportCallbackService(channel, url, pts[paraIndex], args[paraIndex], true));
                 return null;
+            // callback 参数设置为 false , client 本地就要 unExport 该 callbackService
             case CallbackServiceCodec.CALLBACK_DESTROY:
                 inv.setAttachment(INV_ATT_CALLBACK_KEY + paraIndex, exportOrUnexportCallbackService(channel, url, pts[paraIndex], args[paraIndex], false));
                 return null;
             default:
+                // 不是 callback 类型的正常参数则直接返回，直接序列化进 buffer
+                // 注意: callback 参数是不会序列化的，只是本地暴露一个 callbackService
                 return args[paraIndex];
         }
     }
@@ -287,6 +328,8 @@ class CallbackServiceCodec {
         // need get URL from channel and env when decode
         URL url = null;
         try {
+            // 获取 service 的 DubboExporter，近而获取到 abstractProxyInvoker
+            // 最终获取到 providerUrl
             url = DubboProtocol.getDubboProtocol().getInvoker(channel, inv).getUrl();
         } catch (RemotingException e) {
             if (logger.isInfoEnabled()) {
@@ -294,10 +337,12 @@ class CallbackServiceCodec {
             }
             return inObject;
         }
+        // 该参数是否为 callbackService
         byte callbackstatus = isCallBack(url, inv.getMethodName(), paraIndex);
         switch (callbackstatus) {
             case CallbackServiceCodec.CALLBACK_CREATE:
                 try {
+                    // service 端创建一个 callbackService 的 reference 引用
                     return referOrDestroyCallbackService(channel, url, pts[paraIndex], inv, Integer.parseInt(inv.getAttachment(INV_ATT_CALLBACK_KEY + paraIndex)), true);
                 } catch (Exception e) {
                     logger.error(e.getMessage(), e);
@@ -305,6 +350,7 @@ class CallbackServiceCodec {
                 }
             case CallbackServiceCodec.CALLBACK_DESTROY:
                 try {
+                    // 销毁 callbackService 的 reference 引用
                     return referOrDestroyCallbackService(channel, url, pts[paraIndex], inv, Integer.parseInt(inv.getAttachment(INV_ATT_CALLBACK_KEY + paraIndex)), false);
                 } catch (Exception e) {
                     throw new IOException(StringUtils.toString(e));

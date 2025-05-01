@@ -204,7 +204,7 @@ public class Bytes {
         b[off + 3] = (byte) (v >>> 32);
         b[off + 2] = (byte) (v >>> 40);
         b[off + 1] = (byte) (v >>> 48);
-        b[off + 0] = (byte) (v >>> 56);
+        b[off + 0] = (byte) (v >>> 56); // long 中的高字节放入低地址
     }
 
     /**
