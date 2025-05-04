@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Component("demoServiceComponent")
 public class DemoServiceComponent implements DemoService {
-    @DubboReference(check = false,
+    @DubboReference(check = false, onconnect = "onconnect", stub = "org.apache.dubbo.demo.consumer.comp.DemoServiceStub",
             methods = { @Method(name = "sayHello", timeout = 250, retries = 3) }) // , mock = "force:return fake"
     // parameters = {"sayHello.mock","force:return fake"}) 这里有 bug,解析异常。会把 ： 替换为 ,
     // see org.apache.dubbo.config.spring.beans.factory.annotation.ReferenceBeanBuilder.preConfigureBean
@@ -44,10 +44,10 @@ public class DemoServiceComponent implements DemoService {
     // 但其实这里没必要，只要依赖注入的类型一样，那么背后就都是一个代理 ？错，还是一个代理
     // 因为只要依赖注入的类型一样，@DubboReference 的属性一样，就是一个 ReferenceBean
     // 同一个 ReferenceBean 调用两次都会返回同一个代理，代理会被缓存在 ReferenceBean->ref 字段中
-    @DubboReference(check = false)
+/*    @DubboReference(check = false)
     public void setDemoService(DemoService demoService) { // 必须是 public get or set method 才能依赖注入
         this.demoService1 = demoService;
-    }
+    }*/
 
     @Override
     public String sayHello(String name) {

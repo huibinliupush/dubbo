@@ -190,9 +190,29 @@ public class DubboProtocol extends AbstractProtocol {
         }
 
         /**
+         * STUB_EVENT : onconnect , disconnect 。 bug 太多，太大，不可用
+         *
          * FIXME channel.getUrl() always binds to a fixed service, and this service is random.
          * we can choose to use a common service to carry onConnect event if there's no easy way to get the specific
          * service this connection is binding to.
+         *
+         * 如果我们无法轻松获取此连接所绑定的具体服务，我们可以选择使用通用服务来处理连接事件
+         *
+         * provider 中可能会包含多个 service , 但是这些 service 由于底层属于同一个 dubbo 进程，所以底层对应都是同一个 server
+         * 在 service export 的时候会 openServer , server 中的 url 也就是这里 channel 中的 url 是随机的
+         * 如果 demo 中的 callbackService 先进行 export, 那么 server 中的 url 对应的就是 callbackService
+         * 如果 demo 中的 demoService 先进行 export , 那么 server 中的 url 对应的就是 demoService
+         * 具体先暴露哪个服务是随机的，所以 server url 也是随机的
+         * see : org.apache.dubbo.remoting.transport.AbstractServer#AbstractServer(org.apache.dubbo.common.URL, org.apache.dubbo.remoting.ChannelHandler)
+         * org.apache.dubbo.remoting.transport.netty4.NettyServerHandler#NettyServerHandler(org.apache.dubbo.common.URL, org.apache.dubbo.remoting.ChannelHandler)
+         *
+         * 所以 provider 端处理 onconnect 事件也是随机的，有可能调用 demoService 的 onconnect 方法也可能调用 callbackService 的 onconnect 方法
+         * 同理 consumer 端处理 onconnect 事件也是随机的，有可能调用 demoService 的 stub ,也可能调用 callbackService stub
+         * 因为 demoServiceRef 和 callbackServiceRef 底层是共用一个连接的，onconnect 只会通知一次且随机挑选一个
+         *
+         * 一样的道理，client url 与 server url 一样都是随机的，就看那个 reference 先创建 dubboclient
+         * see : org.apache.dubbo.demo.provider.CallbackServiceImpl#onconnect()
+         *
          * @param channel
          * @param url
          * @param methodKey
