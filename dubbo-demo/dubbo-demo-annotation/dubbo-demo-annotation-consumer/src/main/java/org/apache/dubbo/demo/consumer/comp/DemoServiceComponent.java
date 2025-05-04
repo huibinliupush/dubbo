@@ -30,7 +30,7 @@ import java.util.concurrent.CompletableFuture;
 @Component("demoServiceComponent")
 public class DemoServiceComponent implements DemoService {
     @DubboReference(check = false,
-            methods = { @Method(name = "sayHello", timeout = 250, retries = 3) }, mock = "force:return fake")
+            methods = { @Method(name = "sayHello", timeout = 250, retries = 3) }) // , mock = "force:return fake"
     // parameters = {"sayHello.mock","force:return fake"}) 这里有 bug,解析异常。会把 ： 替换为 ,
     // see org.apache.dubbo.config.spring.beans.factory.annotation.ReferenceBeanBuilder.preConfigureBean
     private DemoService demoService; // 同一字段放在不同类中也是不同的代理 ？ 错，还是一个代理

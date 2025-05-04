@@ -39,6 +39,7 @@ public class DirectChannelHandler extends WrappedChannelHandler {
         ExecutorService executor = getPreferredExecutorService(message);
         if (executor instanceof ThreadlessExecutor) {
             try {
+                // 如果 request future 绑定了线程池，那么这里的 response 就需要由 request future 绑定的线程池执行
                 // 直接将 decode(反序列化，headerExchanger,requestHandler) 的任务交给用户线程执行
                 executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.RECEIVED, message));
             } catch (Throwable t) {

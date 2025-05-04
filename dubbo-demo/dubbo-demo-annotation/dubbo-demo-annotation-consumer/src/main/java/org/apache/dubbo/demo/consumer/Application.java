@@ -38,8 +38,8 @@ public class Application {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ConsumerConfiguration.class);
         context.start();
         DemoServiceComponent service = context.getBean("demoServiceComponent", DemoServiceComponent.class);
-//        String hello = service.sayHello("world");
-//        System.out.println("result :" + hello);
+        String hello = service.sayHello("world");
+        System.out.println("result :" + hello);
 //
 //        BigDeDto deDto = new BigDeDto();
 //        deDto.setDecimal(new BigDecimal(20));
@@ -47,8 +47,8 @@ public class Application {
 //        service.testBigDecimal(deDto);
 //
 //        service.addListener("foo.bar", msg -> System.out.println("callback:" + msg));
-        Future<String> future = service.sayHelloAsync("testReturnTypes");
-        System.out.println(future.get());
+//        Future<String> future = service.sayHelloAsync("testReturnTypes");
+//        System.out.println(future.get());
     }
 
     @Configuration

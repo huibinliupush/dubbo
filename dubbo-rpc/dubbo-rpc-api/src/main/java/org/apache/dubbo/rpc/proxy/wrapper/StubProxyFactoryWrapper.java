@@ -85,9 +85,12 @@ public class StubProxyFactoryWrapper implements ProxyFactory {
                         Constructor<?> constructor = ReflectUtils.findConstructor(stubClass, serviceType);
                         proxy = (T) constructor.newInstance(new Object[]{proxy});
                         //export stub service
+                        // org.apache.dubbo.demo.provider.CallbackServiceImpl.onconnect
                         URLBuilder urlBuilder = URLBuilder.from(url);
                         if (url.getParameter(STUB_EVENT_KEY, DEFAULT_STUB_EVENT)) {
+                            // 获取 stub 类中 DeclaredMethodNames(stub 类中实现的 onconnect 方法)
                             urlBuilder.addParameter(STUB_EVENT_METHODS_KEY, StringUtils.join(Wrapper.getWrapper(proxy.getClass()).getDeclaredMethodNames(), ","));
+                            // 本地暴露 stub service
                             urlBuilder.addParameter(IS_SERVER_KEY, Boolean.FALSE.toString());
                             try {
                                 export(proxy, (Class) invoker.getInterface(), urlBuilder.build());

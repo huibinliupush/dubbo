@@ -44,6 +44,12 @@ public class ChannelHandlers {
     }
     // MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler
     protected ChannelHandler wrapInternal(ChannelHandler handler, URL url) {
+        // 线程模型：https://cn.dubbo.apache.org/zh-cn/overview/mannual/java-sdk/tasks/framework/threading-model/
+        /**
+         * 共同特点：
+         * 当处理 response 接收的时候，如果对应的 request future 指定了 executor, 那么后续关于 response 的反序列等处理就由
+         * request future 对应的 executor 执行（也就是业务线程执行）
+         * */
         return new MultiMessageHandler(new HeartbeatHandler(ExtensionLoader.getExtensionLoader(Dispatcher.class)
                 .getAdaptiveExtension().dispatch(handler, url)));
     }

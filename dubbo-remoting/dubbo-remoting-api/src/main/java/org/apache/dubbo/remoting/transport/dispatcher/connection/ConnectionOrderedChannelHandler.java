@@ -61,6 +61,7 @@ public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
     public void connected(Channel channel) throws RemotingException {
         try {
             checkQueueLength();
+            // 按顺序执行 connect 事件
             connectionExecutor.execute(new ChannelEventRunnable(channel, handler, ChannelState.CONNECTED));
         } catch (Throwable t) {
             throw new ExecutionException("connect event", channel, getClass() + " error when process connected event .", t);
@@ -71,6 +72,7 @@ public class ConnectionOrderedChannelHandler extends WrappedChannelHandler {
     public void disconnected(Channel channel) throws RemotingException {
         try {
             checkQueueLength();
+            // 按顺序执行 disConnect 事件
             connectionExecutor.execute(new ChannelEventRunnable(channel, handler, ChannelState.DISCONNECTED));
         } catch (Throwable t) {
             throw new ExecutionException("disconnected event", channel, getClass() + " error when process disconnected event .", t);

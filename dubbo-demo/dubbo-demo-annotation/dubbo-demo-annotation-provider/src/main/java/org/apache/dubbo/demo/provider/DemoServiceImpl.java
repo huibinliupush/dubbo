@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 
-@DubboService
+@DubboService(onconnect = "onconnect")
 public class DemoServiceImpl implements DemoService {
     private static final Logger logger = LoggerFactory.getLogger(DemoServiceImpl.class);
     private String wrapperField;
@@ -64,5 +64,14 @@ public class DemoServiceImpl implements DemoService {
     public void testBigDecimal(BigDeDto bigDeDto) {
         System.out.print("BigDecimal:"+bigDeDto.getDecimal());
         System.out.print("name:"+bigDeDto.getName());
+    }
+
+    public void onconnect() {
+
+        System.out.print("onconnect");
+    }
+
+    public void ondisconnect() {
+        System.out.print("disconnect");
     }
 }
