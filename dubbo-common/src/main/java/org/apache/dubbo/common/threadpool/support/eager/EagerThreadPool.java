@@ -45,12 +45,17 @@ public class EagerThreadPool implements ThreadPool {
     @Override
     public Executor getExecutor(URL url) {
         String name = url.getParameter(THREAD_NAME_KEY, DEFAULT_THREAD_NAME);
+        // 0
         int cores = url.getParameter(CORE_THREADS_KEY, DEFAULT_CORE_THREADS);
+        // MAX_VALUE
         int threads = url.getParameter(THREADS_KEY, Integer.MAX_VALUE);
+        // 0
         int queues = url.getParameter(QUEUES_KEY, DEFAULT_QUEUES);
+        // 60s
         int alive = url.getParameter(ALIVE_KEY, DEFAULT_ALIVE);
 
         // init queue and executor
+        // 有界队列
         TaskQueue<Runnable> taskQueue = new TaskQueue<Runnable>(queues <= 0 ? 1 : queues);
         EagerThreadPoolExecutor executor = new EagerThreadPoolExecutor(cores,
                 threads,

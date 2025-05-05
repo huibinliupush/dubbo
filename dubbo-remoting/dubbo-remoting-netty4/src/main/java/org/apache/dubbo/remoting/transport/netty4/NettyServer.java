@@ -78,6 +78,8 @@ public class NettyServer extends AbstractServer implements RemotingServer {
         // see : org.apache.dubbo.remoting.exchange.support.header.HeaderExchanger.bind
         // DubboHandler 全部包装在 NettyServer 中，而 NettyServer 本身就是一个 DubboHandler
         // 所以 Dubbo Pipeline 中第一个 handler 为 NettyServer
+
+        // 设置线程池名字 ： org.apache.dubbo.common.threadpool.support.fixed.FixedThreadPool.getExecutor
         super(ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME), ChannelHandlers.wrap(handler, url));
     }
 

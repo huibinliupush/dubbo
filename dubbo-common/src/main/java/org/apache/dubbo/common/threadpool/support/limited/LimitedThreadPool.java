@@ -46,9 +46,18 @@ public class LimitedThreadPool implements ThreadPool {
     @Override
     public Executor getExecutor(URL url) {
         String name = url.getParameter(THREAD_NAME_KEY, DEFAULT_THREAD_NAME);
+        // 0
         int cores = url.getParameter(CORE_THREADS_KEY, DEFAULT_CORE_THREADS);
+        // 200
         int threads = url.getParameter(THREADS_KEY, DEFAULT_THREADS);
+        // 0
         int queues = url.getParameter(QUEUES_KEY, DEFAULT_QUEUES);
+        // FixedThreadPool 是无脑创建 thread , 达到 core size 之后，放入 SynchronousQueue
+        // 如果有空闲线程直接执行，如果没有直接 reject
+
+        // LimitedThreadPool 是先创建一个线程执行，第二个任务来就放入 SynchronousQueue
+        // 如果有空闲线程则直接执行。
+        // 如果此时没有空闲线程， offser 返回 false , 在创建一个线程执行
         return new ThreadPoolExecutor(cores, threads, Long.MAX_VALUE, TimeUnit.MILLISECONDS,
                 queues == 0 ? new SynchronousQueue<Runnable>() :
                         (queues < 0 ? new LinkedBlockingQueue<Runnable>()

@@ -78,7 +78,10 @@ public class DefaultExecutorRepository implements ExecutorRepository {
         // 第一维度按照：provider端（fixed）， consumer端(cached) 来划分 executors
         // 第二维度按照: provider port 划分 executors，每个 port 分配一个 executors
         Map<Integer, ExecutorService> executors = data.computeIfAbsent(componentKey, k -> new ConcurrentHashMap<>());
+        // 无论是 consumer 端还是 provider 端，线程池都是跟着 port 端口走，每一个端口分配一个线程池
         Integer portKey = url.getPort();
+        // provider 端对应的线程池为 FixedThreadPool
+        // consumer 端对应的线程池为 CachedThreadPool
         ExecutorService executor = executors.computeIfAbsent(portKey, k -> createExecutor(url));
         // If executor has been shut down, create a new one
         if (executor.isShutdown() || executor.isTerminated()) {

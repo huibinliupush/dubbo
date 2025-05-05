@@ -43,15 +43,37 @@ public class FixedThreadPool implements ThreadPool {
 
     @Override
     public Executor getExecutor(URL url) {
+        // 设置线程池的名字：org.apache.dubbo.remoting.transport.netty4.NettyServer.NettyServer
         String name = url.getParameter(THREAD_NAME_KEY, DEFAULT_THREAD_NAME);
         int threads = url.getParameter(THREADS_KEY, DEFAULT_THREADS);
         int queues = url.getParameter(QUEUES_KEY, DEFAULT_QUEUES);
-        // 默认 200 个线程，默认 SynchronousQueue
+        // 默认 200 个线程，默认 SynchronousQueue （queues = 0）
+        // queues < 0 :  无界LinkedBlockingQueue
+        // queues > 0 :  有界LinkedBlockingQueue
+
+        // https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/util/concurrent/SynchronousQueue.html
+        // IO 线程提交任务，提交一个任务创建一个 dubbo 线程，直到创建好 200 个 dubbo 线程
+        // IO 线程调用 boolean offer(E e) 向 SynchronousQueue 中添加元素，如果此时正好有 dubbo 线程在调用  take() 等待
+        // 那么 IO 线程中的 offer 返回 true，dubbo 线程直接 take() 走任务
+        // 如果此时 dubbo 线程全部在执行任务，那么 IO 线程的 offer 返回 false, 直接执行 AbortPolicyWithReport
+
+        // 如果没有 IO 线程通过 offer 提交任务，那么 dubbo 线程就会在 take 方法上阻塞等待
+
+
+/**
+ *         但是这里请注意 IO 线程永远不会在这里阻塞，因为使用的是 offer , 没有 dubbo 线程等待就返回 false
+ *         但 IO 线程会执行 AbortPolicyWithReport 中的 dump 操作
+ * */
+        // SynchronousQueue 的所有操作都是无锁的，只不过 take 不到会将自己阻塞
+        // LinkedBlockingQueue 的所有操作是要加锁的，offer 的时候也要加锁判断队列容量，成功返回 true, 失败返回 false
         return new ThreadPoolExecutor(threads, threads, 0, TimeUnit.MILLISECONDS,
                 queues == 0 ? new SynchronousQueue<Runnable>() :
-                        (queues < 0 ? new LinkedBlockingQueue<Runnable>()
+                        (queues < 0 ? new LinkedBlockingQueue<Runnable>() // 阻塞队列的 offer 操作也是要加锁的
                                 : new LinkedBlockingQueue<Runnable>(queues)),
                 new NamedInternalThreadFactory(name, true), new AbortPolicyWithReport(name, url));
+
+        // 线程池中向队列添加元素用的都是 offer , 避免阻塞提交线程
+        // 线程池中的线程从队列中获取元素都是用的 take , 获取不到就阻塞
     }
 
 }

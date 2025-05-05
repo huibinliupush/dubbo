@@ -55,6 +55,40 @@ public class EagerThreadPoolExecutor extends ThreadPoolExecutor {
         submittedTaskCount.decrementAndGet();
     }
 
+    /**
+     * 首先常规线程池的执行逻辑是：
+     * 1. 当线程池中的线程数小于 corePoolSize 的时候，向线程池提交一个任务就会创建一个线程来执行
+     * 注意这种情况下，即使 core thread 处于空闲状态，但只要线程池中的 thread 个数小于 corePoolSize 就会创建新的线程
+     *
+     * 2. 当线程池中的 thread 个数达到 corePoolSize 的时候，首先会尝试将任务 offer 到队列 queue 中
+     * 然后空闲线程从 queue 中 take 任务执行
+     *
+     * 3. 如果队列 queue 已满，offer 失败，但此时线程池中的 thread 个数小于 maximumPoolSize
+     * 则会创建一个新的线程（not core）来执行新的任务
+     *
+     * 4. 如果此时 queue 也满了，thread 个数也已经达到了 maximumPoolSize，那么就会 reject, 执行 RejectedExecutionHandler
+     *
+     * EagerThreadPool 的执行逻辑：
+     *
+     * 1. 首先和常规线程池一样，只要 thread 个数小于 corePoolSize 的时候，不管 core thread 是否空闲，都会创建
+     * 一个新的线程来执行任务。
+     *
+     * 2. 这里是最大的不同，当 thread 个数达到 corePoolSize 的时候，EagerThreadPool 会判断是否有空闲的 thread
+     * 如果有空闲的 thread，那么就放入 queue 中由空闲的 thread 执行
+     * 如果没有空闲的 thread , 那么就会创建新的线程直接执行（Eager的体现），注意这里是不会放入 queue 中的
+     *
+     * 如何判断 thread 是否空闲 ？
+     *
+     * EagerThreadPoolExecutor 设计了一个 submittedTaskCount，表示当前线程池正在处理的任务个数
+     * 如果 submittedTaskCount < PoolSize（线程池当前的线程个数）, 说明此时有 thread 空闲
+     * 那么就将任务放入 queue 中由空闲的 thread 执行
+     *
+     * 如果没有 thread 空闲，但是此时线程池中 thread 个数小于 MaximumPoolSize ， 那么就创建一个新的线程执行
+     * see : org.apache.dubbo.common.threadpool.support.eager.TaskQueue#offer(java.lang.Runnable)
+     *
+     * 如果此时线程池中的 thread 个数已经达到 MaximumPoolSize，并且没有空闲，那么就会将任务放入 queue 中
+     * 等待空闲 thread 执行
+     * */
     @Override
     public void execute(Runnable command) {
         if (command == null) {
