@@ -22,12 +22,13 @@ import org.apache.dubbo.common.extension.ExtensionLoader;
 
 /**
  * AdaptiveCompiler. (SPI, Singleton, ThreadSafe)
+ * 支持依赖注入，但不支持 wrapper
  */
 @Adaptive
 public class AdaptiveCompiler implements Compiler {
 
     private static volatile String DEFAULT_COMPILER;
-
+    // 由 org.apache.dubbo.config.ApplicationConfig.setCompiler 设置
     public static void setDefaultCompiler(String compiler) {
         DEFAULT_COMPILER = compiler;
     }
@@ -40,6 +41,7 @@ public class AdaptiveCompiler implements Compiler {
         if (name != null && name.length() > 0) {
             compiler = loader.getExtension(name);
         } else {
+            // javassist
             compiler = loader.getDefaultExtension();
         }
         return compiler.compile(code, classLoader);

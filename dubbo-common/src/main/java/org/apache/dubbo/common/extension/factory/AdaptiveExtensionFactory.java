@@ -29,12 +29,17 @@ import java.util.List;
  */
 @Adaptive
 public class AdaptiveExtensionFactory implements ExtensionFactory {
-
+    // SpiExtensionFactory
+    // SpringExtensionFactory
     private final List<ExtensionFactory> factories;
 
     public AdaptiveExtensionFactory() {
         ExtensionLoader<ExtensionFactory> loader = ExtensionLoader.getExtensionLoader(ExtensionFactory.class);
         List<ExtensionFactory> list = new ArrayList<ExtensionFactory>();
+        // 获取支持的所有 ExtensionFactory 扩展
+        // adaptive 实现不会在这里缓存 adaptive=org.apache.dubbo.common.extension.factory.AdaptiveExtensionFactory
+        // spi=org.apache.dubbo.common.extension.factory.SpiExtensionFactory
+        // spring=org.apache.dubbo.config.spring.extension.SpringExtensionFactory
         for (String name : loader.getSupportedExtensions()) {
             list.add(loader.getExtension(name));
         }
@@ -44,6 +49,7 @@ public class AdaptiveExtensionFactory implements ExtensionFactory {
     @Override
     public <T> T getExtension(Class<T> type, String name) {
         for (ExtensionFactory factory : factories) {
+            // 支持依赖注入 SPI , Dubbo SPI , Spring bean 的依赖注入
             T extension = factory.getExtension(type, name);
             if (extension != null) {
                 return extension;

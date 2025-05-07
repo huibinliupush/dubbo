@@ -550,6 +550,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //通过SPI加载Configurator扩展（自定义URL参数配置扩展）
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                 .hasExtension(url.getProtocol())) {
+            // 从配置中心覆盖 URL
             url = ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }

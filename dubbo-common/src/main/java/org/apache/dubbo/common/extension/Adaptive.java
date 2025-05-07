@@ -54,6 +54,8 @@ public @interface Adaptive {
      * <code>String[] {"yyy.invoker.wrapper"}</code>.
      *
      * @return parameter names in URL
+     *
+     * 指定参数名，利用该参数名到 url 中去获取具体的值（扩展名）
      */
     String[] value() default {};
 

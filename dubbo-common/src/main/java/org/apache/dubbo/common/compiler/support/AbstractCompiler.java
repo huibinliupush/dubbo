@@ -25,14 +25,36 @@ import java.util.regex.Pattern;
  * Abstract compiler. (SPI, Prototype, ThreadSafe)
  */
 public abstract class AbstractCompiler implements Compiler {
-
+    /**
+     * package\s+([$_a-zA-Z][$_a-zA-Z0-9\.]*);
+     *
+     * package org.apache.tools.ant; → 提取 org.apache.tools.ant
+     *
+     * 捕获组：([$_a-zA-Z][$_a-zA-Z0-9\.]*)
+     * 首字符：必须为 $、_、字母（a-zA-Z）。
+     * 后续字符：可包含 $、_、字母、数字（0-9）和包分隔符 .
+     * 长度限制：至少一个字符（首字符），后续字符数量不限（* 表示零次或多次）。
+     *
+     * */
     private static final Pattern PACKAGE_PATTERN = Pattern.compile("package\\s+([$_a-zA-Z][$_a-zA-Z0-9\\.]*);");
-
+    /**
+     *  class\s+([$_a-zA-Z][$_a-zA-Z0-9]*)\s+
+     *
+     *  final class _DatabaseHelper123 { ... } → 提取 _DatabaseHelper123
+     *
+     *  捕获组 ([$_a-zA-Z][$_a-zA-Z0-9]*)
+     *  首字符：必须为 $、_ 或字母（a-zA-Z）。
+     *  后续字符：可包含 $、_、字母和数字（0-9）。
+     *  长度限制：至少一个字符（首字符），后续字符数量不限（* 表示零次或多次）
+     *
+     *  \s+  若类名后直接跟随 {（如 class MyClass{），\s+ 无法匹配，导致整个正则表达式失败
+     * */
     private static final Pattern CLASS_PATTERN = Pattern.compile("class\\s+([$_a-zA-Z][$_a-zA-Z0-9]*)\\s+");
 
     @Override
     public Class<?> compile(String code, ClassLoader classLoader) {
         code = code.trim();
+        // 匹配 package
         Matcher matcher = PACKAGE_PATTERN.matcher(code);
         String pkg;
         if (matcher.find()) {
@@ -40,6 +62,7 @@ public abstract class AbstractCompiler implements Compiler {
         } else {
             pkg = "";
         }
+        // 匹配动态代理类名
         matcher = CLASS_PATTERN.matcher(code);
         String cls;
         if (matcher.find()) {
@@ -47,6 +70,8 @@ public abstract class AbstractCompiler implements Compiler {
         } else {
             throw new IllegalArgumentException("No such class name in " + code);
         }
+        // 带有 package name，首先尝试去加载动态代理类，首次一般都会加载失败
+        // 失败之后 doCompile
         String className = pkg != null && pkg.length() > 0 ? pkg + "." + cls : cls;
         try {
             return Class.forName(className, true, org.apache.dubbo.common.utils.ClassUtils.getCallerClassLoader(getClass()));
