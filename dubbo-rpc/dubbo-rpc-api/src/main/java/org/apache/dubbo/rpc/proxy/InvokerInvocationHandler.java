@@ -42,12 +42,19 @@ public class InvokerInvocationHandler implements InvocationHandler {
             this.consumerModel = ApplicationModel.getConsumerModel(serviceKey);
         }
     }
-
+    // proxy 为 javassist 生成的代理类实例（运行过程中无任何反射开销）
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (method.getDeclaringClass() == Object.class) {
             return method.invoke(invoker, args);
         }
+        // 其实这里的开销也不大了，反射拿到 Method 的过程有反射的开销
+        // 但是拿到 method 之后，getName ， getParameterTypes 也就没有开销了
+        // 因为这些属性已经在 Method 中了，这里直接拿就好了，没啥开销
+
+        // 因为反射获取 Methods 的动作是在生成 proxy 的过程过程中获取到的
+        // 运行过程中直接就是拿缓存的 Method ，没有任何反射开销
+        // see : org.apache.dubbo.common.bytecode.Proxy.getProxy(java.lang.ClassLoader, java.lang.Class<?>...)
         String methodName = method.getName();
         Class<?>[] parameterTypes = method.getParameterTypes();
         if (parameterTypes.length == 0) {

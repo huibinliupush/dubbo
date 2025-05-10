@@ -171,6 +171,7 @@ public abstract class Proxy {
                     for (int j = 0; j < pts.length; j++) {
                         code.append(" args[").append(j).append("] = ($w)$").append(j + 1).append(";");
                     }
+                    // 直接将 Method 传入 invocationHandler
                     code.append(" Object ret = handler.invoke(this, methods[").append(ix).append("], args);");
                     if (!Void.TYPE.equals(rt)) {
                         code.append(" return ").append(asArgument(rt, "ret")).append(";");
@@ -193,6 +194,7 @@ public abstract class Proxy {
             ccp.addConstructor(Modifier.PUBLIC, new Class<?>[]{InvocationHandler.class}, new Class<?>[0], "handler=$1;");
             ccp.addDefaultConstructor();
             Class<?> clazz = ccp.toClass();
+            // 缓存 methods 的反射实例 Method 集合，后面再调用 invocationHandler 的时候直接传入 Method
             clazz.getField("methods").set(null, methods.toArray(new Method[0]));
 
             // create Proxy class.

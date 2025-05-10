@@ -68,9 +68,11 @@ import static org.apache.dubbo.common.constants.CommonConstants.REMOVE_VALUE_PRE
  * <p>
  * Load dubbo extensions
  * <ul>
- * <li>auto inject dependency extension </li> 依赖注入，支持注入 spring bean，自动注入其他扩展 SPI 的自适应实现
- * <li>auto wrap extension in wrapper </li>   切面（支持依赖注入）
- * <li>default extension is an adaptive instance</li> 自适应, 默认的扩展是一个自适应扩展实现（同样支持依赖注入）
+ * <li>auto inject dependency extension </li> 1.依赖注入，支持注入 spring bean，自动注入其他扩展 SPI 的自适应实现
+ * <li>auto wrap extension in wrapper </li>   2.切面（支持依赖注入）
+ * <li>default extension is an adaptive instance</li> 3.自适应, 默认的扩展是一个自适应扩展实现（同样支持依赖注入）
+ *                                  4.JDK SPI  中的 ServiceLoader 不会缓存已经加载的 SPI 实现，load 多次就会创建多个 SPI 实例
+ *                                  5.JDK SPI 一次性实例化所有实现类 ，Dubbo SPI  按需实例化
  * </ul>
  *
  * @see <a href="http://java.sun.com/j2se/1.5.0/docs/guide/jar/jar.html#Service%20Provider">Service Provider in Java 5</a>
@@ -134,7 +136,7 @@ public class ExtensionLoader<T> {
     // org.apache.dubbo.common.extension.DubboInternalLoadingStrategy
     // org.apache.dubbo.common.extension.DubboLoadingStrategy
     // org.apache.dubbo.common.extension.ServicesLoadingStrategy
-    private static volatile LoadingStrategy[] strategies = loadLoadingStrategies();
+    private static volatile LoadingStrategy[] strategies = loadLoadingStrategies(); // 缓存 JDK SPI 实现实例
 
     public static void setLoadingStrategies(LoadingStrategy... strategies) {
         if (ArrayUtils.isNotEmpty(strategies)) {
@@ -144,7 +146,7 @@ public class ExtensionLoader<T> {
 
     /**
      * Load all {@link Prioritized prioritized} {@link LoadingStrategy Loading Strategies} via {@link ServiceLoader}
-     *
+     * 当我们使用 ServiceLoader 的 load 方法执行多次时，会不断创建新的实例对象
      * @return non-null
      * @since 2.7.7
      */
@@ -153,6 +155,10 @@ public class ExtensionLoader<T> {
         // 将 ServiceLoader 的 spliterator 转换为 stream
 
         // 传统 SPI 的加载路径： /META-INF/services
+        // 当我们使用 ServiceLoader 的 load 方法执行多次时，会不断创建新的实例对象
+        // 也就是说 ServiceLoader 不会缓存已经加载的 SPI 实现
+
+        // JDK SPI 在加载的时候就会实例化，而 Dubbo SPI  只会加载扩展类，按需实例化
         return stream(load(LoadingStrategy.class).spliterator(), false)
                 .sorted()
                 .toArray(LoadingStrategy[]::new);
@@ -858,7 +864,7 @@ public class ExtensionLoader<T> {
             synchronized (cachedClasses) {
                 classes = cachedClasses.get();
                 if (classes == null) {
-                    // 加载所有的扩展类
+                    // 加载所有的扩展类，但不会实例化
                     classes = loadExtensionClasses();
                     cachedClasses.set(classes);
                 }
@@ -869,6 +875,7 @@ public class ExtensionLoader<T> {
 
     /**
      * synchronized in getExtensionClasses
+     * 只是加载扩展类，但并不实例化
      */
     private Map<String, Class<?>> loadExtensionClasses() {
         // 提取 SPI 注解中的默认扩展名
@@ -937,7 +944,7 @@ public class ExtensionLoader<T> {
                     urls = extensionLoaderClassLoader.getResources(fileName);
                 }
             }
-
+            // 从当前系统及其引用的 Jar 包中，找到 SPI 接口的所有资源文件。
             if (urls == null || !urls.hasMoreElements()) {
                 if (classLoader != null) {
                     // 加载指定扩展接口 SPI 文件资源（可能有多个针对同一扩展接口的 SPI 文件）

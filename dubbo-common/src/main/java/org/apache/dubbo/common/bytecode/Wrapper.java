@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 
 /**
- * Wrapper.
+ * Wrapper. https://www.javassist.org/tutorial/tutorial.html
  */
 public abstract class Wrapper {
     //Wrapper的缓存 key:要进行包装的类（服务实现类ref） value：包装类Wrapper
@@ -121,6 +121,16 @@ public abstract class Wrapper {
         return WRAPPER_MAP.computeIfAbsent(c, key -> makeWrapper(key));
     }
 
+    /**
+     * https://www.javassist.org/tutorial/tutorial2.html
+     *
+     * // 将 class 文件写到 target 目录下，方便调试查看
+     * String filePath = JavassistProxyUtils.class.getResource("/").getPath() + JavassistProxyUtils.class.getPackage().toString().substring("package ".length()).replaceAll("\\.", "/");
+     * ctClass.writeFile(filePath);
+     *
+     * 方法中的 this 引用，用 $0 表示，方法中的第一个参数用 $1 表示，第二个参数用 $2 表示，以此类推。
+     *
+     * */
     private static Wrapper makeWrapper(Class<?> c) {
         if (c.isPrimitive()) {
             throw new IllegalArgumentException("Can not create wrapper for primitive type: " + c);
@@ -139,6 +149,9 @@ public abstract class Wrapper {
         StringBuilder c3 = new StringBuilder("public Object invokeMethod(Object o, String n, Class[] p, Object[] v) throws " + InvocationTargetException.class.getName() + "{ ");
 
         /**
+         * https://www.javassist.org/tutorial/tutorial2.html
+         *
+         *
          *     public void setPropertyValue(Object o, String n, Object v){
          *         org.apache.dubbo.demo.provider.DemoServiceImpl w;
          *         try{
@@ -195,6 +208,8 @@ public abstract class Wrapper {
             // if( $2.equals("age") ) { w.age = ((Number) $3).intValue(); return;}
             c1.append(" if( $2.equals(\"").append(fn).append("\") ){ w.").append(fn).append("=").append(arg(ft, "$3")).append("; return; }");
             // if( $2.equals("name") ) { return ($w)w.name; }
+            // https://www.javassist.org/tutorial/tutorial2.html
+            // $w : The wrapper type. It is used in a cast expression.
             c2.append(" if( $2.equals(\"").append(fn).append("\") ){ return ($w)w.").append(fn).append("; }");
             pts.put(fn, ft);
         }
@@ -262,6 +277,7 @@ public abstract class Wrapper {
                     // w.sayHello((java.lang.Integer)$4[0], (java.lang.String)$4[1]); return null;
                     c3.append(" w.").append(mn).append('(').append(args(m.getParameterTypes(), "$4")).append(");").append(" return null;");
                 } else {
+                    // $w : The wrapper type. It is used in a cast expression.
                     //($w) w.sayHello((java.lang.String) $4[0]);
                     c3.append(" return ($w)w.").append(mn).append('(').append(args(m.getParameterTypes(), "$4")).append(");");
                 }
@@ -398,6 +414,10 @@ public abstract class Wrapper {
          * */
         // make class
         long id = WRAPPER_CLASS_COUNTER.getAndIncrement();
+
+
+        // see : org.apache.dubbo.common.compiler.support.JavassistCompiler.doCompile
+
         //创建类生成器
         ClassGenerator cc = ClassGenerator.newInstance(cl);
         //设置类名org.apache.dubbo.common.bytecode.Wrapper1

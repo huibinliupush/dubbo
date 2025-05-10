@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 
 /**
  * JavassistCompiler. (SPI, Singleton, ThreadSafe)
+ * https://www.javassist.org/tutorial/tutorial.html
  */
 public class JavassistCompiler extends AbstractCompiler {
     /**
@@ -77,9 +78,10 @@ public class JavassistCompiler extends AbstractCompiler {
     private static final Pattern METHODS_PATTERN = Pattern.compile("\n(private|public|protected)\\s+");
 
     private static final Pattern FIELD_PATTERN = Pattern.compile("[^\n]+=[^\n]+;");
-
+    // https://www.javassist.org/tutorial/tutorial.html
     @Override
     public Class<?> doCompile(String name, String source) throws Throwable {
+        // see : org.apache.dubbo.common.bytecode.Wrapper.makeWrapper
         CtClassBuilder builder = new CtClassBuilder();
         // 带 package name 的 class name
         builder.setClassName(name);
@@ -133,8 +135,18 @@ public class JavassistCompiler extends AbstractCompiler {
 
         // compile
         ClassLoader classLoader = org.apache.dubbo.common.utils.ClassUtils.getCallerClassLoader(getClass());
+        // https://www.javassist.org/tutorial/tutorial2.html
         CtClass cls = builder.build(classLoader);
         return cls.toClass(classLoader, JavassistCompiler.class.getProtectionDomain());
+
+        /**
+         * https://www.javassist.org/tutorial/tutorial2.html
+         *
+         * 将 class 文件写到 target 目录下，方便调试查看
+         * String filePath = JavassistProxyUtils.class.getResource("/").getPath() + JavassistProxyUtils.class.getPackage().toString().substring("package ".length()).replaceAll("\\.", "/");
+         * ctClass.writeFile(filePath);
+         *
+         * */
     }
 
 }

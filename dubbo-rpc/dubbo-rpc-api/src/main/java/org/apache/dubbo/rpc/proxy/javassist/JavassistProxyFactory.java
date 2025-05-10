@@ -29,6 +29,12 @@ import org.apache.dubbo.rpc.proxy.InvokerInvocationHandler;
  */
 public class JavassistProxyFactory extends AbstractProxyFactory {
 
+    /**
+     *
+     * proxy 在运行过程中没有任何反射开销，所有需要反射的地方均在生成 proxy 的过程中获取到了
+     * 运行过程中直接拿反射的结果，比如 Method, 在 InvokerInvocationHandler 直接通过
+     * Method 获取方法名称，参数类型，没有任何反射开销
+     * */
     @Override
     @SuppressWarnings("unchecked")
     public <T> T getProxy(Invoker<T> invoker, Class<?>[] interfaces) {

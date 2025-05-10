@@ -99,10 +99,12 @@ public final class ClassGenerator {
     }
 
     public static ClassGenerator newInstance() {
+        // an instance of ClassPool should be created for each class loader
         return new ClassGenerator(getClassPool(Thread.currentThread().getContextClassLoader()));
     }
 
     public static ClassGenerator newInstance(ClassLoader loader) {
+        // an instance of ClassPool should be created for each class loader
         return new ClassGenerator(getClassPool(loader));
     }
 
@@ -138,7 +140,11 @@ public final class ClassGenerator {
         if (pool == null) {
             pool = new ClassPool(true);
             //@see Class search path 通过classPath寻找加载类
+            // https://www.javassist.org/tutorial/tutorial.html
             pool.appendClassPath(new LoaderClassPath(loader));
+            // 不同的 classloader 对应不同的 classpool
+            // 使用被 wrapper 的 class 的 classloader 去加载它的 wrapper 类
+            // an instance of ClassPool should be created for each class loader
             POOL_MAP.put(loader, pool);
         }
         return pool;
