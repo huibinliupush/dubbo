@@ -25,7 +25,12 @@
 
     <dubbo:registry address="zookeeper://127.0.0.1:2181"/>
 
+    <bean id="demoCallback" class="org.apache.dubbo.demo.consumer.NotifyImpl"/>
 
-    <dubbo:reference id="demoService" check="false" interface="org.apache.dubbo.demo.DemoService" />
+    <dubbo:reference id="demoService" check="false" interface="org.apache.dubbo.demo.DemoService">
+        <dubbo:method name="sayHello" async="false" oninvoke="demoCallback.onInvoke" onreturn="demoCallback.onReturn" onthrow="demoCallback.onThrow"/>
+    </dubbo:reference>
+
+
 
 </beans>

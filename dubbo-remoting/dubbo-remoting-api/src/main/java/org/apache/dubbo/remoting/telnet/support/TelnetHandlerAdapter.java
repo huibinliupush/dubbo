@@ -29,16 +29,18 @@ import static org.apache.dubbo.common.constants.CommonConstants.COMMA_SPLIT_PATT
 import static org.apache.dubbo.remoting.Constants.TELNET;
 
 public class TelnetHandlerAdapter extends ChannelHandlerAdapter implements TelnetHandler {
-
+    // 不同的 telnet 命令对应不同的 TelnetHandler
     private final ExtensionLoader<TelnetHandler> extensionLoader = ExtensionLoader.getExtensionLoader(TelnetHandler.class);
 
     @Override
     public String telnet(Channel channel, String message) throws RemotingException {
+        // 去掉前缀 dubbo>
         String prompt = channel.getUrl().getParameterAndDecoded(Constants.PROMPT_KEY, Constants.DEFAULT_PROMPT);
         boolean noprompt = message.contains("--no-prompt");
         message = message.replace("--no-prompt", "");
         StringBuilder buf = new StringBuilder();
         message = message.trim();
+        // 解析 telnet 命令，比如 invoker , online , offline , trace 等命令
         String command;
         if (message.length() > 0) {
             int i = message.indexOf(' ');
@@ -54,6 +56,8 @@ public class TelnetHandlerAdapter extends ChannelHandlerAdapter implements Telne
         }
         if (command.length() > 0) {
             if (extensionLoader.hasExtension(command)) {
+                // url 中的 telnet 参数指定了可以支持的 telnet 命令
+                // 默认全部支持
                 if (commandEnabled(channel.getUrl(), command)) {
                     try {
                         String result = extensionLoader.getExtension(command).telnet(channel, message);

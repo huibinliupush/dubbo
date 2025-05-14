@@ -49,6 +49,11 @@ public class ProtocolFilterWrapper implements Protocol {
         this.protocol = protocol;
     }
 
+    /**
+     *   default表示所有标注@Activate注解的扩展类实现 包括dubbo内置和自定义扩展
+     *   default 集合中的扩展点顺序是按照 order 排序
+     *   而配置中的扩展点顺序是严格按照配置顺序
+     * */
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         //provider端：这里指registry层传递进来的初始invoker:InvokerDelegate
         Invoker<T> last = invoker;
@@ -92,7 +97,7 @@ public class ProtocolFilterWrapper implements Protocol {
                         try {
                             //调用当前filter，在filter中决定是否调用下一级filter（决定是否让请求继续沿着filter链向下传递还是直接中断返回）
                             asyncResult = filter.invoke(next, invocation);
-                        } catch (Exception e) {
+                        } catch (Exception e) { // filter 的自身逻辑执行异常
                             //回调filter监听器的onError方法
                             if (filter instanceof ListenableFilter) {
                                 ListenableFilter listenableFilter = ((ListenableFilter) filter);
@@ -116,7 +121,7 @@ public class ProtocolFilterWrapper implements Protocol {
                         } finally {
 
                         }
-
+                        //后面的Filter执行异常
                         //如果请求正常返回结果则回调filter监听器的onResponse方法，
                         //如果请求执行过程中发生异常则回调filter监听器的onError方法，（整个 Filter 链中有异常都会回调）
 
@@ -187,6 +192,7 @@ public class ProtocolFilterWrapper implements Protocol {
         if (UrlUtils.isRegistry(url)) {
             return protocol.refer(type, url);
         }
+        // consumerContextFilter , FutureFilter , monitorFilter (ActiveLimitFilter)
         return buildInvokerChain(protocol.refer(type, url), REFERENCE_FILTER_KEY, CommonConstants.CONSUMER);
     }
 

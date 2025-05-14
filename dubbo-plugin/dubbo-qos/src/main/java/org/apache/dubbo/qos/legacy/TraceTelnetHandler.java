@@ -38,11 +38,14 @@ public class TraceTelnetHandler implements TelnetHandler {
     @Override
     public String telnet(Channel channel, String message) {
         //解析trace命令中得 service  method count
+        // cd 命令会在 channel 中设置后续要操作的 service
+        // 注意这里的 channel 是发起 telnet 命令的客户端
         String service = (String) channel.getAttribute(ChangeTelnetHandler.SERVICE_KEY);
         if ((service == null || service.length() == 0)
                 && (message == null || message.length() == 0)) {
             return "Please input service name, eg: \r\ntrace XxxService\r\ntrace XxxService xxxMethod\r\ntrace XxxService xxxMethod 10\r\nor \"cd XxxService\" firstly.";
         }
+        // 按照空格分隔提取
         String[] parts = message.split("\\s+");
         String method;
         String times;

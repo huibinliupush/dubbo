@@ -111,7 +111,9 @@ public class RpcStatus {
      */
     public static boolean beginCount(URL url, String methodName, int max) {
         max = (max <= 0) ? Integer.MAX_VALUE : max;
+        // 按照 service 粒度，每个 service 对应一个 appStatus
         RpcStatus appStatus = getStatus(url);
+        // 每个 method 对应一个 methodStatus
         RpcStatus methodStatus = getStatus(url, methodName);
         //防止并发数溢出
         if (methodStatus.active.get() == Integer.MAX_VALUE) {

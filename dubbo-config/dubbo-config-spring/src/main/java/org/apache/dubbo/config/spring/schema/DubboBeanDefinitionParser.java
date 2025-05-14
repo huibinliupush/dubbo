@@ -276,15 +276,20 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                                      *       <dubbo:method name="get" async="true" onreturn = "demoCallback.onreturn" onthrow="demoCallback.onthrow" />
                                      * </dubbo:reference>
                                      * https://dubbo.apache.org/zh/docs/v2.7/user/examples/events-notify/
+                                     *
+                                     * 封装 AsyncMethodInfo
+                                     * see :org.apache.dubbo.config.AbstractConfig#convertMethodConfig2AsyncInfo(org.apache.dubbo.config.MethodConfig)
+                                     * 执行回调
+                                     * see : org.apache.dubbo.rpc.protocol.dubbo.filter.FutureFilter
                                      * */
                                     int index = value.lastIndexOf(".");
                                     //事件通知处理bean
                                     String ref = value.substring(0, index);
                                     //通知事件的处理方法
                                     String method = value.substring(index + 1);
-                                    //beanDefinition中设置事件通知处理类的ref引用
+                                    //beanDefinition中设置事件通知处理类的ref引用，比如这里的 demoCallback
                                     reference = new RuntimeBeanReference(ref);
-                                    //beanDefinition中设置onreturnMethod等事件通知方法属性
+                                    //beanDefinition中设置onreturnMethod等事件通知方法性属（事件回调方法名称，后续通过反射获取：convertMethodConfig2AsyncInfo）
                                     beanDefinition.getPropertyValues().addPropertyValue(property + METHOD, method);
                                 } else {
                                     //处理标签属性对应的Java类型为 引用类型的情况
@@ -298,6 +303,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                                 }
                                 //通过property从标签中查找XML配置的属性值.
                                 //通过beanProperty属性将XML配置的属性值设置到beanDefinition中。
+                                // 设置 MethodConfig 中事件回调方法所属的相关 bean 实例（demoCallback） ，如：oninvoke ， onreturn ，onthrow
                                 beanDefinition.getPropertyValues().addPropertyValue(beanProperty, reference);
                             }
                         }

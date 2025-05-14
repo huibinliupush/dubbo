@@ -52,7 +52,7 @@ public class TraceFilter implements Filter {
     //已经跟踪了多少次 key
     private static final String TRACE_COUNT = "trace.count";
 
-    //缓存所有执行telnet trace命令的telnet客户端连接
+    //缓存所有执行telnet trace命令的telnet客户端连接, key 为方法名
     private static final ConcurrentMap<String, Set<Channel>> TRACERS = new ConcurrentHashMap<>();
 
     /**
@@ -98,6 +98,7 @@ public class TraceFilter implements Filter {
                 key = invoker.getInterface().getName();
                 channels = TRACERS.get(key);
             }
+            // 发起 telnet 的客户端连接 channels
             if (CollectionUtils.isNotEmpty(channels)) {
                 for (Channel channel : new ArrayList<>(channels)) {
                     if (channel.isConnected()) {

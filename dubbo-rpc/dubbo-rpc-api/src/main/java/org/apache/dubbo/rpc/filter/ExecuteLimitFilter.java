@@ -48,6 +48,7 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
         //每个服务中每个接口的最大允许并发数（或者占用线程数）
         int max = url.getMethodParameter(methodName, EXECUTES_KEY, 0);
         //检查当前服务接口方法处理的并发数是否达到指定的最大值
+        // 主要对 method 的粒度进行限制
         if (!RpcStatus.beginCount(url, methodName, max)) {
             throw new RpcException(RpcException.LIMIT_EXCEEDED_EXCEPTION,
                     "Failed to invoke method " + invocation.getMethodName() + " in provider " +

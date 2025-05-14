@@ -225,6 +225,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         if (metadataReportConfig != null && metadataReportConfig.isValid()) {
             map.putIfAbsent(METADATA_KEY, REMOTE_METADATA_STORAGE_TYPE);
         }
+        // 缓存事件回调信息，oninvoke，onreturn，onthrow
         Map<String, AsyncMethodInfo> attributes = null;
         if (CollectionUtils.isNotEmpty(getMethods())) {
             attributes = new HashMap<>();
@@ -237,6 +238,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                         map.put(methodConfig.getName() + ".retries", "0");
                     }
                 }
+                // 缓存事件回调信息，oninvoke，onreturn，onthrow
+                // DubboBeanDefinitionParser 中解析事件回调相关信息
+                // see : org.apache.dubbo.config.spring.schema.DubboBeanDefinitionParser.parse(org.w3c.dom.Element, org.springframework.beans.factory.xml.ParserContext, java.lang.Class<?>, boolean)
                 AsyncMethodInfo asyncMethodInfo = AbstractConfig.convertMethodConfig2AsyncInfo(methodConfig);
                 if (asyncMethodInfo != null) {
 //                    consumerModel.getMethodModel(methodConfig.getName()).addAttribute(ASYNC_KEY, asyncMethodInfo);
@@ -261,7 +265,8 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         serviceMetadata.addAttribute(PROXY_CLASS_REF, ref);
         ConsumerModel consumerModel = repository.lookupReferredService(serviceMetadata.getServiceKey());
         consumerModel.setProxyObject(ref);
-        // 异步 method 信息
+        // 异步 method 信息，缓存事件回调信息，oninvoke，onreturn，onthrow
+        // see : org.apache.dubbo.rpc.protocol.dubbo.filter.FutureFilter
         consumerModel.init(attributes);
 
         initialized = true;
@@ -330,8 +335,10 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 }
                 if (registryURL != null) { // registry url is available
                     // for multi-subscription scenario, use 'zone-aware' policy by default
+                    // Url 中添加 cluster=zone-aware 目的是添加 ZoneAwareClusterInterceptor，创建 ZoneAwareClusterInvoker
                     URL u = registryURL.addParameterIfAbsent(CLUSTER_KEY, ZoneAwareCluster.NAME);
                     // The invoker wrap relation would be like: ZoneAwareClusterInvoker(StaticDirectory) -> FailoverClusterInvoker(RegistryDirectory, routing happens here) -> Invoker
+                    // ZoneAwareClusterInvoker 前面的 Interceptor ： ConsumerContextClusterInterceptor，ZoneAwareClusterInterceptor
                     invoker = CLUSTER.join(new StaticDirectory(u, invokers));
                 } else { // not a registry url, must be direct invoke.
                     invoker = CLUSTER.join(new StaticDirectory(invokers));

@@ -115,8 +115,8 @@ public class ContextFilter implements Filter, Filter.Listener {
 
         // merged from dubbox
         // we may already added some attachments into RpcContext before this filter (e.g. in rest protocol)
-        // 如果前边的过滤器已经对上下文中的attachments信息做了设置，那么就和当前invoker中得attachments合并
         if (attachments != null) {
+            // 如果前边的过滤器已经对上下文中的attachments信息做了设置，那么就和当前invoker中得attachments合并
             if (context.getObjectAttachments() != null) {
                 context.getObjectAttachments().putAll(attachments);
             } else {

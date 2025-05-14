@@ -183,6 +183,11 @@ public class DubboMonitor implements Monitor {
         AtomicReference<long[]> reference = statisticsMap.computeIfAbsent(statistics, k -> new AtomicReference<>());
         // use CompareAndSet to sum
         long[] current;
+        /**
+         *
+         * 在并发场景下，操作共享数据结构时，一定要切记不要在原数据上修改，而是要新建一个数据结构在上边修改，
+         * 然后在使用CompareAndSet原子地更新。要遵守CopyOnWrite原则去操作并发数据结构。
+         * */
         long[] update = new long[LENGTH];
         do {
             current = reference.get();

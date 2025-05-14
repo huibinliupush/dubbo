@@ -50,6 +50,8 @@ import static org.apache.dubbo.rpc.Constants.INPUT_KEY;
 import static org.apache.dubbo.rpc.Constants.OUTPUT_KEY;
 /**
  * MonitorFilter. (SPI, Singleton, ThreadSafe)
+ *
+ * 指标收集 ：org.apache.dubbo.monitor.dubbo.MetricsFilter
  */
 @Activate(group = {PROVIDER, CONSUMER})
 public class MonitorFilter implements Filter, Filter.Listener {
@@ -58,13 +60,14 @@ public class MonitorFilter implements Filter, Filter.Listener {
     private static final String MONITOR_FILTER_START_TIME = "monitor_filter_start_time";
 
     /**
-     * 缓存当前服务接口的 正在处理的并发请求数
+     * 缓存当前服务接口的方法 正在处理的并发请求数（方法为粒度）
      * The Concurrent counter
      */
     private final ConcurrentMap<String, AtomicInteger> concurrents = new ConcurrentHashMap<String, AtomicInteger>();
 
     /**
      * The MonitorFactory
+     * 自动注入 MonitorFactory 的自适应扩展
      */
     private MonitorFactory monitorFactory;
 
@@ -76,7 +79,7 @@ public class MonitorFilter implements Filter, Filter.Listener {
 
     /**
      * The invocation interceptor,it will collect the invoke data about this invocation and send it to monitor center
-     *
+     * 将每一次的 rpc 调用相关的 metrics 发送到 DubboMonitor 中
      * @param invoker    service
      * @param invocation invocation.
      * @return {@link Result} the invoke result
@@ -140,8 +143,13 @@ public class MonitorFilter implements Filter, Filter.Listener {
             //dubbo://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&extra-keys=interface,key1,key2&metadata-type=remote&pid=26552&protocol=registry&qos.port=22228&refer=application%3Ddemo-provider%26dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.monitor.MonitorService%26interval%3D100%26metadata-type%3Dremote%26pid%3D26552%26qos.port%3D22228%26register.ip%3D192.168.1.101%26timestamp%3D1624892427644&registry=zookeeper&simplified=true&timestamp=1624892427553
             URL monitorUrl = invoker.getUrl().getUrlParameter(MONITOR_KEY);
             //这里根据monitorUrl的协议头dubbo会加载到DubboMonitor（用于缓存统计信息，定时发送给监控中心）
+            // 监控中心 monitorService 的客户端（reference）
+
+            // 异步创建，因为生成 DubboMonitor（监控中心的 consumer)比较耗时间
+            // 第一次创建的时候会直接返回 null , 异步创建 monitor
             Monitor monitor = monitorFactory.getMonitor(monitorUrl);
             if (monitor == null) {
+                // 少收集一次也无所谓
                 return;
             }
             //创建统计信息，这里会将统计信息全部放在statisticsURL

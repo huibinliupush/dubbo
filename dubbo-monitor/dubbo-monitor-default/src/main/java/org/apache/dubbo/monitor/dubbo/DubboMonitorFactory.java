@@ -53,7 +53,7 @@ public class DubboMonitorFactory extends AbstractMonitorFactory {
     @Override
     protected Monitor createMonitor(URL url) {
         URLBuilder urlBuilder = URLBuilder.from(url);
-        //将MonitorUrl中原来protocol的参数值Registry改为dubbo
+        //MonitorUrl中原来protocol的参数值Registry,表示从注册中心获取 MonitorService
         //原来的参数值在<dubbo:monitor protocol="registry">中配置表示从注册中心中发现监控中心实例
         urlBuilder.setProtocol(url.getParameter(PROTOCOL_KEY, DUBBO_PROTOCOL));
         if (StringUtils.isEmpty(url.getPath())) {

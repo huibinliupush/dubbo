@@ -42,7 +42,9 @@ public abstract class ListenableFilter implements Filter {
         }
         return invListener;
     }
+    // public class YourProjectFilter extends ListenableFilter
 
+    // 在 YourProjectFilter 的 invoke 方法中调用 addListener ， 为每次调用创建一个 listener
     public void addListener(Invocation invocation, Listener listener) {
         listeners.putIfAbsent(invocation, listener);
     }

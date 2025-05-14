@@ -301,6 +301,8 @@ public class ExtensionLoader<T> {
     /**
      * Get activate extensions.
      *
+     * default表示所有标注@Activate注解的扩展类实现 包括dubbo内置和自定义扩展
+     *
      * @param url    url
      * @param values extension point names
      * @param group  group
@@ -308,6 +310,7 @@ public class ExtensionLoader<T> {
      * @see org.apache.dubbo.common.extension.Activate
      */
     public List<T> getActivateExtension(URL url, String[] values, String group) {
+        // 存放的是 default 集合
         List<T> activateExtensions = new ArrayList<>();
         List<String> names = values == null ? new ArrayList<>(0) : asList(values);
         //扩展名称中不包含 -default（代表使所用标注@Activate注解的dubbo内置扩展或者自定义扩展全部失效）
@@ -353,6 +356,7 @@ public class ExtensionLoader<T> {
             }
             //根据注解@Activate中得before,after,order等排序属性 来对所有标注@Activate注解并且满足激活条件的
             //扩展实现排序
+            // activateExtensions 存放的是 default 集合
             activateExtensions.sort(ActivateComparator.COMPARATOR);
         }
 
@@ -370,6 +374,7 @@ public class ExtensionLoader<T> {
                 //当前activateExtensions集合存放的是所有满足激活条件的缺省扩展default
                 if (DEFAULT_KEY.equals(name)) {
                     if (!loadedExtensions.isEmpty()) {
+                        // 确保位于 default 前面的扩展名，在加载的时候位于 default 前面
                         activateExtensions.addAll(0, loadedExtensions);
                         loadedExtensions.clear();
                     }
@@ -386,6 +391,8 @@ public class ExtensionLoader<T> {
 
         /**
          * 通过这段源码，我们可以看到即使有些Filter扩展不满足上述@Activate注解中配置的激活条件，但是只要在dubbo配置中配置了，也会被加载到。
+         * default 集合中的扩展点顺序是按照 order 排序
+         * 而配置中的扩展点顺序是严格按照配置顺序
          * */
 
         //返回所有被激活的扩展实现

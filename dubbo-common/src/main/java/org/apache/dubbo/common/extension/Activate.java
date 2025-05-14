@@ -47,6 +47,8 @@ public @interface Activate {
      * Activate the current extension when one of the groups matches. The group passed into
      * {@link ExtensionLoader#getActivateExtension(URL, String, String)} will be used for matching.
      *
+     * 必须与传入的 group 匹配才激活
+     *
      * @return group names to match
      * @see ExtensionLoader#getActivateExtension(URL, String, String)
      */
@@ -58,6 +60,9 @@ public @interface Activate {
      * For example, given <code>@Activate("cache, validation")</code>, the current extension will be return only when
      * there's either <code>cache</code> or <code>validation</code> key appeared in the URL's parameters.
      * </p>
+     *
+     * 只要 url 参数中有 value 中指定的 key , 那么就激活
+     * see : org.apache.dubbo.common.extension.ExtensionLoader#isActive(java.lang.String[], org.apache.dubbo.common.URL)
      *
      * @return URL parameter keys
      * @see ExtensionLoader#getActivateExtension(URL, String)

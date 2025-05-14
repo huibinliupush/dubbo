@@ -36,7 +36,15 @@ import static org.apache.dubbo.common.constants.CommonConstants.$INVOKE;
 import static org.apache.dubbo.rpc.protocol.dubbo.Constants.ASYNC_METHOD_INFO;
 
 /**
- * EventFilter
+ * EventFilter 事件回调
+ *
+ * https://cn.dubbo.apache.org/zh-cn/overview/mannual/java-sdk/tasks/framework/more/events-notify/
+ *
+ * DubboBeanDefinitionParser 中解析事件回调相关信息，封装到 MethodConfig
+ * see : org.apache.dubbo.config.spring.schema.DubboBeanDefinitionParser.parse(org.w3c.dom.Element, org.springframework.beans.factory.xml.ParserContext, java.lang.Class<?>, boolean)
+ *
+ * ReferenceConfig init 过程中将 MethodConfig 中封装的事件回调相关信息封装到 AsyncMethodInfo
+ * see : org.apache.dubbo.config.AbstractConfig#convertMethodConfig2AsyncInfo(org.apache.dubbo.config.MethodConfig)
  */
 @Activate(group = CommonConstants.CONSUMER)
 public class FutureFilter implements Filter, Filter.Listener {
@@ -45,6 +53,7 @@ public class FutureFilter implements Filter, Filter.Listener {
 
     @Override
     public Result invoke(final Invoker<?> invoker, final Invocation invocation) throws RpcException {
+        // oninvoke 回调
         fireInvokeCallback(invoker, invocation);
         // need to configure if there's return value before the invocation in order to help invoker to judge if it's
         // necessary to return future.
@@ -66,11 +75,13 @@ public class FutureFilter implements Filter, Filter.Listener {
     }
 
     private void fireInvokeCallback(final Invoker<?> invoker, final Invocation invocation) {
+        // see : org.apache.dubbo.config.AbstractConfig#convertMethodConfig2AsyncInfo(org.apache.dubbo.config.MethodConfig)
         final AsyncMethodInfo asyncMethodInfo = getAsyncMethodInfo(invoker, invocation);
         if (asyncMethodInfo == null) {
             return;
         }
         final Method onInvokeMethod = asyncMethodInfo.getOninvokeMethod();
+        // onInvokeMethod 所属的实例
         final Object onInvokeInst = asyncMethodInfo.getOninvokeInstance();
 
         if (onInvokeMethod == null && onInvokeInst == null) {
@@ -118,7 +129,7 @@ public class FutureFilter implements Filter, Filter.Listener {
         Object[] args = invocation.getArguments();
         Object[] params;
         Class<?>[] rParaTypes = onReturnMethod.getParameterTypes();
-        // onReturn 事件方法参数：对应 method 的返回值，请求参数
+        // onReturn 事件回调方法参数：对应 method 的返回值，请求参数
         if (rParaTypes.length > 1) {
             if (rParaTypes.length == 2 && rParaTypes[1].isAssignableFrom(Object[].class)) {
                 params = new Object[2];
@@ -165,7 +176,7 @@ public class FutureFilter implements Filter, Filter.Listener {
             try {
                 Object[] args = invocation.getArguments();
                 Object[] params;
-                // onThrow 事件方法参数：exception，对应 method 的请求参数
+                // onThrow 事件回调方法参数：exception，对应 method 的请求参数
                 if (rParaTypes.length > 1) {
                     if (rParaTypes.length == 2 && rParaTypes[1].isAssignableFrom(Object[].class)) {
                         params = new Object[2];
@@ -203,7 +214,8 @@ public class FutureFilter implements Filter, Filter.Listener {
         if (methodName.equals($INVOKE)) {
             methodName = (String) invocation.getArguments()[0];
         }
-
+        // see : org.apache.dubbo.rpc.model.ConsumerModel.init
+        // 在 referenceConfig#init 中创建完代理会初始化 consumerModel
         return consumerModel.getAsyncInfo(methodName);
     }
 

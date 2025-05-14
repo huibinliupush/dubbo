@@ -210,7 +210,7 @@ public abstract class AbstractConfig implements Serializable {
         }
 
         AsyncMethodInfo asyncMethodInfo = new AsyncMethodInfo();
-
+        // 这里应该生成回调的代理，避免 FutureFilter 中通过反射调用回调方法
         asyncMethodInfo.setOninvokeInstance(methodConfig.getOninvoke());
         asyncMethodInfo.setOnreturnInstance(methodConfig.getOnreturn());
         asyncMethodInfo.setOnthrowInstance(methodConfig.getOnthrow());

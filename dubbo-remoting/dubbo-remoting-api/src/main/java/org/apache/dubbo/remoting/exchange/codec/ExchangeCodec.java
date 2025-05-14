@@ -72,6 +72,7 @@ public class ExchangeCodec extends TelnetCodec {
         } else if (msg instanceof Response) {
             encodeResponse(channel, buffer, (Response) msg);
         } else {
+            // 编码 telnet 响应
             super.encode(channel, buffer, msg);
         }
     }
