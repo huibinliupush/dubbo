@@ -149,7 +149,7 @@ public class MonitorFilter implements Filter, Filter.Listener {
             // 第一次创建的时候会直接返回 null , 异步创建 monitor
             Monitor monitor = monitorFactory.getMonitor(monitorUrl);
             if (monitor == null) {
-                // 少收集一次也无所谓
+                // 少收集一次也无所谓git
                 return;
             }
             //创建统计信息，这里会将统计信息全部放在statisticsURL
