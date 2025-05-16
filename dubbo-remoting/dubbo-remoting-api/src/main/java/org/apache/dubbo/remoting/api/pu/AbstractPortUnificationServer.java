@@ -65,9 +65,11 @@ public abstract class AbstractPortUnificationServer extends AbstractServer {
     protected final void doOpen() {
         ExtensionLoader<WireProtocol> loader =
                 getUrl().getOrDefaultFrameworkModel().getExtensionLoader(WireProtocol.class);
+        // 自动激活的
         Map<String, WireProtocol> protocols = loader.getActivateExtension(getUrl(), new String[0]).stream()
                 .collect(Collectors.toConcurrentMap(loader::getExtensionName, Function.identity()));
         // load extra protocols
+        // 明确配置的
         String extraProtocols = getUrl().getParameter(EXT_PROTOCOL);
         if (StringUtils.isNotEmpty(extraProtocols)) {
             Arrays.stream(extraProtocols.split(COMMA_SEPARATOR)).forEach(p -> {

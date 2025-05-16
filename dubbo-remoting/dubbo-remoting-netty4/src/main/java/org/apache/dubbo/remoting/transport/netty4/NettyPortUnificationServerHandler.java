@@ -88,6 +88,7 @@ public class NettyPortUnificationServerHandler extends ByteToMessageDecoder {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        // see : org.apache.dubbo.remoting.transport.netty4.NettyPortUnificationServerHandler.enableSsl
         if (evt instanceof SslHandshakeCompletionEvent) {
             SslHandshakeCompletionEvent handshakeEvent = (SslHandshakeCompletionEvent) evt;
             if (handshakeEvent.isSuccess()) {

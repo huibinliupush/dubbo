@@ -118,9 +118,15 @@ public class NettyPortUnificationServer extends AbstractPortUnificationServer {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
                         // Do not add idle state handler here, because it should be added in the protocol handler.
+                        // 协议协商，动态化配置 channel 的 pipeline
+                        // http 请求建立的 channel , 它的 pipeline 就是 http 相关的 handler
+                        // dubbo 请求建立的 channel , 它的 pipeline 就是 dubbo 相关的 handler
+                        // channel 的 pipeline 是可以动态改变的，比如这里的在 decode 阶段
+                        // 根据不同的协议头，动态改变 channel 的 pipeline （ http ? dubbo ? ）
                         final ChannelPipeline p = ch.pipeline();
                         NettyChannelHandler nettyChannelHandler =
                                 new NettyChannelHandler(dubboChannels, getUrl(), NettyPortUnificationServer.this);
+                        // 协议协商 , ssl 探测
                         NettyPortUnificationServerHandler puHandler = new NettyPortUnificationServerHandler(
                                 getUrl(),
                                 true,

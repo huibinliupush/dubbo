@@ -140,6 +140,7 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
         }
     }
 
+    // HttpServerCodec -> HttpServerUpgradeHandler -> HttpObjectAggregator -> NettyHttp1Codec -> NettyHttp1ConnectionHandler
     @SuppressWarnings("deprecation")
     private void configurerHttp1Handlers(URL url, List<ChannelHandler> handlers) {
         TripleConfig tripleConfig = ConfigManager.getProtocolOrDefault(url).getTripleOrDefault();

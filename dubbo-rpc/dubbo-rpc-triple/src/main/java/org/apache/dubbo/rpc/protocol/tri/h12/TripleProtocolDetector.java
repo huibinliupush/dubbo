@@ -39,6 +39,15 @@ public class TripleProtocolDetector implements ProtocolDetector {
         }
         byte[] magics = new byte[7];
         in.getBytes(in.readerIndex(), magics, 0, 7);
+        // 前七个字节，是否为下面的任意一个
+        //    GET,
+        //    HEAD,
+        //    POST,
+        //    PUT,
+        //    PATCH,
+        //    DELETE,
+        //    OPTIONS,
+        //    TRACE;
         if (isHttp(magics)) {
             Result recognized = Result.recognized();
             recognized.setAttribute(HTTP_VERSION, HttpVersion.HTTP1.getVersion());
@@ -62,6 +71,7 @@ public class TripleProtocolDetector implements ProtocolDetector {
 
     private static boolean isHttp(byte[] magic) {
         for (int i = 0; i < 8; i++) {
+            // magic 只要匹配到一个 method 即可
             byte[] methodBytes = HttpMethods.HTTP_METHODS_BYTES[i];
             int end = methodBytes.length - 1;
             for (int j = 0; j <= end; j++) {
