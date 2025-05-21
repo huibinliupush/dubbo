@@ -199,8 +199,9 @@ public class ConfigValidationUtils {
                         url = URLBuilder.from(url)
                                 //设置注册中心的实现（使用什么注册中心）
                                 .addParameter(REGISTRY_KEY, url.getProtocol())
-                                //从URL中的parameters中获取registry-type参数，值为service-discovery-registry或者registry
-                                //设置协议头用于SPI动态加载protocol扩展，这里会加载RegistryProtocol扩展
+                                // 这里会根据 registry-type 参数（registry配置中的 parameters）的设置来决定采用接口级还是应用级别
+                                // registry-type 参数设置为 service，表示应用级服务发现，协议头为 service-discovery-registry
+                                // 默认为接口级服务发现，协议头为 registry
                                 .setProtocol(extractRegistryType(url))
                                 .build();
                         //是否添加url到registryList（需要注册的dubbo服务）

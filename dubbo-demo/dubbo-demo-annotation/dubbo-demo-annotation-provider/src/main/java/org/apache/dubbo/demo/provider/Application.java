@@ -24,6 +24,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Application {
     public static void main(String[] args) throws Exception {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ProviderConfiguration.class);
@@ -40,6 +43,9 @@ public class Application {
             RegistryConfig registryConfig = new RegistryConfig();
             registryConfig.setId("");
             registryConfig.setAddress("zookeeper://127.0.0.1:2181");
+            Map<String,String> parameters = new HashMap<>();
+            parameters.put("registry-type", "service");
+            registryConfig.setParameters(parameters);
             return registryConfig;
         }
     }

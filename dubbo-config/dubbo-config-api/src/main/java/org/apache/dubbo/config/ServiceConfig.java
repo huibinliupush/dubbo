@@ -368,6 +368,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //加载注册中心URLs(将RegistryConfig转换为URL)，dubbo支持多注册中心,一个服务接口可以同时注册到多个不同的注册中心。
         //registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&metadata-type=remote&pid=2044&qos.port=22222&registry=zookeeper&timestamp=1615790840656
         // registryURL 包含 applicationConfig , registryConfig, 以及 RuntimeParameters 等参数
+
+        // 这里会根据 registry-type 参数的设置来决定采用接口级还是应用级别
+        // registry-type 可以在 registry 配置的 parameters 设置，value 为 service 表示应用级服务发现
         List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
 
         //dubbo支持多协议暴露，同一个服务接口可以暴露多种协议，这里根据配置的服务协议依次暴露服务
