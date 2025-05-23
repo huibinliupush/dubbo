@@ -153,7 +153,11 @@ final class EventPublishingServiceDiscovery implements ServiceDiscovery {
 
         assertDestroyed(REGISTER_ACTION);
         assertInitialized(REGISTER_ACTION);
-
+        /**
+         * CustomizableServiceInstanceListener 监听 ServiceInstancePreRegisteredEvent 事件，用于初始化 ServiceInstance 的 metadata
+         * 用于向注册中心注册的应用级数据就在这里设置
+         * org.apache.dubbo.registry.zookeeper.ZookeeperServiceDiscovery#register(org.apache.dubbo.registry.client.ServiceInstance)
+         * */
         executeWithEvents(
                 of(new ServiceInstancePreRegisteredEvent(serviceDiscovery, serviceInstance)),
                 () -> serviceDiscovery.register(serviceInstance),

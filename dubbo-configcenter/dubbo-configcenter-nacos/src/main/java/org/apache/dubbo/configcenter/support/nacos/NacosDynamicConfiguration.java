@@ -258,12 +258,15 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
     @Override
     public boolean publishConfig(String key, String group, String content) {
         boolean published = false;
+        //  / 转化为 -
         String resolvedGroup = resolveGroup(group);
         try {
             String value = configService.getConfig(key, resolvedGroup, getDefaultTimeout());
             if (StringUtils.isNotEmpty(value)) {
                 content = value + "," + content;
             }
+            // key 为应用名 (dataId)
+            // resolvedGroup : mapping-org.apache.dubbo.demo.DemoService (group)
             published = configService.publishConfig(key, resolvedGroup, content);
         } catch (NacosException e) {
             logger.error(e.getErrMsg());

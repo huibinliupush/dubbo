@@ -42,6 +42,15 @@ import static org.apache.dubbo.common.function.ThrowableFunction.execute;
  * <li>only one {@link Event} type argument</li>
  * </ul>
  *
+ * 可以用不同的 handle methods 实现监听不同的 event
+ * GenericEventListener 可以监听所有，任意的 event
+ *
+ *
+ * 其他具体的 EventListener 就只能监听一种 event,但也可以监听所有的 event ，只需要泛型指定 Event 即可
+ * 但是只能在 onEvent 一个方法中处理所有事件，还需要将 Event 转换到具体的 Event
+ *
+ * 但 GenericEventListener 可以实现不同的 handle methods 来处理不同的 event
+ *
  * @see Event
  * @see EventListener
  * @since 2.7.5
@@ -49,7 +58,8 @@ import static org.apache.dubbo.common.function.ThrowableFunction.execute;
 public abstract class GenericEventListener implements EventListener<Event> {
 
     private final Method onEventMethod;
-
+    // key 为监听的 event , value 为对应的  handle methods
+    // handle methods 标准：org.apache.dubbo.event.GenericEventListener.isHandleEventMethod
     private final Map<Class<?>, Set<Method>> handleEventMethods;
 
     protected GenericEventListener() {

@@ -31,12 +31,14 @@ import java.util.Objects;
 public class TypeDefinition implements Serializable {
 
     private String id;
+    // 类型名
     private String type;
     @SerializedName("items")
     private List<TypeDefinition> items;
     @SerializedName("enum")
-    private List<String> enums;
+    private List<String> enums; // 枚举类型中的枚举值（values）
     private String $ref;
+    // fieldName -> fieldTypeDefinition
     private Map<String, TypeDefinition> properties;
     private String typeBuilderName;
 

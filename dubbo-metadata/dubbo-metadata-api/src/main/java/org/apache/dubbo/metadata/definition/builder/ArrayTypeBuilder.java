@@ -38,6 +38,7 @@ public class ArrayTypeBuilder implements TypeBuilder {
     @Override
     public TypeDefinition build(Type type, Class<?> clazz, Map<Class<?>, TypeDefinition> typeCache) {
         // Process the component type of an array.
+        // 获取数组元素类型
         Class<?> componentType = clazz.getComponentType();
         TypeDefinitionBuilder.build(componentType, componentType, typeCache);
 

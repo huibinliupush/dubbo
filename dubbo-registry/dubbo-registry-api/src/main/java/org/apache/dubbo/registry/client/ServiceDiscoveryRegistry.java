@@ -126,7 +126,7 @@ import static org.apache.dubbo.registry.client.metadata.ServiceInstanceMetadataU
 public class ServiceDiscoveryRegistry extends FailbackRegistry {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    // wrapper: EventPublishingServiceDiscovery 用于初始化 serviceInstance 的 metadata (向注册中心注册的应用信息)
     private final ServiceDiscovery serviceDiscovery;
 
     private final Set<String> subscribedServices;
@@ -149,11 +149,17 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
     private final Map<String, Map<String, List<URL>>> serviceRevisionExportedURLsCache = new LinkedHashMap<>();
 
     public ServiceDiscoveryRegistry(URL registryURL) {
+        // zooKeeper 协议
         super(registryURL);
+        // wrapper: EventPublishingServiceDiscovery 用于初始化 serviceInstance 的 metadata (向注册中心注册的应用信息)
+        // ZookeeperServiceDiscovery or NacosServiceDiscovery
         this.serviceDiscovery = createServiceDiscovery(registryURL);
+        // 应用可以同时是 provider 和 consumer
+        // 作为 consumer , 这里会获取订阅的所有远程接口服务
         this.subscribedServices = parseServices(registryURL.getParameter(SUBSCRIBED_SERVICE_NAMES_KEY));
         this.serviceNameMapping = ServiceNameMapping.getDefaultExtension();
         String metadataStorageType = getMetadataStorageType(registryURL);
+        // 元数据中心
         this.writableMetadataService = WritableMetadataService.getExtension(metadataStorageType);
         this.subscribedURLsSynthesizers = initSubscribedURLsSynthesizers();
     }
@@ -184,8 +190,11 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
      * @return non-null
      */
     protected ServiceDiscovery createServiceDiscovery(URL registryURL) {
+        // ZookeeperServiceDiscovery or NacosServiceDiscovery (wrapper : EventPublishingServiceDiscovery)
         ServiceDiscovery originalServiceDiscovery = getServiceDiscovery(registryURL);
+        // EventPublishingServiceDiscovery 包装
         ServiceDiscovery serviceDiscovery = enhanceEventPublishing(originalServiceDiscovery);
+        // 初始化 ZookeeperServiceDiscovery
         execute(() -> {
             serviceDiscovery.initialize(registryURL.addParameter(INTERFACE_KEY, ServiceDiscovery.class.getName())
                     .removeParameter(REGISTRY_TYPE_KEY));
@@ -221,7 +230,7 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
     }
 
     protected boolean shouldRegister(URL providerURL) {
-
+        // privider 的时候才回去注册元数据（元数据中心可能是本地的也可能是远端的）
         String side = providerURL.getParameter(SIDE_KEY);
 
         boolean should = PROVIDER_SIDE.equals(side); // Only register the Provider.
@@ -241,14 +250,17 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
 
     @Override
     public final void register(URL url) {
+        // 只有 provider 才会注册元数据
         if (!shouldRegister(url)) { // Should Not Register
             return;
         }
         super.register(url);
     }
-
+    // dubbo://192.168.2.101:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=service-discovery-provider&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync,wrapperReturnVoid,testBigDecimal&onconnect=onconnect&owner=provider1&pid=10504&release=&side=provider&timestamp=1747825521226
     @Override
     public void doRegister(URL url) {
+        // 默认元数据中心为本地 ： InMemoryWritableMetadataService
+        // 将 registeredProviderUrl 注册到元数据中心中（exportedServiceURLs 缓存）
         if (writableMetadataService.exportURL(url)) {
             if (logger.isInfoEnabled()) {
                 logger.info(format("The URL[%s] registered successfully.", url.toString()));

@@ -195,10 +195,13 @@ public class RegistryProtocol implements Protocol {
                 registered));
     }
 
+    // 应用级服务发现：ServiceDiscoveryRegistryProtocol
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
         //获取具体注册协议的registryUrl。将"registry://"协议转换为具体的协议比如"zookeeper://"协议。
         // 新的 Url
+
+        // 如果是应用级服务发现，这里的 url 还是原来的 service-discovery-registry:// （原样返回）
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
         //获取服务提供者的URL（存放在invoker中URL的export参数中）
@@ -226,6 +229,7 @@ public class RegistryProtocol implements Protocol {
 
         // url to registry
         //根据RegistryUrl创建注册中心实例
+        // ServiceDiscoveryRegistry
         final Registry registry = getRegistry(originInvoker);
         //获取将要注册到注册中心上的providerUrl（）
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
@@ -234,6 +238,8 @@ public class RegistryProtocol implements Protocol {
         //<dubbo:service register = '...'>中的register配置决定是否向注册中心注册服务
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
+            // ServiceDiscoveryRegistry
+            // 将 registeredProviderUrl 注册到元数据中心
             register(registryUrl, registeredProviderUrl);
         }
 
@@ -243,6 +249,7 @@ public class RegistryProtocol implements Protocol {
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
         //订阅provider端的override数据。监听configurators 节点下的配置变更
+        // 采用应用级服务发现的时候这里不会订阅
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
         exporter.setRegisterUrl(registeredProviderUrl);
@@ -390,6 +397,8 @@ public class RegistryProtocol implements Protocol {
         //通过RegistryFactory创建注册中心
         //RegistryFactory$Adaptive -> RegsitryFactoryWrapper -> AbstractRegistryFactory -> ZookeeperRegsitoryFactory -> ZookeeperRegsitry
         //最终ZookeeperRegsitry会在RegsitryFactoryWrapper中用ListenerRegistryWrapper装饰返回
+
+        // ServiceDiscoveryRegistryFactory -> ServiceDiscoveryRegistry
         return registryFactory.getRegistry(registryUrl);
     }
 

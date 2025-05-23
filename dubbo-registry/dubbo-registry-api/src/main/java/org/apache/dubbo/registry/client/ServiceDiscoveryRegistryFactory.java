@@ -30,6 +30,7 @@ public class ServiceDiscoveryRegistryFactory extends AbstractRegistryFactory {
     protected Registry createRegistry(URL url) {
         if (SERVICE_REGISTRY_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
             String protocol = url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY);
+            // 由 service-discovery-registry:// 协议切换为 zooKeeper 协议
             url = url.setProtocol(protocol).removeParameter(REGISTRY_KEY);
         }
         return new ServiceDiscoveryRegistry(url);

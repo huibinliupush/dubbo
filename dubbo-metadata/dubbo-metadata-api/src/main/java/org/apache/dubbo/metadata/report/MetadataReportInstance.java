@@ -31,7 +31,7 @@ import static org.apache.dubbo.metadata.report.support.Constants.METADATA_REPORT
 public class MetadataReportInstance {
 
     private static AtomicBoolean init = new AtomicBoolean(false);
-
+    // 类似于 RegistryProtocol 中的 registry , metadataReport 负责和远端元数据中心交互
     private static MetadataReport metadataReport;
 
     public static void init(URL metadataReportURL) {
@@ -46,6 +46,7 @@ public class MetadataReportInstance {
                     .removeParameter(METADATA_REPORT_KEY)
                     .build();
         }
+        // ZookeeperMetadataReport or NacosMetadataReport
         metadataReport = metadataReportFactory.getMetadataReport(metadataReportURL);
         init.set(true);
     }

@@ -33,8 +33,9 @@ public abstract class ServiceInstanceMetadataCustomizer implements ServiceInstan
     public final void customize(ServiceInstance serviceInstance) {
 
         Map<String, String> metadata = serviceInstance.getMetadata();
-
+        // 需要添加的 metadata key
         String propertyName = resolveMetadataPropertyName(serviceInstance);
+        // metadata value
         String propertyValue = resolveMetadataPropertyValue(serviceInstance);
 
         if (!isBlank(propertyName) && !isBlank(propertyValue)) {

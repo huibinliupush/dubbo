@@ -55,6 +55,7 @@ public final class DefaultTypeBuilder {
         for (Field field : fields) {
             String fieldName = field.getName();
             Class<?> fieldClass = field.getType();
+            // 元类型
             Type fieldType = field.getGenericType();
 
             TypeDefinition fieldTd = TypeDefinitionBuilder.build(fieldType, fieldClass, typeCache);

@@ -513,9 +513,10 @@ public class DubboBootstrap extends GenericEventListener {
         loadRemoteConfigs();
 
         checkGlobalConfigs();
-
+        // 初始化元数据服务相关的信息，后续暴露 MetadataService 的时候会用到
         initMetadataService();
-
+        // 当前 DubboBootstrap 也是一个 GenericEventListener，可以监听所有 Event
+        // 这里是将 DubboBootstrap 添加到 eventDispatcher 中开启监听事件
         initEventListener();
 
         if (logger.isInfoEnabled()) {
@@ -615,6 +616,7 @@ public class DubboBootstrap extends GenericEventListener {
         String metadataType = applicationConfig.getMetadataType();
         // FIXME, multiple metadata config support.
         Collection<MetadataReportConfig> metadataReportConfigs = configManager.getMetadataConfigs();
+        // 如果 ApplicationConfig 中配置的 MetadataType 为 remote , 那么就必须指定 MetadataConfig
         if (CollectionUtils.isEmpty(metadataReportConfigs)) {
             if (REMOTE_METADATA_STORAGE_TYPE.equals(metadataType)) {
                 throw new IllegalStateException("No MetadataConfig found, you must specify the remote Metadata Center address when 'metadata=remote' is enabled.");
@@ -626,7 +628,9 @@ public class DubboBootstrap extends GenericEventListener {
         if (!metadataReportConfig.isValid()) {
             return;
         }
-
+        // 获取 metadataUrl （和 registryUrl 一样）
+        // 初始化 metadataReport
+        // 类似于 RegistryProtocol 中的 registry , metadataReport 负责和远端元数据中心交互
         MetadataReportInstance.init(metadataReportConfig.toUrl());
     }
 
@@ -713,8 +717,12 @@ public class DubboBootstrap extends GenericEventListener {
      * Initialize {@link MetadataService} from {@link WritableMetadataService}'s extension
      */
     private void initMetadataService() {
+        // 初始化 MetadataReport 实例，负责和远程元数据中心交互
         startMetadataReport();
+        // 元数据中心本地模式：InMemoryWritableMetadataService
+        // 元数据中心远程模式：RemoteWritableMetadataServiceDelegate
         this.metadataService = getExtension(getMetadataType());
+        // 用于在暴露完所有 service 之后，最后暴露 metadataService
         this.metadataServiceExporter = new ConfigurableMetadataServiceExporter(metadataService);
     }
 
@@ -725,7 +733,11 @@ public class DubboBootstrap extends GenericEventListener {
         // Add current instance into listeners
         addEventListener(this);
     }
-
+    /**
+     * AbstractRegistryFactory 会缓存所有的 Registries
+     * 如果我们开启了应用级服务发现，那么肯定会有 ServiceDiscoveryRegistry 实例
+     * 这里获取所有 ServiceDiscoveryRegistry 实例的客户端 serviceDiscovery（负责和具体的注册中心交互应用级注册）
+     * */
     private List<ServiceDiscovery> getServiceDiscoveries() {
         return AbstractRegistryFactory.getRegistries()
                 .stream()
@@ -752,6 +764,8 @@ public class DubboBootstrap extends GenericEventListener {
             exportServices();
 
             // Not only provider register
+            // 如果开启了应用级服务发现，那么这里就需要暴露元数据服务
+            // 向注册中心注册应用实例信息
             if (!isOnlyRegisterProvider() || hasExportedServices()) {
                 // 2. export MetadataService
                 exportMetadataService();
@@ -786,6 +800,12 @@ public class DubboBootstrap extends GenericEventListener {
     }
 
     private boolean hasExportedServices() {
+        // 如果开启了应用级服务发现，那么在服务暴露的时候，RegistryProtocol 的具体实现就是 ServiceDiscoveryRegistryProtocol
+        // registeredProviderUrl 将不会注册到注册中心中，而是会缓存到元数据中心的 exportedServiceURLs 中
+        // see: org.apache.dubbo.metadata.store.InMemoryWritableMetadataService.exportedServiceURLs
+        // see: org.apache.dubbo.registry.client.ServiceDiscoveryRegistry.doRegister
+
+        // 如果开启的默认接口级服务发现，那么这里就会是空
         return !metadataService.getExportedURLs().isEmpty();
     }
 
@@ -1014,29 +1034,45 @@ public class DubboBootstrap extends GenericEventListener {
         ApplicationConfig application = getApplication();
 
         String serviceName = application.getName();
-
+        // 从所有暴露的接口 url 中选取一个 url,后面用来提取应用级信息
         URL exportedURL = selectMetadataServiceExportedURL();
 
         String host = exportedURL.getHost();
 
         int port = exportedURL.getPort();
-
+        // ServiceInstance 信息将会被注册到注册中心中，之前的接口级信息全在元数据中心中
         ServiceInstance serviceInstance = createServiceInstance(serviceName, host, port);
+        // 获取所有 ServiceDiscoveryRegistry 实例的客户端 serviceDiscovery（负责和具体的注册中心交互应用级注册）
+        // serviceDiscovery.register 注册应用实例 serviceInstance
 
+        // 注册路径 ： /services/service-discovery-provider/192.168.2.101:20880
+        // 注册信息 ： ZookeeperInstance（payload）
+        // see : org.apache.dubbo.registry.zookeeper.ZookeeperServiceDiscovery.register
+        // 首先经过 ServiceDiscovery 的 wrapper EventPublishingServiceDiscovery 初始化 serviceInstance 的 metadata
         getServiceDiscoveries().forEach(serviceDiscovery -> serviceDiscovery.register(serviceInstance));
     }
 
+    /**
+     * 从元数据中心 metadataService 中，所有的暴露服务的接口 url 选取一个 url 用来提取 ServiceInstance 信息（ host，port ）
+     * 选取标准：
+     * 1、 忽略 MetadataService
+     * 2.  rest 协议的 url 优先
+     * 3.  dubbo 协议的 url
+     * */
     private URL selectMetadataServiceExportedURL() {
 
         URL selectedURL = null;
-
-        SortedSet<String> urlValues = metadataService.getExportedURLs();
+        // 获取所有服务的 providerUrl （在传统的接口级应用发现中，这些 url 都是要注册到注册中心的）
+        // 但在应用级服务发现中，这些 url 全部写入元数据中心，不再向注册中心注册
+        SortedSet<String> urlValues = metadataService.getExportedURLs(); // 多协议
 
         for (String urlValue : urlValues) {
             URL url = URL.valueOf(urlValue);
+            // 忽略 MetadataServiceUrl
             if (MetadataService.class.getName().equals(url.getServiceInterface())) {
                 continue;
             }
+            // rest 协议的优先
             if ("rest".equals(url.getProtocol())) { // REST first
                 selectedURL = url;
                 break;
@@ -1062,6 +1098,7 @@ public class DubboBootstrap extends GenericEventListener {
 
     private ServiceInstance createServiceInstance(String serviceName, String host, int port) {
         this.serviceInstance = new DefaultServiceInstance(serviceName, host, port);
+        // application 配置中的 MetadataType ： local or remote ?
         setMetadataStorageType(serviceInstance, getMetadataType());
         return this.serviceInstance;
     }

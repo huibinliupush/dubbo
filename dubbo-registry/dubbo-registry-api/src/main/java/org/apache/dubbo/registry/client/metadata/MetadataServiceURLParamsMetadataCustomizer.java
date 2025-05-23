@@ -56,9 +56,9 @@ public class MetadataServiceURLParamsMetadataCustomizer extends ServiceInstanceM
         String group = serviceInstance.getServiceName();
 
         String version = MetadataService.VERSION;
-
+        // MetadataService 的暴露 url
         SortedSet<String> urls = writableMetadataService.getExportedURLs(serviceInterface, group, version);
-
+        // 获取 MetadataServiceUrl 中的参数
         return getMetadataServiceParameter(toURLs(urls));
     }
 }

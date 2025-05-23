@@ -40,7 +40,8 @@ public class DefaultServiceInstance implements ServiceInstance {
     private boolean enabled;
 
     private boolean healthy;
-
+    // 应用级的元信息：比如元数据的是在本地还是远端
+    // see : org.apache.dubbo.registry.client.metadata.ServiceInstanceMetadataUtils.setMetadataStorageType
     private Map<String, String> metadata = new HashMap<>();
 
     public DefaultServiceInstance() {
@@ -50,7 +51,7 @@ public class DefaultServiceInstance implements ServiceInstance {
         if (port != null && port.intValue() < 1) {
             throw new IllegalArgumentException("The port must be greater than zero!");
         }
-        this.id = id;
+        this.id = id; // host:port
         this.serviceName = serviceName;
         this.host = host;
         this.port = port;

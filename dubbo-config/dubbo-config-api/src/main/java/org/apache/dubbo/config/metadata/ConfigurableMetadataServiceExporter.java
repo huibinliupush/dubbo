@@ -52,7 +52,9 @@ import static org.apache.dubbo.common.constants.CommonConstants.DUBBO;
 public class ConfigurableMetadataServiceExporter implements MetadataServiceExporter {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
-
+    // 元数据中心本地模式：InMemoryWritableMetadataService
+    // 元数据中心远程模式：RemoteWritableMetadataServiceDelegate
+    // 本地 or 远端就看有没有配置 MetadataConfig
     private final MetadataService metadataService;
 
     private volatile ServiceConfig<MetadataService> serviceConfig;
@@ -68,14 +70,20 @@ public class ConfigurableMetadataServiceExporter implements MetadataServiceExpor
 
             ServiceConfig<MetadataService> serviceConfig = new ServiceConfig<>();
             serviceConfig.setApplication(getApplicationConfig());
-            serviceConfig.setRegistries(getRegistries());
-            serviceConfig.setProtocol(generateMetadataProtocol());
+            serviceConfig.setRegistries(getRegistries()); // RegistryConfig 配置（和正常的服务暴露一样，原有的配置）
+            serviceConfig.setProtocol(generateMetadataProtocol()); // 默认为 dubbo 协议，端口号自增
             serviceConfig.setInterface(MetadataService.class);
-            serviceConfig.setRef(metadataService);
-            serviceConfig.setGroup(getApplicationConfig().getName());
+            serviceConfig.setRef(metadataService); // InMemoryWritableMetadataService
+            serviceConfig.setGroup(getApplicationConfig().getName()); // 注意这里的 group 是应用名
             serviceConfig.setVersion(metadataService.version());
 
             // export
+            // MetadataService 发布之后，不会再 ServiceNameMappingListener 中建立 MetadataService 到应用名的映射
+            // 其他部分和正常服务发布一样的流程
+
+            // 既然走到了这里，说明开启了应用级服务发现，那么这里的 Registries 也是 service-discovery 协议，同样不会将 MetadataServiceUrl
+            // 注册到注册中心上，也是只写入元数据中心 (本地 or 远端就看配置没有配置 MetadataConfig)
+            // 如果配置了 MetadataConfig ， 那么 metadata-type 就是 remote,元数据远程上报
             serviceConfig.export();
 
             if (logger.isInfoEnabled()) {

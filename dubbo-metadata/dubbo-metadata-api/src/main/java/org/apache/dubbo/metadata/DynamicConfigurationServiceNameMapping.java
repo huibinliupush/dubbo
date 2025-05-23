@@ -43,19 +43,26 @@ public class DynamicConfigurationServiceNameMapping implements ServiceNameMappin
 
     @Override
     public void map(String serviceInterface, String group, String version, String protocol) {
-
+        // MetadataService 元数据服务不会进行映射
         if (IGNORED_SERVICE_INTERFACES.contains(serviceInterface)) {
             return;
         }
-
+        // ZookeeperDynamicConfigurationFactory or NacosDynamicConfigurationFactory
         DynamicConfiguration dynamicConfiguration = DynamicConfiguration.getDynamicConfiguration();
 
         // the Dubbo Service Key as group
         // the service(application) name as key
         // It does matter whatever the content is, we just need a record
+
+        // applicationName
         String key = getName();
+        // 时间戳
         String content = valueOf(System.currentTimeMillis());
         execute(() -> {
+            // buildGroup : （/dubbo/config/）mapping/org.apache.dubbo.demo.DemoService
+            // key : service-discovery-provider(应用名)
+            // content : 时间戳
+            // 如果配置中是 zooKeeper 的话这里会创建持久节点, nacos 的话则是 key 为 dataid , buildGroup 为  group
             dynamicConfiguration.publishConfig(key, buildGroup(serviceInterface, group, version, protocol), content);
             if (logger.isInfoEnabled()) {
                 logger.info(String.format("Dubbo service[%s] mapped to interface name[%s].",
@@ -84,6 +91,7 @@ public class DynamicConfigurationServiceNameMapping implements ServiceNameMappin
         //                .append(KEY_SEPARATOR).append(defaultString(version))
         //                .append(KEY_SEPARATOR).append(defaultString(protocol));
         //        return groupBuilder.toString();
+        // mapping/org.apache.dubbo.demo.DemoService
         return DEFAULT_MAPPING_GROUP + SLASH + serviceInterface;
     }
 

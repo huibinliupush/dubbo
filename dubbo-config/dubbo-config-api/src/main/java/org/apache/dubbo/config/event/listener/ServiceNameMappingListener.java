@@ -32,18 +32,25 @@ import static org.apache.dubbo.metadata.ServiceNameMapping.getDefaultExtension;
  * An {@link EventListener event listener} for mapping {@link ServiceConfig#getExportedUrls() the exported Dubbo
  * service inerface} to its service name
  *
+ * 向配置中心添加 interface 到应用名的映射关系（MetadataService 元数据服务不会进行映射）
+ * /dubbo/config/mapping/org.apache.dubbo.demo.DemoService/service-discovery-provider
+ *
  * @see ServiceNameMapping
  * @see ServiceConfig#getExportedUrls()
  * @since 2.7.5
  */
 public class ServiceNameMappingListener implements EventListener<ServiceConfigExportedEvent> {
-
+    // DynamicConfigurationServiceNameMapping
     private final ServiceNameMapping serviceNameMapping = getDefaultExtension();
 
     @Override
     public void onEvent(ServiceConfigExportedEvent event) {
         ServiceConfig serviceConfig = event.getServiceConfig();
+        // 获取当前 service 暴露的所有 providerUrl
         List<URL> exportedURLs = serviceConfig.getExportedUrls();
+        // 多协议发布
+        // 向配置中心添加 service 与 应用名之间的映射关系：
+        // /dubbo/config/mapping/org.apache.dubbo.demo.DemoService
         exportedURLs.forEach(url -> {
             String serviceInterface = url.getServiceInterface();
             String group = url.getParameter(GROUP_KEY);

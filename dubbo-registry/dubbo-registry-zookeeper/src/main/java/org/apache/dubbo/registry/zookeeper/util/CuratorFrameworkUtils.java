@@ -95,6 +95,8 @@ public abstract class CuratorFrameworkUtils {
         String serviceName = serviceInstance.getServiceName();
         String host = serviceInstance.getHost();
         int port = serviceInstance.getPort();
+        // metadata 会在 EventPublishingServiceDiscovery（wrapper） 中被初始化
+        // org.apache.dubbo.registry.client.EventPublishingServiceDiscovery.register
         Map<String, String> metadata = serviceInstance.getMetadata();
         String id = generateId(host, port);
         ZookeeperInstance zookeeperInstance = new ZookeeperInstance(null, serviceName, metadata);

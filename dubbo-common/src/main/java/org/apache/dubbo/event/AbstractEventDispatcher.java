@@ -47,7 +47,7 @@ import static org.apache.dubbo.event.EventListener.findEventType;
 public abstract class AbstractEventDispatcher implements EventDispatcher {
 
     private final Object mutex = new Object();
-
+    // 缓存所有 EventListener 。 key ： 监听的 Event ， value : 对应的 EventListener list
     private final ConcurrentMap<Class<? extends Event>, List<EventListener>> listenersCache = new ConcurrentHashMap<>();
 
     private final Executor executor;
@@ -63,6 +63,7 @@ public abstract class AbstractEventDispatcher implements EventDispatcher {
             throw new NullPointerException("executor must not be null");
         }
         this.executor = executor;
+        // 加载所有 Listeners
         this.loadEventListenerInstances();
     }
 
@@ -118,6 +119,9 @@ public abstract class AbstractEventDispatcher implements EventDispatcher {
 
         // execute in sequential or parallel execution model
         executor.execute(() -> {
+            // 如果想监听所有的事件的话，实现 onEvent(Event event) 即可，比如 GenericEventListener
+            // org.apache.dubbo.event.GenericEventListener.onEvent
+            // 凡是 event 的父类事件也都会触发，比如监听基类 Event 的 Listener ，在 dispatch 任意事件的时候均会触发
             sortedListeners(entry -> entry.getKey().isAssignableFrom(event.getClass()))
                     .forEach(listener -> {
                         if (listener instanceof ConditionalEventListener) {
@@ -141,6 +145,7 @@ public abstract class AbstractEventDispatcher implements EventDispatcher {
     }
 
     protected void doInListener(EventListener<?> listener, Consumer<Collection<EventListener>> consumer) {
+        // 获取接口中的泛型类，也就是指定监听的 Event
         Class<? extends Event> eventType = findEventType(listener);
         if (eventType != null) {
             synchronized (mutex) {

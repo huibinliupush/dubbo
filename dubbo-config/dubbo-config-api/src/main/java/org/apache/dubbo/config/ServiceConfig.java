@@ -214,6 +214,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             doExport();
         }
         //发布服务暴露事件ServiceConfigExportedEvent
+        // 在 ServiceNameMappingListener 中会向配置中心建立 service 和 应用之间的映射(应用级服务发现)
+        // 但（元数据服务 MetadataService 不会建立映射）
         exported();
     }
 
@@ -417,6 +419,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         // 如果配置了元数据中心，则元数据远程上报，否则本地上报
         if (metadataReportConfig != null && metadataReportConfig.isValid()) {
             //添加元数据Report类型metadata-type（服务元数据上报相关）
+            // 如果配置了 MetadataConfig ， 那么 metadata-type 就是 remote,元数据远程上报
             map.putIfAbsent(METADATA_KEY, REMOTE_METADATA_STORAGE_TYPE);
         }
 
@@ -629,6 +632,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         //根据协议头Registry 通过SPI加载protocol扩展RegistryProtocol(服务发布registry层入口)
                         //invoker转为exporter
                         //这里的PROTOCOL是Protocol接口的适配器
+
+                        // 应用级服务发现为 ServiceDiscoveryRegistryProtocol
                         Exporter<?> exporter = PROTOCOL.export(wrapperInvoker);
                         //缓存暴露的exporter
                         exporters.add(exporter);
@@ -650,6 +655,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                  * @since 2.7.0
                  * ServiceData Store
                  * 存储服务元数据
+                 * 默认为本地元数据中心：InMemoryWritableMetadataService
+                 * 如果配置了 MetadataConfig ， 那么 metadata-type 就是 remote,元数据远程上报
                  */
                 WritableMetadataService metadataService = WritableMetadataService.getExtension(url.getParameter(METADATA_KEY, DEFAULT_METADATA_STORAGE_TYPE));
                 if (metadataService != null) {

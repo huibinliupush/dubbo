@@ -44,8 +44,9 @@ public class CollectionTypeBuilder implements TypeBuilder {
         if (!(type instanceof ParameterizedType)) {
             return new TypeDefinition(clazz.getName());
         }
-
+        // 类型中包含泛型：List<String>、Map.Entry<Integer, String>
         ParameterizedType parameterizedType = (ParameterizedType) type;
+        // 获取泛型参数（如String在List<String>中）
         Type[] actualTypeArgs = parameterizedType.getActualTypeArguments();
         if (actualTypeArgs == null || actualTypeArgs.length != 1) {
             throw new IllegalArgumentException(MessageFormat.format(

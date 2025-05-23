@@ -51,7 +51,7 @@ public class ZookeeperDynamicConfiguration implements DynamicConfiguration {
 
     private Executor executor;
     // The final root path would be: /configRootPath/"config"
-    private String rootPath;
+    private String rootPath; // /dubbo/config
     private final ZookeeperClient zkClient;
     private CountDownLatch initializedLatch;
 
@@ -111,8 +111,12 @@ public class ZookeeperDynamicConfiguration implements DynamicConfiguration {
 
     @Override
     public boolean publishConfig(String key, String group, String content) {
+        // /dubbo/config/mapping/org.apache.dubbo.demo.DemoService/service-discovery-provider
+        // group : mapping/org.apache.dubbo.demo.DemoService
+        // key : service-discovery-provider
+        // content : 时间戳
         String path = getPathKey(group, key);
-        zkClient.create(path, content, false);
+        zkClient.create(path, content, false); // 持久节点
         return true;
     }
 

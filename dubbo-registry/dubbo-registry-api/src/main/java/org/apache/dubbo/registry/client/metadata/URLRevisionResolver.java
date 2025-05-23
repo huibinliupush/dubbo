@@ -54,15 +54,15 @@ public class URLRevisionResolver {
         }
 
         List<URL> urlsList = toURLsList(urls);
-
+        // 获取所有暴露 interface 的接口签名集合
         SortedSet<String> methodSignatures = resolveMethodSignatures(urlsList);
-
+        // 获取所有暴露 url 的参数
         SortedSet<String> urlParameters = resolveURLParameters(urlsList);
 
         SortedSet<String> values = new TreeSet<>(methodSignatures);
 
         values.addAll(urlParameters);
-
+        // 计算 hashcode
         return values.stream()
                 .map(this::hashCode)                     // generate Long hashCode
                 .reduce(Long::sum)                       // sum hashCode

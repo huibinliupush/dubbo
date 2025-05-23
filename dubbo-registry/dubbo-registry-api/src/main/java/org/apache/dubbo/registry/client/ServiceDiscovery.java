@@ -41,7 +41,7 @@ import static org.apache.dubbo.event.EventDispatcher.getDefaultExtension;
 
 /**
  * The common operations of Service Discovery
- *
+ * wrapper: EventPublishingServiceDiscovery 用于初始化 serviceInstance 的 metadata (向注册中心注册的应用信息)
  * @since 2.7.5
  */
 @SPI("zookeeper")

@@ -27,11 +27,11 @@ import java.util.Map;
  * @since 2.7.5
  */
 public class ZookeeperInstance {
-
+    // host:port
     private String id;
-
+    // 应用名
     private String name;
-
+    // 应用级元数据
     private Map<String, String> metadata = new HashMap<>();
 
     @SuppressWarnings("unused")

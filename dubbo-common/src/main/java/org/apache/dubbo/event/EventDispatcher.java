@@ -34,11 +34,15 @@ public interface EventDispatcher extends Listenable<EventListener<?>> {
 
     /**
      * Direct {@link Executor} uses sequential execution model
+     * 直接执行提交的 Runnable —— DirectEventDispatcher
      */
     Executor DIRECT_EXECUTOR = Runnable::run;
 
     /**
      * Dispatch a Dubbo event to the registered {@link EventListener Dubbo event listeners}
+     *
+     * 创建 EventDispatcher 的时候会加载所有的 listeners,
+     * see : org.apache.dubbo.event.AbstractEventDispatcher#AbstractEventDispatcher(java.util.concurrent.Executor)
      *
      * @param event a {@link Event Dubbo event}
      */

@@ -29,6 +29,7 @@ public class ServiceDefinition implements Serializable {
     private String canonicalName;
     private String codeSource;
     private List<MethodDefinition> methods;
+    // service 接口涉及到的所有类型 TypeDefinitions
     private List<TypeDefinition> types;
 
     public String getCanonicalName() {

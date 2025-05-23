@@ -110,7 +110,8 @@ public class ServiceInstanceMetadataUtils {
     }
 
     public static String getMetadataServiceParameter(List<URL> urls) {
-
+        // 协议 : {ParamKey : ParamKeyValue}
+        // 保留的 param 参见：org.apache.dubbo.registry.integration.RegistryProtocol.DEFAULT_REGISTER_PROVIDER_KEYS
         Map<String, Map<String, String>> params = new HashMap<>();
 
         urls.stream()

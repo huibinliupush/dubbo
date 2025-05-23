@@ -65,6 +65,11 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
     /**
      * All exported {@link URL urls} {@link Map} whose key is the return value of {@link URL#getServiceKey()} method
      * and value is the {@link SortedSet sorted set} of the {@link URL URLs}
+     *
+     * provider 应用所有服务的 url 会缓存在这里
+     * 这里的 url 指的是原来向注册中心注册的接口级 url , 应用级服务发现时，url 作为元数据保存在本地 cache
+     * dubbo://192.168.2.101:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=service-discovery-provider&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync,wrapperReturnVoid,testBigDecimal&onconnect=onconnect&owner=provider1&pid=10504&release=&side=provider&timestamp=1747825521226
+     * key : serviceKey , value : registeredProviderUrl
      */
     ConcurrentNavigableMap<String, SortedSet<URL>> exportedServiceURLs = new ConcurrentSkipListMap<>();
 
@@ -78,7 +83,7 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
      * the {@link SortedSet sorted set} of the {@link URL URLs}
      */
     ConcurrentNavigableMap<String, SortedSet<URL>> subscribedServiceURLs = new ConcurrentSkipListMap<>();
-
+    // key : ServiceKey , value: serviceDefinition (json 序列化)
     ConcurrentNavigableMap<String, String> serviceDefinitions = new ConcurrentSkipListMap<>();
 
     @Override
@@ -136,7 +141,9 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
             String interfaceName = providerUrl.getParameter(INTERFACE_KEY);
             if (StringUtils.isNotEmpty(interfaceName)
                     && !ProtocolUtils.isGeneric(providerUrl.getParameter(GENERIC_KEY))) {
+                // 获取接口类 ： org.apache.dubbo.demo.DemoService
                 Class interfaceClass = Class.forName(interfaceName);
+                // 构建接口的 ServiceDefinition
                 ServiceDefinition serviceDefinition = ServiceDefinitionBuilder.build(interfaceClass);
                 Gson gson = new Gson();
                 String data = gson.toJson(serviceDefinition);

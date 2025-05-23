@@ -72,9 +72,12 @@ public class ZookeeperServiceDiscovery implements ServiceDiscovery, EventListene
     @Override
     public void initialize(URL registryURL) throws Exception {
         this.dispatcher = EventDispatcher.getDefaultExtension();
+        // 监听 ServiceInstancesChangedEvent 事件
         this.dispatcher.addEventListener(this);
         this.curatorFramework = buildCuratorFramework(registryURL);
+        // /services
         this.rootPath = ROOT_PATH.getParameterValue(registryURL);
+        // 构建 zooKeeper 应用级服务发现客户端
         this.serviceDiscovery = buildServiceDiscovery(curatorFramework, rootPath);
         this.serviceDiscovery.start();
     }
@@ -85,6 +88,9 @@ public class ZookeeperServiceDiscovery implements ServiceDiscovery, EventListene
 
     public void register(ServiceInstance serviceInstance) throws RuntimeException {
         doInServiceRegistry(serviceDiscovery -> {
+            // 构建 org.apache.curator.x.discovery.ServiceInstance<ZookeeperInstance>
+            // /services/service-discovery-provider/192.168.2.101:20880
+            // 节点存放的内容 ZookeeperInstance（payload）
             serviceDiscovery.registerService(build(serviceInstance));
         });
     }
