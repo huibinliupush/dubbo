@@ -47,7 +47,12 @@ public class StandardMetadataServiceURLBuilder implements MetadataServiceURLBuil
      */
     @Override
     public List<URL> build(ServiceInstance serviceInstance) {
+        // 根据 serviceInstance 中保存的 MetadataService 相关信息构建 MetadataServiceUrl
+        // 相当于普通服务的 providerUrl
 
+        // MetadataService 相关 url 信息，在 provider 应用注册 serviceInstance 的时候
+        // 会在 MetadataServiceURLParamsMetadataCustomizer 中写入 metadata
+        // key : MetadataService 的暴露协议 ， value ：{urlParam : value}
         Map<String, Map<String, String>> paramsMap = getMetadataServiceURLsParams(serviceInstance);
 
         List<URL> urls = new ArrayList<>(paramsMap.size());

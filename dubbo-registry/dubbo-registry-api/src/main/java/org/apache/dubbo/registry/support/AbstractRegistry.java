@@ -354,6 +354,8 @@ public abstract class AbstractRegistry implements Registry {
             logger.info("Subscribe: " + url);
         }
         Set<NotifyListener> listeners = subscribed.computeIfAbsent(url, n -> new ConcurrentHashSet<>());
+        // 这里的 NotifyListener 为 RegistryDirectory
+        // see : org.apache.dubbo.registry.integration.RegistryDirectory.subscribe
         listeners.add(listener);
     }
 

@@ -137,6 +137,7 @@ public class RegistryProtocol implements Protocol {
     //providerurl <--> exporter
     //providerUrl（去除dynamic enable参数） -> ExporterChangeableWrapper映射
     private final ConcurrentMap<String, ExporterChangeableWrapper<?>> bounds = new ConcurrentHashMap<>();
+    // 依赖注入相关扩展点的 adaptive 实例
     private Cluster cluster;
     private Protocol protocol;
     private RegistryFactory registryFactory;
@@ -497,7 +498,10 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+        // 如果是应用级服务发现，这里的 url 还是原来的 service-discovery-registry:// （原样返回）
         url = getRegistryUrl(url);
+        // ServiceDiscoveryRegistry(启用应用级服务发现)
+        // ZookeeperRegistry(接口级服务发现)
         Registry registry = registryFactory.getRegistry(url);
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
@@ -508,6 +512,7 @@ public class RegistryProtocol implements Protocol {
         String group = qs.get(GROUP_KEY);
         if (group != null && group.length() > 0) {
             if ((COMMA_SPLIT_PATTERN.split(group)).length > 1 || "*".equals(group)) {
+                // MergeableCluster : consumer 需从每种 group 中调用一次返回结果，合并结果返回
                 return doRefer(getMergeableCluster(), registry, type, url);
             }
         }
@@ -520,15 +525,21 @@ public class RegistryProtocol implements Protocol {
     // 如果引用多个 group,这里的 cluster 就是 MergeableCluster
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
+        // 应用级服务发现：ServiceDiscoveryRegistry
+        // 接口级服务发现：ZookeeperRegistry
         directory.setRegistry(registry);
+        // protocol adaptive
         directory.setProtocol(protocol);
         // all attributes of REFER_KEY
+        // 获取 comsumer 配置的参数
         Map<String, String> parameters = new HashMap<String, String>(directory.getConsumerUrl().getParameters());
         // 这里的 subscribeUrl 并没有 CATEGORY key,后续会添加
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (directory.isShouldRegister()) {
-            // subscribeUrl 增加 CATEGORY = consumers
+            // RegisteredConsumerUrl 是在 subscribeUrl 的基础上增加 CATEGORY = consumers
+            //（注意这里的 subscribeUrl 并不会改变）
             directory.setRegisteredConsumerUrl(subscribeUrl);
+            // 对于 ServiceDiscoveryRegistry 将不会注册 ConsumerUrl，也不会将 ConsumerUrl 写入元数据中心
             registry.register(directory.getRegisteredConsumerUrl());
         }
         // 先构建内置的 RouterChain

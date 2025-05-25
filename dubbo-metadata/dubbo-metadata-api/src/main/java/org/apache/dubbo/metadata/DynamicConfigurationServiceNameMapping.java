@@ -78,6 +78,9 @@ public class DynamicConfigurationServiceNameMapping implements ServiceNameMappin
 
         Set<String> serviceNames = new LinkedHashSet<>();
         execute(() -> {
+            // buildGroup : （/dubbo/config/）mapping/org.apache.dubbo.demo.DemoService
+            // 如果是 zooKeeper 配置中心，则从 /dubbo/config/mapping/org.apache.dubbo.demo.DemoService/  路径下获取应用名
+            // 如果是 nacos 配置中心， 则通过 buildGroup 来查找 dataId (应用名)
             Set<String> keys = dynamicConfiguration.getConfigKeys(buildGroup(serviceInterface, group, version, protocol));
             serviceNames.addAll(keys);
         });

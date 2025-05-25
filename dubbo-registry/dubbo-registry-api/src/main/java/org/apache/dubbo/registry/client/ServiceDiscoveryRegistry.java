@@ -134,7 +134,7 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
     private final ServiceNameMapping serviceNameMapping;
 
     private final WritableMetadataService writableMetadataService;
-
+    // ListenerId
     private final Set<String> registeredListeners = new LinkedHashSet<>();
 
     private final List<SubscribedURLsSynthesizer> subscribedURLsSynthesizers;
@@ -145,6 +145,9 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
      * A cache for all URLs of services that the subscribed services exported
      * The key is the service name
      * The value is a nested {@link Map} whose key is the revision and value is all URLs of services
+     *
+     * key : 应用名 。 value : {Revision : List<providerURL>}
+     * 缓存的是应用暴露的所有接口 url —— ExportedURLs（不单单是订阅的接口，是所有暴露的接口）
      */
     private final Map<String, Map<String, List<URL>>> serviceRevisionExportedURLsCache = new LinkedHashMap<>();
 
@@ -161,6 +164,7 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
         String metadataStorageType = getMetadataStorageType(registryURL);
         // 元数据中心
         this.writableMetadataService = WritableMetadataService.getExtension(metadataStorageType);
+        // RestProtocolSubscribedURLsSynthesizer
         this.subscribedURLsSynthesizers = initSubscribedURLsSynthesizers();
     }
 
@@ -295,6 +299,7 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
 
     @Override
     public final void subscribe(URL url, NotifyListener listener) {
+        // 非 provider 端的才可以订阅（consumer）
         if (!shouldSubscribe(url)) { // Should Not Subscribe
             return;
         }
@@ -334,9 +339,9 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
     }
 
     protected void subscribeURLs(URL url, NotifyListener listener) {
-
+        // 将订阅的接口 url 缓存到元数据中心的 subscribedServiceURLs 集合中
         writableMetadataService.subscribeURL(url);
-
+        // 根据订阅的接口名称查找对应的应用名（provider端的应用名）
         Set<String> serviceNames = getServices(url);
         if (CollectionUtils.isEmpty(serviceNames)) {
             throw new IllegalStateException("Should has at least one way to know which services this interface belongs to, subscription url: " + url);
@@ -346,13 +351,24 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
 
     }
 
+    /**
+     * url 为 subscribeUrl , see : RegistryPotocol.doRefer
+     * listener 为 RegistryDirectory
+     * serviceName: 订阅接口对应的应用名
+     * */
     protected void subscribeURLs(URL url, NotifyListener listener, String serviceName) {
-
+        // 通过应用名到注册中心中获取应用实例
         List<ServiceInstance> serviceInstances = serviceDiscovery.getInstances(serviceName);
-
+        /**
+         *
+         * 1. 调用 serviceInstances 的 metadataService 获取服务实例暴露过的所有 providerUrl (相同的 revision 只会调用一次)
+         * 2. 根据 subscribedURL 从所有的 providerurls 中过滤出我们要订阅的 url (相同的 interface , group , version , protocol)
+         * 3. RegistryDirectory.notify(subscribedURL) , 根据这些 url 创建 invokers ， 更新 router chain 中的 invokers 缓存
+         * */
         subscribeURLs(url, listener, serviceName, serviceInstances);
 
         // register ServiceInstancesChangedListener
+        // 监听 serviceName（应用）对应的 ServiceInstances 的变化 —— ServiceInstancesChangedListener
         registerServiceInstancesChangedListener(url, new ServiceInstancesChangedListener(serviceName) {
 
             @Override
@@ -371,11 +387,17 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
     private void registerServiceInstancesChangedListener(URL url, ServiceInstancesChangedListener listener) {
         String listenerId = createListenerId(url, listener);
         if (registeredListeners.add(listenerId)) {
+            // 注册 ZookeeperServiceDiscoveryChangeWatcher 监听对应应用（servicename）下面的服务实例变化
+            // Watcher 会 dispatchServiceInstancesChangedEvent 到 ServiceInstancesChangedListener 中处理
+
+            // 在 wrapper EventPublishingServiceDiscovery 会向 dispatcher 注册 ServiceInstancesChangedListener
+            // org.apache.dubbo.registry.client.EventPublishingServiceDiscovery.addServiceInstancesChangedListener
             serviceDiscovery.addServiceInstancesChangedListener(listener);
         }
     }
 
     private String createListenerId(URL url, ServiceInstancesChangedListener listener) {
+        // dubbo-demo-annotation-provider1:consumer://192.168.2.101/org.apache.dubbo.demo.DemoService
         return listener.getServiceName() + ":" + url.toString(VERSION_KEY, GROUP_KEY, PROTOCOL_KEY);
     }
 
@@ -399,11 +421,17 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
             logger.warn(format("There is no instance in service[name : %s]", serviceName));
             return;
         }
-
+        // 获取订阅的所有 providerUrl
         List<URL> subscribedURLs = new LinkedList<>();
 
         /**
          * Add the exported URLs from {@link MetadataService}
+         * 从对应 provider 端的 MetadataService 获取 providerUrl
+         * 在接口级应用发现中，这些 providerUrl 全都是注册在注册中心上的
+         * 现在改成从 provider 端的 MetadataServic 获取
+         *
+         * 1. 调用 serviceInstances 的 metadataService 获取服务实例暴露过的所有 providerUrl (相同的 revision 只会调用一次)
+         * 2. 根据 subscribedURL 从所有的 providerurls 中过滤出我们要订阅的 url (相同的 interface , group , version , protocol)
          */
         subscribedURLs.addAll(getExportedURLs(subscribedURL, serviceInstances));
 
@@ -413,7 +441,9 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
              */
             subscribedURLs.addAll(synthesizeSubscribedURLs(subscribedURL, serviceInstances));
         }
-
+        // 现在 subscribedURLs 存放的全部都是 consumer reference 订阅的所有 providerUrl
+        // 后面的流程就和接口级应用发现一样了（只不过接口级是通过注册中心调用 listener.notify）
+        // 此处的 listener 为 RegistryDirectory, 这里会创建 RegistryDirectory 中的 invokers
         listener.notify(subscribedURLs);
     }
 
@@ -441,9 +471,14 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
         }
 
         // Prepare revision exported URLs
+        // 将所有 serviceInstances 暴露出来的所有接口 url 填充到 serviceRevisionExportedURLsCache 缓存中
+        // 相同 revision 的 serviceInstances 将只会被调用一次
         prepareServiceRevisionExportedURLs(serviceInstances);
 
         // Clone the subscribed URLs from the template URLs
+        // 从所有 serviceInstances 暴露的接口 url 中过滤出我们订阅的 url
+        // 与 subscribedURL 相同的 interface , group , version , protocol
+        // 以 serviceInstance 中 metadata 记录的 host , port 为准
         List<URL> subscribedURLs = cloneExportedURLs(subscribedURL, serviceInstances);
 
         // clear local service instances
@@ -462,8 +497,12 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
     private void prepareServiceRevisionExportedURLs(List<ServiceInstance> serviceInstances) {
         executeExclusively(() -> {
             // 1. expunge stale
+            // 将缓存 serviceRevisionExportedURLsCache 中旧的 revision 删除掉
+            // 以当前 serviceInstances 中提供的 revision 为准
+            // 旧的 revision 表示之前的 ServiceInstance 已经下线或者挂了，我们需要删除相关的 providerUrl
             expungeStaleRevisionExportedURLs(serviceInstances);
             // 2. Initialize
+            // 将所有 serviceInstances 暴露出来的所有接口 url 填充到 serviceRevisionExportedURLsCache 缓存中
             initializeRevisionExportedURLs(serviceInstances);
         });
     }
@@ -488,8 +527,11 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
      */
     private void initializeRevisionExportedURLs(List<ServiceInstance> serviceInstances) {
         // initialize the revision exported URLs that the selected service instance exported
+        // 随机选取一个 ServiceInstance ， 将它暴露的所有接口 url 缓存下来 —— serviceRevisionExportedURLsCache
         initializeSelectedRevisionExportedURLs(serviceInstances);
         // initialize the revision exported URLs that other service instances exported
+        // 为缓存 serviceRevisionExportedURLsCache 填充所有 serviceInstances 暴露出来的所有接口
+        // 相同 revision 的 serviceInstances 将只会被调用一次
         serviceInstances.forEach(this::initializeRevisionExportedURLs);
     }
 
@@ -503,7 +545,9 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
         // Try to initialize revision exported URLs until success
         for (int i = 0; i < serviceInstances.size(); i++) {
             // select a instance of {@link ServiceInstance}
+            // 随机选取一个 ServiceInstance
             ServiceInstance selectedInstance = selectServiceInstance(serviceInstances);
+            // 获取该实例暴露的所有接口 url (不单单是订阅的接口)
             List<URL> revisionExportedURLs = initializeRevisionExportedURLs(selectedInstance);
             if (isNotEmpty(revisionExportedURLs)) {    // If the result is valid
                 break;
@@ -521,18 +565,23 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
 
         String serviceName = serviceInstances.get(0).getServiceName();
         // revisionExportedURLsMap is mutable
+        // 从缓存 serviceRevisionExportedURLsCache 中获取 serviceName（应用名）对应的所有 providerUrl
+        // 按照 ServiceInstance 中的 revision 分类
         Map<String, List<URL>> revisionExportedURLsMap = getRevisionExportedURLsMap(serviceName);
 
         if (revisionExportedURLsMap.isEmpty()) { // if empty, return immediately
             return;
         }
-
+        // serviceName 应用所提供的所有 provider 的 revision（以缓存的）
+        // 因为不同实例，对应的 provider(接口) 的配置可能不一样，配置不一样就对应不同的 revision
         Set<String> existedRevisions = revisionExportedURLsMap.keySet(); // read-only
+        // 获取当前所有 serviceInstances 对应的 revision
         Set<String> currentRevisions = serviceInstances.stream()
                 .map(ServiceInstanceMetadataUtils::getExportedServicesRevision)
                 .collect(Collectors.toSet());
         // staleRevisions = existedRevisions(copy) - currentRevisions
         Set<String> staleRevisions = new HashSet<>(existedRevisions);
+        // 过期的旧的的 revision
         staleRevisions.removeAll(currentRevisions);
         // remove exported URLs if staled
         staleRevisions.forEach(revisionExportedURLsMap::remove);
@@ -557,19 +606,21 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
         serviceInstances.forEach(serviceInstance -> {
 
             String host = serviceInstance.getHost();
-
+            // 从 serviceInstance 暴露的所有接口 url 中，过滤出我们要订阅的接口 url
+            // 与 subscribedURL 相同的 interface , group , version , protocol
             getTemplateExportedURLs(subscribedURL, serviceInstance)
                     .stream()
                     .map(templateURL -> templateURL.removeParameter(TIMESTAMP_KEY))
                     .map(templateURL -> templateURL.removeParameter(PID_KEY))
                     .map(templateURL -> {
                         String protocol = templateURL.getProtocol();
+                        // 从 serviceInstance metadata 中获取 protocol 对应的 port
                         int port = getProtocolPort(serviceInstance, protocol);
                         if (Objects.equals(templateURL.getHost(), host)
                                 && Objects.equals(templateURL.getPort(), port)) { // use templateURL if equals
                             return templateURL;
                         }
-
+                        // 以 serviceInstance 中 metadata 记录的 host , port 为准
                         URLBuilder clonedURLBuilder = from(templateURL) // remove the parameters from the template URL
                                 .setHost(host)  // reset the host
                                 .setPort(port); // reset the port
@@ -598,6 +649,7 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
             return serviceInstances.get(0);
         }
         ServiceInstanceSelector selector = getExtensionLoader(ServiceInstanceSelector.class).getAdaptiveExtension();
+        // 随机选取一个 ServiceInstance
         return selector.select(getUrl(), serviceInstances);
     }
 
@@ -620,13 +672,14 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
      * @return non-null {@link List} of {@link URL urls}
      */
     private List<URL> getTemplateExportedURLs(URL subscribedURL, ServiceInstance selectedInstance) {
-
+        // 获取 ServiceInstance 暴露的所有接口 url
         List<URL> exportedURLs = getRevisionExportedURLs(selectedInstance);
 
         if (isEmpty(exportedURLs)) {
             return emptyList();
         }
-
+        // 过滤出我们要订阅的 url
+        // 订阅的 interface , group , version , protocol
         return filterSubscribedURLs(subscribedURL, exportedURLs);
     }
 
@@ -643,7 +696,7 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
         if (serviceInstance == null) {
             return emptyList();
         }
-
+        // 应用名
         String serviceName = serviceInstance.getServiceName();
         // get the revision from the specified {@link ServiceInstance}
         String revision = getExportedServicesRevision(serviceInstance);
@@ -670,11 +723,12 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
             } else { // Else, it's the first time to get the exported URLs
                 firstGet = true;
             }
-
+            // 调用 serviceInstance 对应的 metadataService 获取该应用暴露的所有接口 url —— ExportedURLs
             revisionExportedURLs = getExportedURLs(serviceInstance);
 
             if (revisionExportedURLs != null) { // just allow the valid result into exportedURLsMap
-
+                // 将该实例暴露的所有 ExportedURLs 更新到缓存中
+                // 多个服务实例可能会对应一个 revision，因为所有服务实例的接口配置可能都一样
                 revisionExportedURLsMap.put(revision, revisionExportedURLs);
 
                 if (logger.isDebugEnabled()) {
@@ -755,13 +809,16 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
     private List<URL> getExportedURLs(ServiceInstance providerServiceInstance) {
 
         List<URL> exportedURLs = null;
-
+        // provider 端的元数据中心是 local 还是 remote
         String metadataStorageType = getMetadataStorageType(providerServiceInstance);
 
         try {
+            // 手动创建 provider 端 MetadataService 的 reference
+            // 和其他对普通服务 reference 的创建创建过程一样（直连 provider）
             MetadataService metadataService = MetadataServiceProxyFactory.getExtension(metadataStorageType)
                     .getProxy(providerServiceInstance);
             if (metadataService != null) {
+                // 获取应用 providerServiceInstance 暴露的所有接口 ExportedURLs
                 SortedSet<String> urls = metadataService.getExportedURLs();
                 exportedURLs = toURLs(urls);
             }
@@ -815,18 +872,25 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
      * 2.check Interface-App mapping
      * 3.use the services specified in registry url.
      *
+     * 根据订阅的接口名称查找对应的应用名（provider端的应用名）
+     *
      * @param subscribedURL
      * @return
      */
     protected Set<String> getServices(URL subscribedURL) {
+        // 订阅接口对应的所有应用名
         Set<String> subscribedServices = new LinkedHashSet<>();
-
+        // 优先选择用户在 reference 配置中明确指定的应用名 —— provided-by 参数配置
+        // 多个应用名可通过 , 号分隔
         String serviceNames = subscribedURL.getParameter(PROVIDED_BY);
         if (StringUtils.isNotEmpty(serviceNames)) {
+            // 分隔逗号，获取配置的所有应用名
             subscribedServices = parseServices(serviceNames);
         }
 
         if (isEmpty(subscribedServices)) {
+            // 通过 serviceNameMapping 到配置中心取查找接口对应的应用名
+            // 在服务发布的时候，会将接口与应用名映射起来
             subscribedServices = findMappedServices(subscribedURL);
             if (isEmpty(subscribedServices)) {
                 subscribedServices = getSubscribedServices();
@@ -859,10 +923,14 @@ public class ServiceDiscoveryRegistry extends FailbackRegistry {
      * @return
      */
     protected Set<String> findMappedServices(URL subscribedURL) {
+        // 获取订阅接口
         String serviceInterface = subscribedURL.getServiceInterface();
         String group = subscribedURL.getParameter(GROUP_KEY);
         String version = subscribedURL.getParameter(VERSION_KEY);
         String protocol = subscribedURL.getParameter(PROTOCOL_KEY, DUBBO_PROTOCOL);
+        // 通过 serviceNameMapping 查找 serviceInterface 与应用名之间的映射
+        // 如果是 zooKeeper 配置中心，则从 /dubbo/config/mapping/org.apache.dubbo.demo.DemoService/  路径下获取应用名
+        // 如果是 nacos 配置中心， 则通过 buildGroup 来查找 dataId (应用名)
         return serviceNameMapping.get(serviceInterface, group, version, protocol);
     }
 

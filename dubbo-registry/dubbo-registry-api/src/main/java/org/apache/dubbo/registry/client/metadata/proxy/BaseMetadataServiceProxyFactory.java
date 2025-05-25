@@ -27,6 +27,7 @@ import java.util.Map;
  * base class for remote and local implementations.
  */
 abstract class BaseMetadataServiceProxyFactory implements MetadataServiceProxyFactory {
+    // key : serviceName(应用名)##revision   value: 对应的 MetadataService 代理
     private final Map<String, MetadataService> proxies = new HashMap<>();
 
     public final MetadataService getProxy(ServiceInstance serviceInstance) {

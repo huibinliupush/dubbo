@@ -81,6 +81,9 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
      * The subscribed {@link URL urls} {@link Map} of {@link MetadataService},
      * whose key is the return value of {@link URL#getServiceKey()} method and value is
      * the {@link SortedSet sorted set} of the {@link URL URLs}
+     *
+     * consumer 应用订阅的所有 subscribeUrl， see : org.apache.dubbo.registry.integration.RegistryDirectory#subscribe(org.apache.dubbo.common.URL)
+     * key : serviceKey(订阅接口) , value : subscribeUrl
      */
     ConcurrentNavigableMap<String, SortedSet<URL>> subscribedServiceURLs = new ConcurrentSkipListMap<>();
     // key : ServiceKey , value: serviceDefinition (json 序列化)

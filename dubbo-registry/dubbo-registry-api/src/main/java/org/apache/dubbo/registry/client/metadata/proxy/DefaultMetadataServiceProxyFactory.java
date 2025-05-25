@@ -64,13 +64,24 @@ public class DefaultMetadataServiceProxyFactory extends BaseMetadataServiceProxy
 
         Map<String, String> metadata = serviceInstance.getMetadata();
         // METADATA_SERVICE_URLS_PROPERTY_NAME is a unique key exists only on instances of spring-cloud-alibaba.
+        // 在 provider 端注册元数据的时候，CustomizableServiceInstanceListener 负责初始化这里用到的元数据 METADATA_SERVICE_URLS_PROPERTY_NAME
+        // see : org.apache.dubbo.registry.client.event.listener.CustomizableServiceInstanceListener
         String dubboURLsJSON = metadata.get(METADATA_SERVICE_URLS_PROPERTY_NAME);
         if (StringUtils.isNotEmpty(dubboURLsJSON)) {
+            // spring cloud alibaba
             builder = loader.getExtension(SpringCloudMetadataServiceURLBuilder.NAME);
         } else {
+            // 关于 MetadataServiceURLParams 的相关信息，provider 应用会在注册 serviceInstance 的时候
+            // 在 MetadataServiceURLParamsMetadataCustomizer 中写入 metadata
+            // metadata key 为 METADATA_SERVICE_URL_PARAMS_PROPERTY_NAME
+
+            // 这里通过读取 serviceInstance 中 metadata 保存的 MetadataServiceURLParams
+            // 来构建 MetadataServiceURL，利用 MetadataServiceURL 构建 MetadataService 的 reference
+            // 流程和普通接口引用过程一样
             builder = loader.getExtension(StandardMetadataServiceURLBuilder.NAME);
         }
-
+        // 根据 serviceInstance 中保存的 provider metadataService 相关信息构建 metadataServiceUrl
+        // metadataServiceUrl 就相当于普通接口服务的 providerUrl
         List<URL> urls = builder.build(serviceInstance);
         if (CollectionUtils.isEmpty(urls)) {
             throw new IllegalStateException("You have enabled introspection service discovery mode for instance "
@@ -78,8 +89,9 @@ public class DefaultMetadataServiceProxyFactory extends BaseMetadataServiceProxy
         }
 
         // Simply rely on the first metadata url, as stated in MetadataServiceURLBuilder.
+        // 构建直连的 invoker
         Invoker<MetadataService> invoker = protocol.refer(MetadataService.class, urls.get(0));
-
+        // 创建代理
         return proxyFactory.getProxy(invoker);
     }
 }

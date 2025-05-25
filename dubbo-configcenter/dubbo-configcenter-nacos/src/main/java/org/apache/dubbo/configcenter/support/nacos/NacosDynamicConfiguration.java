@@ -291,6 +291,10 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
         // TODO use Nacos Client API to replace HTTP Open API
         SortedSet<String> keys = new TreeSet<>();
         try {
+            // 通过 group 来搜索 dataId
+            // 在 serviceNameMapping 场景中：
+            // dataId 为应用名
+            // group 为服务接口 —— mapping/org.apache.dubbo.demo.DemoService
             List<String> paramsValues = asList(
                     "search", "accurate",
                     "dataId", "",
@@ -300,7 +304,9 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
             );
             String encoding = getProperty(ENCODE, "UTF-8");
             HttpSimpleClient.HttpResult result = httpAgent.httpGet(GET_CONFIG_KEYS_PATH, emptyList(), paramsValues, encoding, 5 * 1000);
+            // dataId 为应用名
             Stream<String> keysStream = toKeysStream(result.content);
+            // 获取 group 对应的所有 dataId
             keysStream.forEach(keys::add);
         } catch (IOException e) {
             if (logger.isErrorEnabled()) {

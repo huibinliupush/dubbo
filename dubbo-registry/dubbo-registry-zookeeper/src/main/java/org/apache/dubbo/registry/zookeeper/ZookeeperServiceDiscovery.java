@@ -124,7 +124,7 @@ public class ZookeeperServiceDiscovery implements ServiceDiscovery, EventListene
         return execute(path, p -> {
 
             List<ServiceInstance> serviceInstances = new LinkedList<>();
-
+            // 这里应该 use watcher 去拉取
             List<String> serviceIds = new LinkedList<>(curatorFramework.getChildren().forPath(p));
 
             int totalSize = serviceIds.size();
@@ -167,10 +167,18 @@ public class ZookeeperServiceDiscovery implements ServiceDiscovery, EventListene
     }
 
     protected void registerServiceWatcher(String serviceName) {
+        // /services/serviceName
         String path = buildServicePath(serviceName);
+        // zookeeperServiceDiscovery.dispatchServiceInstancesChangedEvent 处理服务实例的变化
         CuratorWatcher watcher = watcherCaches.computeIfAbsent(path, key ->
                 new ZookeeperServiceDiscoveryChangeWatcher(this, serviceName));
         try {
+            // 监听 /services/serviceName 下的节点变化
+            // see : org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.addTargetChildListener（接口级）
+            // 这里的 CuratorWatcher 是临时的，通知一次就没有了。
+
+            // 当 ServiceInstancesChangedEvent 事件发生时，ZookeeperServiceDiscovery 会再次添加 CuratorWatcher
+            // see：org.apache.dubbo.registry.zookeeper.ZookeeperServiceDiscovery.onEvent
             curatorFramework.getChildren().usingWatcher(watcher).forPath(path);
         } catch (KeeperException.NoNodeException e) {
             // ignored

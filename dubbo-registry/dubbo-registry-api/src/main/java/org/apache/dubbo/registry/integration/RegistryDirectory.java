@@ -107,13 +107,19 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     // zookeeper 协议
     private final URL directoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
     private final boolean multiGroup;
+    // protocol adaptive
     private Protocol protocol; // Initialization at the time of injection, the assertion is not null
+    // 应用级服务发现：ServiceDiscoveryRegistry
+    // 接口级服务发现：ZookeeperRegistry
     private Registry registry; // Initialization at the time of injection, the assertion is not null
     private volatile boolean forbidden = false;
     private boolean shouldRegister;
     private boolean shouldSimplified;
     // 初始情况下和 directoryUrl 一样，后续再 notify 中会被重新覆盖（根据动态配置的变化重新覆盖 overrideDirectoryUrl）
     // zookeeper 协议
+
+    // 根据 RegistryURl 重新生成，协议不变（zookeeper or service-discovert）,path 变为 service-interface
+    // 参数变为 comsumer 的配置参数，原有的 registry 相关参数全部删除
     private volatile URL overrideDirectoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
 
     private volatile URL registeredConsumerUrl;
@@ -134,13 +140,15 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     // 缓存订阅的 providerUrl
     private volatile Set<URL> cachedInvokerUrls; // The initial value is null and the midway may be assigned to null, please use the local variable reference
     // 对比于发布过程中的 providerConfigurationListener
+    // 注意 ConsumerConfigurationListener 是静态的
     private static final ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER = new ConsumerConfigurationListener();
     // 对比于发布过程中的 serviceConfigurationListener
+    // ReferenceConfigurationListener 是实例级别（一个注册中心一个）
     private ReferenceConfigurationListener serviceConfigurationListener;
 
 
     public RegistryDirectory(Class<T> serviceType, URL url) {
-        // registryUrl
+        // registryUrl: service-discovery-registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=service-discovery-consumer&dubbo=2.0.2&pid=32292&refer=application%3Dservice-discovery-consumer%26check%3Dfalse%26dubbo%3D2.0.2%26dubbo.stub.event%3Dtrue%26init%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%2CsayHelloAsync%2CwrapperReturnVoid%2CtestBigDecimal%26onconnect%3Donconnect%26pid%3D32292%26register.ip%3D192.168.2.101%26sayHello.retries%3D3%26sayHello.return%3Dtrue%26sayHello.timeout%3D250%26side%3Dconsumer%26sticky%3Dfalse%26stub%3Dorg.apache.dubbo.demo.consumer.comp.DemoServiceStub%26timestamp%3D1748164679009&registry=zookeeper&registry-type=service&registry.type=service&timestamp=1748164679042
         super(url);
         if (serviceType == null) {
             throw new IllegalArgumentException("service type is null.");
@@ -154,6 +162,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         this.serviceType = serviceType;
         this.serviceKey = url.getServiceKey();
         this.queryMap = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
+        // 根据 RegistryURl 重新生成，协议不变（zookeeper or service-discovert）,path 变为 service-interface
+        // 参数变为 comsumer 的配置参数，原有的 registry 相关参数全部删除
         this.overrideDirectoryUrl = this.directoryUrl = turnRegistryUrlToConsumerUrl(url);
         String group = directoryUrl.getParameter(GROUP_KEY, "");
         this.multiGroup = group != null && (ANY_VALUE.equals(group) || group.contains(","));
@@ -186,8 +196,12 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     public void subscribe(URL url) {
         setConsumerUrl(url);
+        // comsumer 级别配置的监听器（静态的，共用的），由 refreshInvoker 方法接收通知
         CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this);
+        // reference 级别配置的监听器（实例级的，每个注册中心一个（RegsitryDirectory））
+        // 由 refreshInvoker 方法接收通知
         serviceConfigurationListener = new ReferenceConfigurationListener(this, url);
+        // 由 org.apache.dubbo.registry.integration.RegistryDirectory.notify 方法接收通知
         registry.subscribe(url, this);
     }
 
@@ -230,7 +244,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             logger.warn("Failed to destroy service " + serviceKey, t);
         }
     }
-
+    /**
+     * 对于应用级服务发现来说，这里的 urls 只会是 providerUrls
+    * */
     @Override
     public synchronized void notify(List<URL> urls) {
         Map<String, List<URL>> categoryUrls = urls.stream()
@@ -296,17 +312,19 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         if (invokerUrls.size() == 1
                 && invokerUrls.get(0) != null
                 && EMPTY_PROTOCOL.equals(invokerUrls.get(0).getProtocol())) {
+            // 没有 invokers，forbidden 设置为 true 禁止调用
             this.forbidden = true; // Forbid to access
             this.invokers = Collections.emptyList();
             routerChain.setInvokers(this.invokers);
             destroyAllInvokers(); // Close all invokers
         } else {
             this.forbidden = false; // Allow to access
+            // 原有的 invoker
             Map<String, Invoker<T>> oldUrlInvokerMap = this.urlInvokerMap; // local reference
             if (invokerUrls == Collections.<URL>emptyList()) {
                 invokerUrls = new ArrayList<>();
             }
-            if (invokerUrls.isEmpty() && this.cachedInvokerUrls != null) {
+            if (invokerUrls.isEmpty() && this.cachedInvokerUrls != null) { // 空推保护
                 invokerUrls.addAll(this.cachedInvokerUrls);
             } else {
                 this.cachedInvokerUrls = new HashSet<>();
@@ -315,6 +333,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             if (invokerUrls.isEmpty()) {
                 return;
             }
+            // 本次新的 invoker
+            // key : providerUrl(与 consumerUrl 合并，被配置中心覆盖) value:invoker
+            // 这里的 invoker 包括新增的 invoker ,配置更新的 invoker , 之前的 invoker(包含在 invokerUrls 中的旧 invoker)
             Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
 
             /**
@@ -341,6 +362,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             this.urlInvokerMap = newUrlInvokerMap;
 
             try {
+                // 销毁不在使用的 invoker (oldUrlInvokerMap - newUrlInvokerMap)
                 destroyUnusedInvokers(oldUrlInvokerMap, newUrlInvokerMap); // Close the unused Invoker
             } catch (Exception e) {
                 logger.warn("destroyUnusedInvokers error. ", e);
@@ -416,6 +438,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             return newUrlInvokerMap;
         }
         Set<String> keys = new HashSet<>();
+        // consumer 参数
         String queryProtocols = this.queryMap.get(PROTOCOL_KEY);
         for (URL providerUrl : urls) {
             // If protocol is configured at the reference side, only the matching protocol is selected
@@ -444,6 +467,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             }
             // override > -D >Consumer > Provider
             // 这里对 reference 的 url 进行覆盖，如果 consumer 端没有配置，那么就采用 provider 端的配置
+            // consumerUrl 覆盖 providerUrl , 以 consumer 的配置为准，没有的话，以 provider 的配置为准
             URL url = mergeUrl(providerUrl);
 
             String key = url.toFullString(); // The parameter urls are sorted
@@ -454,6 +478,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             // Cache key is url that does not merge with consumer side parameters, regardless of how the consumer combines parameters, if the server url changes, then refer again
             Map<String, Invoker<T>> localUrlInvokerMap = this.urlInvokerMap; // local reference
             Invoker<T> invoker = localUrlInvokerMap == null ? null : localUrlInvokerMap.get(key);
+            // 新增的 invoker,或者配置改变的 invoker
             if (invoker == null) { // Not in the cache, refer again
                 try {
                     boolean enabled = true;
@@ -473,6 +498,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                     newUrlInvokerMap.put(key, invoker);
                 }
             } else {
+                // 之前已经存在的 invoker , 不在重复 refer
                 newUrlInvokerMap.put(key, invoker);
             }
         }
@@ -491,6 +517,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         providerUrl = ClusterUtils.mergeUrl(providerUrl, queryMap); // Merge the consumer side parameters
         // 用动态配置覆盖 providerUrl
         // configurators , CONSUMER_CONFIGURATION_LISTENER , serviceConfigurationListener
+        // 用配置中心中的配置（consumer , reference）再次覆盖 providerUrl
         providerUrl = overrideWithConfigurator(providerUrl);
 
         providerUrl = providerUrl.addParameter(Constants.CHECK_KEY, String.valueOf(false)); // Do not check whether the connection is successful or not, always create Invoker!
@@ -652,6 +679,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     public void setRegisteredConsumerUrl(URL url) {
         if (!shouldSimplified) {
+            // 返回新的 URL 实例，原来的 URL  并不会改变
             this.registeredConsumerUrl = url.addParameters(CATEGORY_KEY, CONSUMERS_CATEGORY, CHECK_KEY,
                     String.valueOf(false));
         } else {

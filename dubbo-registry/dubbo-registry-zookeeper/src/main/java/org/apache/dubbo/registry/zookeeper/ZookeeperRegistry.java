@@ -158,6 +158,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
         }
     }
 
+    // NotifyListener 为 RegistryDirectory
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
         try {

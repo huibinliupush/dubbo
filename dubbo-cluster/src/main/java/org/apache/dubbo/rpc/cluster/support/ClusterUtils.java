@@ -94,7 +94,7 @@ public class ClusterUtils {
             copyOfLocalMap.remove(METHODS_KEY);
             copyOfLocalMap.remove(TIMESTAMP_KEY);
             copyOfLocalMap.remove(TAG_KEY);
-
+            // 用 consumer 的配置覆盖 provider 的配置，以 consumer 端的配置为准，没有的话，以 provider 为准
             map.putAll(copyOfLocalMap);
 
             map.put(REMOTE_APPLICATION_KEY, remoteMap.get(APPLICATION_KEY));

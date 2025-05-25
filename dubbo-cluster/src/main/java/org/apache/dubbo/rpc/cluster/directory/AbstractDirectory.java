@@ -45,7 +45,10 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
     private final URL url;
 
     private volatile boolean destroyed = false;
-    // subscribeUrl
+    // subscribeUrl —— registryUrl 加上 consumer 参数
+    // 随后会在 org.apache.dubbo.registry.integration.RegistryDirectory.subscribe 中被设置为 subscribeUrl
+    // RegistryPotocol 中的 doRefer 方法 directory.subscribe(toSubscribeUrl(subscribeUrl));
+    // 增加 CATEGORY = providers , configurators , routers , 其他参数为 consumer 设置的参数，协议为 consumer
     private volatile URL consumerUrl;
 
     protected RouterChain<T> routerChain;
@@ -58,8 +61,9 @@ public abstract class AbstractDirectory<T> implements Directory<T> {
         if (url == null) {
             throw new IllegalArgumentException("url == null");
         }
-
+        // registryUrl
         this.url = url.removeParameter(REFER_KEY).removeParameter(MONITOR_KEY);
+        // registryUrl 加上 consumer 参数
         this.consumerUrl = url.addParameters(StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY)))
                 .removeParameter(MONITOR_KEY);
 
