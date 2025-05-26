@@ -48,12 +48,16 @@ public class TypeDefinitionBuilder {
     }
 
     public static TypeDefinition build(Type type, Class<?> clazz, Map<Class<?>, TypeDefinition> typeCache) {
+        // 获取 clazz 对应的 TypeBuilder
         TypeBuilder builder = getGenericTypeBuilder(type, clazz);
         TypeDefinition td;
         if (builder != null) {
+            // 这里主要解析泛型类型，比如，List<String> , Set<String> , Map<Strig,String>
+            // 将类中的泛型类丢给 else 分支中的 DefaultTypeBuilder 构建
             td = builder.build(type, clazz, typeCache);
             td.setTypeBuilderName(builder.getClass().getName());
         } else {
+            // 不可再分的原子类型（非泛型）就在这里构建，递归构建该类中所有 field 字段类型
             td = DefaultTypeBuilder.build(clazz, typeCache);
             td.setTypeBuilderName(DefaultTypeBuilder.class.getName());
         }

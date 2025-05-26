@@ -25,11 +25,13 @@ import java.util.Objects;
  * 2015/1/27.
  */
 public class ServiceDefinition implements Serializable {
-
+    // 接口类名
     private String canonicalName;
+    // 接口 class 文件所在磁盘位置
     private String codeSource;
     private List<MethodDefinition> methods;
-    // service 接口涉及到的所有类型 TypeDefinitions
+    // service 接口涉及到的所有类型 TypeDefinitions （递归所有方法参数类型，返回类型）
+    // 包括所有泛型类型，所有类型中字段的类型
     private List<TypeDefinition> types;
 
     public String getCanonicalName() {

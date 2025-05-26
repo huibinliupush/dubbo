@@ -58,6 +58,9 @@ public class CollectionTypeBuilder implements TypeBuilder {
         Type actualType = actualTypeArgs[0];
         if (actualType instanceof ParameterizedType) {
             // Nested collection or map.
+            // rawType 表示 ParameterizedType 代表的真实类型，比如，Set<String>
+            // build 方法参数 type 就是元类型，比如这里的 ParameterizedType
+            // clazz 就是真正的类型，也就是这里的 rawType
             Class<?> rawType = (Class<?>) ((ParameterizedType) actualType).getRawType();
             TypeDefinitionBuilder.build(actualType, rawType, typeCache);
         } else if (actualType instanceof Class<?>) {

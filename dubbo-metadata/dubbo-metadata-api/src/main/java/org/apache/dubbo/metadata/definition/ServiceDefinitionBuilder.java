@@ -67,6 +67,7 @@ public final class ServiceDefinitionBuilder {
         TypeDefinitionBuilder builder = new TypeDefinitionBuilder();
         // 获取接口 DemoService 所有的 public 实例方法
         List<Method> methods = ClassUtils.getPublicNonStaticMethods(interfaceClass);
+        // 构架所有方法的 MethodDefinition
         for (Method method : methods) {
             // 挨个构建方法对应的 MethodDefinition
             MethodDefinition md = new MethodDefinition();
@@ -83,7 +84,7 @@ public final class ServiceDefinitionBuilder {
                 // 构建参数类型对应的 TypeDefinition
                 // 其实 TypeDefinition 中主要设置的就是类型名 type
                 // 然后顺带缓存构建该类型中包含的所有类型 TypeDefinition
-                // 比如，array , list 中的泛型真实类型， map 中的 key ,value 类型
+                // 比如，array , list 中的泛型真实类型， map 中的 key ,value 类型，具体可参见对应具体类型的 TypeBuilder
                 // class 中所有的 field 类型
                 TypeDefinition td = builder.build(genericParamTypes[i], paramTypes[i]);
                 parameterTypes[i] = td.getType();
@@ -91,13 +92,14 @@ public final class ServiceDefinitionBuilder {
             // 方法参数类型
             md.setParameterTypes(parameterTypes);
 
-            // Process return type.
+            // Process return type.构建返回类型的 TypeDefinition
             TypeDefinition td = builder.build(method.getGenericReturnType(), method.getReturnType());
             md.setReturnType(td.getType());
 
             sd.getMethods().add(md);
         }
-        // service 接口涉及到的所有类型 TypeDefinitions
+        // service 接口涉及到的所有类型 TypeDefinitions （递归所有方法参数类型，返回类型）
+        // 包括所有泛型类型，所有类型中字段的类型
         sd.setTypes(builder.getTypeDefinitions());
     }
 

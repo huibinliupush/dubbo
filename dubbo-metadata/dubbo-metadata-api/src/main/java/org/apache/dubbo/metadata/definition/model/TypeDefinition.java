@@ -31,12 +31,16 @@ import java.util.Objects;
 public class TypeDefinition implements Serializable {
 
     private String id;
-    // 类型名
+    // 类型名，如果是泛型类比如 List<String>
+    // 那么该 TypeDefinition 就只会设置 List<String>，不会设置 $ref
+
+    // 如果是非泛型类，比如 String ， 那么就会设置 $ref
     private String type;
     @SerializedName("items")
     private List<TypeDefinition> items;
     @SerializedName("enum")
     private List<String> enums; // 枚举类型中的枚举值（values）
+    // 真正的类型，非泛型类
     private String $ref;
     // fieldName -> fieldTypeDefinition
     private Map<String, TypeDefinition> properties;
