@@ -71,6 +71,21 @@ public class ConfigurableMetadataServiceExporter implements MetadataServiceExpor
             ServiceConfig<MetadataService> serviceConfig = new ServiceConfig<>();
             serviceConfig.setApplication(getApplicationConfig());
             serviceConfig.setRegistries(getRegistries()); // RegistryConfig 配置（和正常的服务暴露一样，原有的配置）
+            // 优化：MetadataService 暴露的协议应该复用该应用采用的暴露协议
+            // 比如应用暴露了两个服务，一个用 rest , 一个用 dubbo 协议暴露
+            // MetadataService 两者任选其一暴露，可以取第一个，也可以随机。端口需要和原有协议端口一致
+            // 这样做的好处可以复用原有协议 server 端的 Io 线程以及线程池资源
+
+            // 比如应用服务全部以 rest 协议暴露，那么 MetadataService 也应该以 rest 协议暴露并且端口一样
+            // 如果采用默认的 dubbo 协议暴露的话，又得新建 IO 线程和线程池，不能复用原有 rest 协议相关 IO 资源
+
+            // 我们的场景中，rest 服务全部对接 nginx , 只需要将 rest 服务的 ip:port 添加到 nginx 的 upstream 模块
+            // nginx -> rest 服务 -> dubbo 服务，这种场景下其实 rest 服务是不需要到注册中心去注册的，只需要配置在 nginx 中即可(静态方案)
+
+            // 动态方案就需要将 rest 服务注册到注册中心，OpenResty（Nginx + Lua）使用 Lua 脚本动态查询服务注册中心并更新后端节点。(rest 协议也采用的是应用级服务发现)
+            // lua 脚本去注册中心查询 rest 应用对应的端点
+
+            // 或者采用 nginx-upsync-module 模块自动到注册中心同步 upstream
             serviceConfig.setProtocol(generateMetadataProtocol()); // 默认为 dubbo 协议，端口号自增
             serviceConfig.setInterface(MetadataService.class);
             serviceConfig.setRef(metadataService); // InMemoryWritableMetadataService

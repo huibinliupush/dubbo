@@ -1034,7 +1034,7 @@ public class DubboBootstrap extends GenericEventListener {
         ApplicationConfig application = getApplication();
 
         String serviceName = application.getName();
-        // 从所有暴露的接口 url 中选取一个 url,后面用来提取应用级信息
+        // 从所有暴露的接口 url 中选取一个 url,后面用来提取应用级信息（rest 协议的 url 优先）
         URL exportedURL = selectMetadataServiceExportedURL();
 
         String host = exportedURL.getHost();
