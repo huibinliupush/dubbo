@@ -284,6 +284,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 logger.info("Using injvm service " + interfaceClass.getName());
             }
         } else {
+            // 填充待引用的 urls ，后续挨个对这些 urls 调用 Protocol.refer
             urls.clear();
             if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
                 String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
@@ -296,6 +297,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                         if (UrlUtils.isRegistry(url)) {
                             urls.add(url.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
                         } else {
+                            // 一对一直连，后续只生成一个 dubboInvoker（没有 cluster）
                             urls.add(ClusterUtils.mergeUrl(url, map));
                         }
                     }
@@ -311,6 +313,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                             if (monitorUrl != null) {
                                 map.put(MONITOR_KEY, URL.encode(monitorUrl.toFullString()));
                             }
+                            // 注册中心 url
                             urls.add(u.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
                         }
                     }
@@ -319,9 +322,11 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                     }
                 }
             }
-
+            // urls 中保存所有待 refer 的 url , 一对一直连的就是 reference 配置的 url ,refer 之后只生成一个 dubboInvoker（直连）
+            // 剩下的 url 要么是 regsitry 协议（接口级服务发现）要么是 service-discovery-registry 协议（应用级服务发现）
             if (urls.size() == 1) {
                 // 一个注册中心，对应一个 invoker
+                // 或者是直连情况
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
@@ -370,6 +375,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         WritableMetadataService metadataService = WritableMetadataService.getExtension(metadata == null ? DEFAULT_METADATA_STORAGE_TYPE : metadata);
         if (metadataService != null) {
             URL consumerURL = new URL(CONSUMER_PROTOCOL, map.remove(REGISTER_IP_KEY), 0, map.get(INTERFACE_KEY), map);
+            // 发布引用接口的 ServiceDefinition
             metadataService.publishServiceDefinition(consumerURL);
         }
         // create service proxy

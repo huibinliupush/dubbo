@@ -199,10 +199,8 @@ public class RegistryProtocol implements Protocol {
     // 应用级服务发现：ServiceDiscoveryRegistryProtocol
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
-        //获取具体注册协议的registryUrl。将"registry://"协议转换为具体的协议比如"zookeeper://"协议。
-        // 新的 Url
-
         // 如果是应用级服务发现，这里的 url 还是原来的 service-discovery-registry:// （原样返回）
+        // 如果是接口级服务发现，这里的 url 协议会从 registry 变为具体的注册协议，如：zooKeeper , nacos 等
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
         //获取服务提供者的URL（存放在invoker中URL的export参数中）
@@ -499,6 +497,7 @@ public class RegistryProtocol implements Protocol {
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
         // 如果是应用级服务发现，这里的 url 还是原来的 service-discovery-registry:// （原样返回）
+        // 如果是接口级服务发现，这里的 url 协议会从 registry 变为具体的注册协议，如：zooKeeper , nacos 等
         url = getRegistryUrl(url);
         // ServiceDiscoveryRegistry(启用应用级服务发现)
         // ZookeeperRegistry(接口级服务发现)
@@ -513,6 +512,7 @@ public class RegistryProtocol implements Protocol {
         if (group != null && group.length() > 0) {
             if ((COMMA_SPLIT_PATTERN.split(group)).length > 1 || "*".equals(group)) {
                 // MergeableCluster : consumer 需从每种 group 中调用一次返回结果，合并结果返回
+                // reference 同时指定多个 group 的时候会走这里
                 return doRefer(getMergeableCluster(), registry, type, url);
             }
         }

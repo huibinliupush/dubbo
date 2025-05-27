@@ -87,6 +87,7 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
      */
     ConcurrentNavigableMap<String, SortedSet<URL>> subscribedServiceURLs = new ConcurrentSkipListMap<>();
     // key : ServiceKey , value: serviceDefinition (json 序列化)
+    // 这里既包含 provider interface 的 serviceDefinition 也包含  consumer interface 的 serviceDefinition
     ConcurrentNavigableMap<String, String> serviceDefinitions = new ConcurrentSkipListMap<>();
 
     @Override

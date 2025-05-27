@@ -159,6 +159,11 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
     /**
      * The url of the reference service（发布的所有 url, 多协议）
+     *
+     *  urls 中保存所有待 refer 的 url , 一对一直连的就是 reference 配置的 url ,refer 之后只生成一个 dubboInvoker（直连）
+     *  剩下的 url 要么是 regsitry 协议（接口级服务发现）要么是 service-discovery-registry 协议（应用级服务发现）
+     *
+     *  后续挨个对这些 urls 调用 Protocol.refer
      */
     protected final List<URL> urls = new ArrayList<URL>();
 

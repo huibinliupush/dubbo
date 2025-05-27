@@ -197,9 +197,11 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     public void subscribe(URL url) {
         setConsumerUrl(url);
         // comsumer 级别配置的监听器（静态的，共用的），由 refreshInvoker 方法接收通知
+        // 监听应用级的配置 appName.configurators
         CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this);
         // reference 级别配置的监听器（实例级的，每个注册中心一个（RegsitryDirectory））
         // 由 refreshInvoker 方法接收通知
+        // 监听方法级的配置 {interfaceName}:[version]:[group].configurators
         serviceConfigurationListener = new ReferenceConfigurationListener(this, url);
         // 由 org.apache.dubbo.registry.integration.RegistryDirectory.notify 方法接收通知
         registry.subscribe(url, this);
@@ -307,6 +309,17 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      */
     // TODO: 2017/8/31 FIXME The thread pool should be used to refresh the address, otherwise the task may be accumulated.
     private void refreshInvoker(List<URL> invokerUrls) {
+         /**
+          *
+          * 针对方法注释中的第三条：If the list of incoming invokerUrl is empty, It means that the rule is only a override rule or a route
+          * rule, which needs to be re-contrasted to decide whether to re-reference.
+          *
+          * 当监听的配置中心的配置发生变化之后，配置中心会通知监听器：ConsumerConfigurationListener（监听consumer级配置），ReferenceConfigurationListener(监听 router 配置以及 reference 配置)
+          * 相关 Listener 的 notifyOverrides 方法会通知一个空的集合过来 listener.refreshInvoker(Collections.emptyList()
+          *
+          * refreshInvoker 方法配置刷新链路：cachedInvokerUrls -> toInvokers -> mergeUrl -> overrideWithConfigurator 覆盖所有 invoker 的配置
+          *
+          * */
         Assert.notNull(invokerUrls, "invokerUrls should not be null");
 
         if (invokerUrls.size() == 1
@@ -509,6 +522,12 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     /**
      * Merge url parameters. the order is: override > -D >Consumer > Provider
      *
+     * 当 consumer 相关的配置变更之后，配置中心会通知相关的 listener
+     * org.apache.dubbo.registry.integration.RegistryDirectory.ConsumerConfigurationListener#notifyOverrides()
+     * 在 notifyOverrides 方法中 listener.refreshInvoker(Collections.emptyList() 会给一个空的集合
+     * 然后在这里刷新现有所有 invoker （cachedInvokerUrls）的配置
+     *
+     * 同理 org.apache.dubbo.registry.integration.RegistryDirectory.ReferenceConfigurationListener#notifyOverrides()
      * @param providerUrl
      * @return
      */
@@ -792,6 +811,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         @Override
         protected void notifyOverrides() {
             // to notify configurator/router changes
+            // 传入一个空的集合在 RegistryDirectory 的 refreshInvoker 调用链刷新 invoker 配置如下：
+            // cachedInvokerUrls -> toInvokers -> mergeUrl -> overrideWithConfigurator
+            // 覆盖原有的 url 重新生成 invoker
             directory.refreshInvoker(Collections.emptyList());
         }
     }
@@ -813,6 +835,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
         @Override
         protected void notifyOverrides() {
+            // 传入一个空的集合在 RegistryDirectory 的 refreshInvoker 调用链刷新 invoker 配置如下：
+            // cachedInvokerUrls -> toInvokers -> mergeUrl -> overrideWithConfigurator
+            // 覆盖原有的 url 重新生成 invoker
             listeners.forEach(listener -> listener.refreshInvoker(Collections.emptyList()));
         }
     }
