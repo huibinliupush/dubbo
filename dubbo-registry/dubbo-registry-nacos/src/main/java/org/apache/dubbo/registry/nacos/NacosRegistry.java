@@ -179,6 +179,7 @@ public class NacosRegistry extends FailbackRegistry {
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
         // 通过订阅 URL 获取到 nacos 中所有匹配的 serviceNames（具体）
+        // 获取 url 订阅的所有接口名称 providers:interfaceName:version:group
         Set<String> serviceNames = getServiceNames(url, listener);
 
         //Set corresponding serviceNames for easy search later
@@ -206,6 +207,7 @@ public class NacosRegistry extends FailbackRegistry {
                  * in https://github.com/apache/dubbo/issues/5978
                  */
                 for (String serviceName : serviceNames) {
+                    // Instance 封装 url 相关信息 （zk 是直接存储 url）
                     List<Instance> instances = namingService.getAllInstances(serviceName,
                             getUrl().getParameter(GROUP_KEY, Constants.DEFAULT_GROUP));
                     NacosInstanceManageUtil.initOrRefreshServiceInstanceList(serviceName, instances);
@@ -265,7 +267,11 @@ public class NacosRegistry extends FailbackRegistry {
      */
     private Set<String> getServiceNames(URL url, NotifyListener listener) {
         if (isAdminProtocol(url)) {
+            // 每个 30 秒拉取所有订阅的接口名称：providers:interfaceName:version:group
             scheduleServiceNamesLookup(url, listener);
+            // 立即获取 url 订阅的接口名称
+            // namingService.getServicesOfServer 获取所有serviceName(接口级)
+            // 根据 url 过滤出订阅的 获取所有serviceName
             return getServiceNamesForOps(url);
         } else {
             return getServiceNames0(url);
@@ -281,6 +287,7 @@ public class NacosRegistry extends FailbackRegistry {
 
         if (serviceName.isConcrete()) { // is the concrete service name
             serviceNames = new LinkedHashSet<>();
+            // providers:interfaceName:version:group
             serviceNames.add(serviceName.toString());
             // Add the legacy service name since 2.7.6
             String legacySubscribedServiceName = getLegacySubscribedServiceName(url);
@@ -368,6 +375,7 @@ public class NacosRegistry extends FailbackRegistry {
      * @return non-null
      */
     private Set<String> getServiceNamesForOps(URL url) {
+        // namingService.getServicesOfServer
         Set<String> serviceNames = getAllServiceNames();
         filterServiceNames(serviceNames, url);
         return serviceNames;
@@ -529,8 +537,10 @@ public class NacosRegistry extends FailbackRegistry {
         List<Instance> healthyInstances = new LinkedList<>(instances);
         if (healthyInstances.size() > 0) {
             // Healthy Instances
+            // 过滤出 healthyInstances 中所有 Instance::isEnabled
             filterHealthyInstances(healthyInstances);
         }
+        // Instance 转换为 urls
         List<URL> urls = toUrlWithEmpty(url, healthyInstances);
         NacosRegistry.this.notify(url, listener, urls);
     }

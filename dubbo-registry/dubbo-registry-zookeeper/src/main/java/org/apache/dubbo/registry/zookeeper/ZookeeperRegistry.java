@@ -95,6 +95,9 @@ public class ZookeeperRegistry extends FailbackRegistry {
         //ZookeeperRegistry会将所有对注册中心的操作 代理给 这个具体的客户端zkClient
         zkClient = zookeeperTransporter.connect(url);
         //添加zookeeper客户端与服务端之间的链接状态监听器
+        // 连接状态变化的时候，由原生 listener 通知这里
+        // see : org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorConnectionStateListener.stateChanged
+        // see : org.apache.dubbo.remoting.zookeeper.support.AbstractZookeeperClient.stateChanged
         zkClient.addStateListener((state) -> {
             if (state == StateListener.RECONNECTED) {
                 logger.warn("Trying to fetch the latest urls, in case there're provider changes during connection loss.\n" +
@@ -108,12 +111,15 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 try {
                     //在连接失联，并且session过期之后，客户端又重新连上，这时session相关的watcher和临时Znode已经被删除
                     //所以需要调用recover重新恢复注册和订阅数据
+                    // 呼应 SESSION_LOST
                     ZookeeperRegistry.this.recover();
                 } catch (Exception e) {
                     logger.error(e.getMessage(), e);
                 }
             } else if (state == StateListener.SESSION_LOST) {
                 //session过期
+                // try to re-register once a new session is created
+                // see StateListener.NEW_SESSION_CREATED
                 logger.warn("Url of this instance will be deleted from registry soon. " +
                         "Dubbo client will try to re-register once a new session is created.");
             } else if (state == StateListener.SUSPENDED) {
@@ -169,7 +175,10 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 //这里会订阅/root路径（/root/service/category/url）
                 //parentPath为：/root
                 //currentChilds: parentPath路径下子节点全集 为 所以有的service
+
+                // 先全量订阅 /dubbo 下的一级子节点，也就是所有 /dubbo/interface
                 ChildListener zkListener = listeners.computeIfAbsent(listener, k -> (parentPath, currentChilds) -> {
+                    // 这里的 currentChilds 为所有 interfaceName
                     for (String child : currentChilds) {
                         child = URL.decode(child);
                         //如果服务的数量规模特别大，有几百万个服务，服务每次上线，下线都会全量通知。
@@ -179,6 +188,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
                             //如果是新注册的service，之前没有订阅过，则订阅
                             //全量订阅的时候，新注册的service自动订阅
                             anyServices.add(child);
+                            // 挨个订阅具体的 interface
                             subscribe(url.setPath(child).addParameters(INTERFACE_KEY, child,
                                     Constants.CHECK_KEY, String.valueOf(false)), k);
                         }
@@ -200,6 +210,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 //第一次订阅时会主动拉取 全量的订阅数据
                 List<URL> urls = new ArrayList<>();
                 //获取分类路径，dubbo会对分类路径/root/service/category/下 的子节点进行监听
+                // 订阅分类为 ： providers , routers , configurators
                 for (String path : toCategoriesPath(url)) {
                     // 创建订阅URL 与 监听器之间的映射
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.computeIfAbsent(url, k -> new ConcurrentHashMap<>());

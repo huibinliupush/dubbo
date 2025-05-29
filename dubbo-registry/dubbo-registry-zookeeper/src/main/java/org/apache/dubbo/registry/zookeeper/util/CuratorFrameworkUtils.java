@@ -56,6 +56,16 @@ public abstract class CuratorFrameworkUtils {
                 .build();
     }
 
+    /**
+     *
+     * 接口级服务发现，创建 CuratorFramework
+     * org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient#CuratorZookeeperClient(org.apache.dubbo.common.URL)
+     * 这里应该和接口级服务发现创建 CuratorFramework 逻辑相同，dubbo3 已经改了
+     *
+     * 接口级服务发现 client 配置了 CuratorConnectionStateListener
+     * 因为这里的的 ServiceDiscovery 客户端（内部已经处理）
+     * 而接口级需要原生实现服务发现，毕竟是接口级 ，ServiceDiscovery 只支持应用级，所以 dubbo 需要自己监听连接状态的处理
+     * */
     public static CuratorFramework buildCuratorFramework(URL connectionURL) throws Exception {
         CuratorFramework curatorFramework = CuratorFrameworkFactory.builder()
                 .connectString(connectionURL.getIp() + ":" + connectionURL.getPort())

@@ -98,14 +98,19 @@ public abstract class AbstractRegistry implements Registry {
     //异步更新本地文件缓存 线程池
     private final ExecutorService registryCacheExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
     // Is it synchronized to save the file
+    // 默认 false
     private boolean syncSaveFile;
     private final AtomicLong lastCacheChanged = new AtomicLong();
     //更新本地缓存文件重试次数
     private final AtomicInteger savePropertiesRetryTimes = new AtomicInteger();
-    //注册过的URL缓存集合
+    //注册过的URL缓存集合 ，用于 zk session 过期重新注册 providerurls
+    // see : org.apache.dubbo.registry.support.FailbackRegistry.recover
     private final Set<URL> registered = new ConcurrentHashSet<>();
     //缓存订阅的URL和其对应的监听器（该URL是条件URL，表示需要订阅符合条件的URL）
     //key：订阅的URL条件 value: 相应URL的监听器
+
+    // 用于 zk session 过期重新订阅相关 subscribedUrls
+    // see : org.apache.dubbo.registry.support.FailbackRegistry.recover
     private final ConcurrentMap<URL, Set<NotifyListener>> subscribed = new ConcurrentHashMap<>();
 
     //缓存注册中心通知过来的订阅URL对应的URL全量变动URLs。
@@ -512,9 +517,11 @@ public abstract class AbstractRegistry implements Registry {
                 }
             }
             //保存到内存中：key:{group}/{interfaceName}:{version} value: 所有通知过来的URL列表 用空格隔开
+            // 这里不会区分 url 分类，所有分类下的 url 统一用空格隔开
             properties.setProperty(url.getServiceKey(), buf.toString());
             //增加缓存版本号。CAS更新缓存
             long version = lastCacheChanged.incrementAndGet();
+            // 默认 false
             if (syncSaveFile) {
                 //同步更新本地缓存文件
                 doSaveProperties(version);

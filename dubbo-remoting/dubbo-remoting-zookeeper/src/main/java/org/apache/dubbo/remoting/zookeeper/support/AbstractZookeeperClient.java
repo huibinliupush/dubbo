@@ -125,7 +125,7 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
     }
 
     @Override
-    public List<String> addChildListener(String path, final ChildListener listener) {
+    public List<String>  addChildListener(String path, final ChildListener listener) {
         //添加对path一级子节点监听
         // dubbo内部监听模型childListener 到 zkClient具体的监听实现转换
         ConcurrentMap<ChildListener, TargetChildListener> listeners = childListeners.computeIfAbsent(path, k -> new ConcurrentHashMap<>());
@@ -177,6 +177,8 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
 
     protected void stateChanged(int state) {
         //在zk客户端具体实现中包裹 dubbo内部 连接状态监听器
+        // 创建 ZookeeperRegistry 的时候添加 sessionListener
+        // see : org.apache.dubbo.registry.zookeeper.ZookeeperRegistry.ZookeeperRegistry
         for (StateListener sessionListener : getSessionListeners()) {
             sessionListener.stateChanged(state);
         }

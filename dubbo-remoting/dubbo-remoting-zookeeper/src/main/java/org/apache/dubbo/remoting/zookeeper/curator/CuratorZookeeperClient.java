@@ -60,6 +60,11 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     //path节点数据监听器缓存
     private Map<String, TreeCache> treeCacheMap = new ConcurrentHashMap<>();
 
+    /**
+     * 应用级服务发现创建 CuratorFramework 略过粗糙，demo 级别
+     * org.apache.dubbo.registry.zookeeper.util.CuratorFrameworkUtils#buildCuratorFramework(org.apache.dubbo.common.URL)
+     * 应该以这里为准
+     * */
     public CuratorZookeeperClient(URL url) {
         super(url);
         try {
@@ -78,7 +83,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
             int sessionExpireMs = url.getParameter(ZK_SESSION_EXPIRE_KEY, DEFAULT_SESSION_TIMEOUT_MS);
             //创建curator框架的zk客户端
             CuratorFrameworkFactory.Builder builder = CuratorFrameworkFactory.builder()
-                    .connectString(url.getBackupAddress())//指定所有zk节点地址
+                    .connectString(url.getBackupAddress())//指定所有zk节点地址: urlAddress + backup
                     .retryPolicy(new RetryNTimes(1, 1000))
                     .connectionTimeoutMs(timeout)
                     .sessionTimeoutMs(sessionExpireMs);
@@ -89,6 +94,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
             }
             client = builder.build();
             //添加具体的客户端框架curator实现中的 连接状态监听器对 连接状态进行监听
+            // 应用级服务发现 client 没有配置 CuratorConnectionStateListener，因为使用的 ServiceDiscovery 客户端（内部已经处理）
             client.getConnectionStateListenable().addListener(new CuratorConnectionStateListener(url));
             client.start();
             //同步启动
@@ -229,6 +235,8 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
         try {
             // 注意这个CuratorWatcher 是一次性的，触发后就没了 需要重新注册
             // 因为dubbo在每次变更通知时 都是全量通知，需要重新全量拉取，在重新拉取的过程中在对CuratorWatcher进行注册
+            // see : org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorWatcherImpl.process
+
             // 监听哪个 path 在 CuratorWatcherImpl 中已经封装好了 @see org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.createTargetChildListener
             return client.getChildren().usingWatcher(listener).forPath(path);
         } catch (NoNodeException e) {
@@ -403,7 +411,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
                 // 通知dubbo内部 连接状态监听器，实例内部类(private class)可访问其所属的类 this 实例指针
                 CuratorZookeeperClient.this.stateChanged(StateListener.SESSION_LOST);
             } else if (state == ConnectionState.SUSPENDED) {
-                //连接丢失
+                //连接丢失 connection timeout
                 logger.warn("Curator zookeeper connection of session " + Long.toHexString(sessionId) + " timed out. " +
                         "connection timeout value is " + timeout + ", session expire timeout value is " + sessionExpireMs);
                 CuratorZookeeperClient.this.stateChanged(StateListener.SUSPENDED);
