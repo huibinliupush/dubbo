@@ -81,6 +81,8 @@ public abstract class AbstractConfig implements Serializable {
      * The config id
      */
     protected String id;
+    // 配置前缀,通过该前缀到 properties 文件中查找对应的 config bean 的配置属性
+    // 比如，ConfigCenterConfig 对应的 prefix 为 ：dubbo.config-center.
     protected String prefix;
 
     protected final AtomicBoolean refreshed = new AtomicBoolean(false);
@@ -98,12 +100,15 @@ public abstract class AbstractConfig implements Serializable {
 
     public static String getTagName(Class<?> cls) {
         String tag = cls.getSimpleName();
+        // "Config", "Bean", "ConfigBase"
         for (String suffix : SUFFIXES) {
             if (tag.endsWith(suffix)) {
+                // 去掉后缀 SUFFIXES
                 tag = tag.substring(0, tag.length() - suffix.length());
                 break;
             }
         }
+        // 驼峰命名格式转为 - 间隔的命名方式
         return StringUtils.camelToSplitName(tag, "-");
     }
 
@@ -122,6 +127,7 @@ public abstract class AbstractConfig implements Serializable {
                 String name = method.getName();
                 if (MethodUtils.isGetter(method)) {
                     Parameter parameter = method.getAnnotation(Parameter.class);
+                    // 只负责提取基本类型的配置
                     if (method.getReturnType() == Object.class || parameter != null && parameter.excluded()) {
                         continue;
                     }
@@ -405,12 +411,15 @@ public abstract class AbstractConfig implements Serializable {
         for (Method method : methods) {
             try {
                 String name = method.getName();
+                // 以 get 开头的 public 方法（不包含 get , getClass，is 方法）
+                // 返回类型不是基本类型，参数为 0
                 if (MethodUtils.isMetaMethod(method)) {
                     String key;
                     Parameter parameter = method.getAnnotation(Parameter.class);
                     if (parameter != null && parameter.key().length() > 0 && parameter.useKeyAsProperty()) {
                         key = parameter.key();
                     } else {
+                        // 从方法名中提取配置属性
                         key = calculateAttributeFromGetter(name);
                     }
                     // treat url and configuration differently, the value should always present in configuration though it may not need to present in url.
@@ -435,7 +444,9 @@ public abstract class AbstractConfig implements Serializable {
                         metaData.put(key, null);
                     }
                 } else if (isParametersGetter(method)) {
+                    // config bean 中的 getParameters 方法，直接将 Parameters 添加到 metaData
                     Map<String, String> map = (Map<String, String>) method.invoke(this, new Object[0]);
+                    // 将 map 中的 key 加上指定 prefix 添加到 metadata 中
                     metaData.putAll(convert(map, ""));
                 }
             } catch (Exception e) {
@@ -447,6 +458,8 @@ public abstract class AbstractConfig implements Serializable {
 
     @Parameter(excluded = true)
     public String getPrefix() {
+        // 配置前缀,通过该前缀到 properties 文件中查找对应的 config bean 的配置属性
+        // 比如，ConfigCenterConfig 对应的 prefix 为 ：dubbo.config-center.
         return StringUtils.isNotEmpty(prefix) ? prefix : (CommonConstants.DUBBO + "." + getTagName(this.getClass()));
     }
 
@@ -455,21 +468,30 @@ public abstract class AbstractConfig implements Serializable {
     }
 
     public void refresh() {
-        //管理属性配置
+        // Environment 里面封装了多种配置源，如系统变量，环境变量，配置中心的中的 dubbo 配置
         Environment env = ApplicationModel.getEnvironment();
         try {
-            //加载系统变量，环境变量，dubbo config bean->ServiceBean ReferenceBean(由XML,注解，API提供配置数据)
-            //CompositeConfiguration是一个配置的聚合类按照配置优先级聚合了下列配置：
-            // 系统变量  环境变量  外部化配置 >XML，注解，API设置的配置  本地配置文件 dubbo.properties
+            /**
+             *
+             * 将配置源按照 系统变量，环境变量，配置中心，（xml,注解），dubbo.properties
+             * 的优先级组合成 CompositeConfiguration
+             *
+             * */
             CompositeConfiguration compositeConfiguration = env.getPrefixedConfiguration(this);
             // loop methods, get override value and set the new value back to method
             //获取ConfigBean的所有方法，用来根据属性配置的优先级 设置属性
             Method[] methods = getClass().getMethods();
+            /**
+             * 重新按照配置源的优先级，填充 config bean 得到最终配置
+             *
+             */
             for (Method method : methods) {
                 //set方法的参数必须是基础类型（dubbo 配置）
                 if (MethodUtils.isSetter(method)) {
                     try {
                         //根据属性配置的优先级来获得属性配置
+                        // extractPropertyName 提取出来的只是根据 method name 提取的属性名，prefix 和 id 会在 CompositeConfiguration.getProperty 方法中加上
+                        // see : org.apache.dubbo.common.config.CompositeConfiguration.getProperty
                         String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                         // isTypeMatch() is called to avoid duplicate and incorrect update, for example, we have two 'setGeneric' methods in ReferenceConfig.
                         if (StringUtils.isNotEmpty(value) && ClassUtils.isTypeMatch(method.getParameterTypes()[0], value)) {
@@ -482,10 +504,16 @@ public abstract class AbstractConfig implements Serializable {
                                 ", please make sure every property has getter/setter method provided.");
                     }
                 } else if (isParametersSetter(method)) {//处理paramers属性设置
+                    // compositeConfiguration.getString 会自动为 key 加载前缀
+                    // properties 文件中类似这样的配置：dubbo.registries.shanghai.parameters=[{registry-type:service}]
+                    // value : [{registry-type:service}]
                     String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                     if (StringUtils.isNotEmpty(value)) {
+                        // 调用 config bean 的 getParameters 方法
                         Map<String, String> map = invokeGetParameters(getClass(), this);
                         map = map == null ? new HashMap<>() : map;
+                        // parseParameters 方法将字符串 [{a:b},{c:d}] 解析为 Map<String, String>
+                        // 用配置源中的 Parameters 配置覆盖之前的 Parameters
                         map.putAll(convert(StringUtils.parseParameters(value), ""));
                         invokeSetParameters(getClass(), this, map);
                     }

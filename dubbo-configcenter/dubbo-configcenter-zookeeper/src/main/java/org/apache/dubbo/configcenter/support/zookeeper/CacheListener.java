@@ -42,6 +42,7 @@ public class CacheListener implements DataListener {
 
     //key: 配置中心path   value: 监听该path下配置的监听器集合
     private Map<String, Set<ConfigurationListener>> keyListeners = new ConcurrentHashMap<>();
+    // 用于等待 TreeCache 初始化成功
     private CountDownLatch initializedLatch;
     private String rootPath;
 
@@ -67,7 +68,7 @@ public class CacheListener implements DataListener {
     /**
      * This is used to convert a configuration nodePath into a key
      * TODO doc
-     *
+     * 提取配置文件名称
      * @param path
      * @return key (nodePath less the config root path)
      */
@@ -75,10 +76,13 @@ public class CacheListener implements DataListener {
         if (StringUtils.isEmpty(path)) {
             return path;
         }
+        // /dubbo/config/dubbo/dubbo.properties
+        // dubbo.dubbo.properties
         String groupKey = path.replace(rootPath + PATH_SEPARATOR, "").replaceAll(PATH_SEPARATOR, DOT_SEPARATOR);
+        // dubbo.properties
         return groupKey.substring(groupKey.indexOf(DOT_SEPARATOR) + 1);
     }
-
+    // 提取 group
     private String getGroup(String path) {
         if (!StringUtils.isEmpty(path)) {
             int beginIndex = path.indexOf(rootPath + PATH_SEPARATOR);
@@ -92,7 +96,11 @@ public class CacheListener implements DataListener {
         return path;
     }
 
-
+    /**
+     *
+     * 由 CuratorWatcherImpl#childEvent 进行通知
+     * org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorWatcherImpl#childEvent(org.apache.curator.framework.CuratorFramework, org.apache.curator.framework.recipes.cache.TreeCacheEvent)
+     * */
     @Override
     public void dataChanged(String path, Object value, EventType eventType) {
         if (eventType == null) {
@@ -100,6 +108,7 @@ public class CacheListener implements DataListener {
         }
 
         if (eventType == EventType.INITIALIZED) {
+            // TreeCache 初始化成功
             initializedLatch.countDown();
             return;
         }
@@ -110,7 +119,11 @@ public class CacheListener implements DataListener {
 
         // TODO We only care the changes happened on a specific path level, for example
         //  /dubbo/config/dubbo/configurators, other config changes not in this level will be ignored,
+
+        // 只关心最底层节点的数据变化（只关心配置内容变化）
+        // 比如：/dubbo/config/dubbo/dubbo.properties ， split 之后 length = 5
         if (path.split("/").length >= MIN_PATH_DEPTH) {
+            // 从路径中提取配置文件名称，如 ： dubbo.properties
             String key = pathToKey(path);
             ConfigChangeType changeType;
             switch (eventType) {

@@ -31,10 +31,13 @@ public class CompositeConfiguration implements Configuration {
     private Logger logger = LoggerFactory.getLogger(CompositeConfiguration.class);
 
     private String id;
+    // 配置前缀,通过该前缀到 properties 文件中查找对应的 config bean 的配置属性
+    // 比如，ConfigCenterConfig 对应的 prefix 为 ：dubbo.config-center.
     private String prefix;
 
     /**
      * List holding all the configuration
+     * 按照优先级存放各个配置源 configuration
      */
     private List<Configuration> configList = new LinkedList<Configuration>();
 
@@ -44,10 +47,12 @@ public class CompositeConfiguration implements Configuration {
 
     public CompositeConfiguration(String prefix, String id) {
         if (StringUtils.isNotEmpty(prefix) && !prefix.endsWith(".")) {
+            // 配置前缀,通过该前缀到 properties 文件中查找对应的 config bean 的配置属性
             this.prefix = prefix + ".";
         } else {
             this.prefix = prefix;
         }
+        // 对应 config bean 的 id
         this.id = id;
     }
 
@@ -75,6 +80,7 @@ public class CompositeConfiguration implements Configuration {
 
     @Override
     public Object getInternalProperty(String key) {
+        // 按照配置源的优先级获取配置 key
         Configuration firstMatchingConfiguration = null;
         for (Configuration config : configList) {
             try {

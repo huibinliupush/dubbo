@@ -26,7 +26,13 @@ public class ConfiguratorConfig {
     public static final String SCOPE_APPLICATION = "application";
 
     private String configVersion;
+    // service 级配置还是 application 级配置
+    // 不同的 scope 会在配置中心中生成不同的配置文件
+    // provider config 配置路径 : /dubbo/config/dubbo/demo-provider.configurators
+    // service  config 配置路径 : /dubbo/config/dubbo/org.apache.dubbo.demo.DemoService::.configurators
     private String scope;
+    // 应用级配置，key 为 application name
+    // 服务级配置，key 为 serviceKey : group/interface:version
     private String key;
     private Boolean enabled = true;
     private List<ConfigItem> configs;

@@ -127,11 +127,12 @@ public class RegistryProtocol implements Protocol {
 
     private final static Logger logger = LoggerFactory.getLogger(RegistryProtocol.class);
     //overrideSubscribeUrl -> OverrideListener的映射
+    // 订阅动态配置 url 与 动态配置监听器的映射
     private final Map<URL, NotifyListener> overrideListeners = new ConcurrentHashMap<>();
     //serviceKey：{group}/{interfaceName}:{version}  ->   serviceConfigurationListener 映射
-    // 监听 service 配置变更
+    // 监听 service 级配置变更
     private final Map<String, ServiceConfigurationListener> serviceConfigurationListeners = new ConcurrentHashMap<>();
-    // 监听 provider 配置变更
+    // 监听 provider 级配置变更
     private final ProviderConfigurationListener providerConfigurationListener = new ProviderConfigurationListener();
     //To solve the problem of RMI repeated exposure port conflicts, the services that have been exposed are no longer exposed.
     //providerurl <--> exporter
@@ -212,11 +213,13 @@ public class RegistryProtocol implements Protocol {
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
         //获取服务提供者provider在注册中心的覆盖配置URL。该URL中存放的是要对provider配置进行覆盖的一些配置数据。
-        // 新的 Url
+        // 新的 Url —— 订阅 provider 端动态配置的 url
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
-        //创建覆盖配置URL的监听器，当注册中心中的provider对应的覆盖配置URL的配置数据发生变化的时候，监听器会受到通知，覆盖invoker中的当前providerUrl
+        //创建覆盖配置URL的监听器，当配置中心中的provider对应的覆盖配置URL的配置数据发生变化的时候，监听器会受到通知，覆盖invoker中的当前providerUrl
+        // 监听 provider 端动态配置变更
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         //将provider对应的覆盖配置URL与相应的配置监听器映射起来
+        // 缓存订阅动态配置 url 与动态配置监听器
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
         //在服务暴露之前，加载配置中心中关于provider应用级的配置 和 service级的配置 对providerUrl进行一次覆盖（配置中心配置源优先级）
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
@@ -308,6 +311,7 @@ public class RegistryProtocol implements Protocol {
     /**
      * Reexport the invoker of the modified url
      * 当invoker中的providerUrl发生变化的时候，需要重新发布dubbo服务 并且重新注册
+     * 注意这里要区分接口级 reExport 和应用级 reExport
      * @param originInvoker
      * @param newInvokerUrl
      * @param <T>
@@ -328,6 +332,8 @@ public class RegistryProtocol implements Protocol {
         // update registry
         if (!newProviderUrl.equals(registeredUrl)) {
             try {
+                // 如果 url 发生了改变，则重新注册新的 newProviderUrl
+                // 注意这里要区分接口级 reExport 和应用级 reExport
                 doReExport(originInvoker, exporter, registryUrl, registeredUrl, newProviderUrl);
             } catch (Exception e) {
                 ReExportTask oldTask = reExportFailedTasks.get(registeredUrl);
@@ -347,7 +353,8 @@ public class RegistryProtocol implements Protocol {
             }
         }
     }
-
+    // 重新注册
+    // 注意这里要区分接口级 reExport 和应用级 reExport
     private <T> void doReExport(final Invoker<T> originInvoker, ExporterChangeableWrapper<T> exporter,
                                 URL registryUrl, URL oldProviderUrl, URL newProviderUrl) {
         if (getProviderUrl(originInvoker).getParameter(REGISTER_KEY, true)) {
@@ -357,12 +364,37 @@ public class RegistryProtocol implements Protocol {
             } catch (Exception e) {
                 throw new SkipFailbackWrapperException(e);
             }
-
+            // 接口级 reExport 逻辑很简单，将旧的 oldProviderUrl 取消注册，新的 newProviderUrl 注册一下就行
+            // 这样 consumer 端就可以收到变更的 newProviderUrl 重新生成 invoker
             logger.info("Try to unregister old url: " + oldProviderUrl);
             registry.reExportUnregister(oldProviderUrl);
 
             logger.info("Try to register new url: " + newProviderUrl);
             registry.reExportRegister(newProviderUrl);
+            // 而应用级 reExport 的逻辑就显得没有那么明显，很隐式，
+            // see : org.apache.dubbo.registry.client.ServiceDiscoveryRegistry.doRegister
+            // 将旧的 oldProviderUrl 从本地元数据中心 writableMetadataService 的缓存 exportedServiceURLs 中删除
+            // 将心的 newProviderUrl 添加到 writableMetadataService 的缓存 exportedServiceURLs 中
+
+            // 那么 consumer 端如何感知 prividerUrl 的变化 ？
+            // 之所以会触发 doReExport ，是因为 provider 端监听的动态配置文件已经发生变化 —— ServiceConfigurationListener
+            // 但别忘了，consumer 端在订阅的时候 org.apache.dubbo.registry.integration.RegistryDirectory.subscribe
+            // 也有一个监听器 ReferenceConfigurationListener，他和 provider 端 ServiceConfigurationListener 监听的同一配置文件
+            // /dubbo/config/dubbpo/{interfaceName}:[version]:[group].configurators
+
+            // 当这个配置文件发生变化的时候，不仅仅是 ServiceConfigurationListener 得到通知，然后出发这里的 doReExport 在 provider 端更新 url
+            // 而 consumer 端的 ReferenceConfigurationListener 也会得到通知，ReferenceConfigurationListener.notifyOverrides
+            // directory.refreshInvoker 会对现有的 invokers 中的 providerUrl ， 根据配置重新覆盖一遍符合配置条件的 providerUrl
+            // see : org.apache.dubbo.registry.integration.RegistryDirectory.mergeUrl
+
+            // 这里还有接口级和应用级服务更新的重要区别：
+            // 对于接口级来说，provider 端可以通过 ServiceConfigurationListener ， ProviderConfigurationListener 刷新配置，consumer 都可以感受得到
+            // 但是对于应用级来说，provider 端只能通过 ServiceConfigurationListener 来刷新配置，ProviderConfiguration 对于 consumer 来说感受不到
+            // 因为 consumer 监听的只是 ConsumerConfiguration 和 ServiceConfiguration，并没有监听 ProviderConfiguration
+
+            // 这也就解释了为什么在 .configurators 动态配置文件中，provider 端的配置和 consumer 端的配置需要再同一配置文件中
+            // 然后用 side 区分，这样的好处就是当 provider 端的配置发生变化，consumer 端可以重新根据 provider 变化的配置覆盖 invoker 中的 providerUrl
+            // 就是为了适配应用级服务发现
         }
         try {
             ProviderModel.RegisterStatedURL statedUrl = getStatedUrl(registryUrl, newProviderUrl);
@@ -633,6 +665,7 @@ public class RegistryProtocol implements Protocol {
     private static URL getConfigedInvokerUrl(List<Configurator> configurators, URL url) {
         if (configurators != null && configurators.size() > 0) {
             for (Configurator configurator : configurators) {
+                // 用 configuratorUrl 中的参数覆盖 url
                 url = configurator.configure(url);
             }
         }
@@ -687,12 +720,12 @@ public class RegistryProtocol implements Protocol {
      * 3.The invoker passed by the export method , would better to be the invoker of exporter
      */
     private class OverrideListener implements NotifyListener {
-        //覆盖配置URL
+        //订阅动态配置的 URL
         private final URL subscribeUrl;
         //要进行覆盖的providerUrl
         private final Invoker originInvoker;
 
-
+        // 没啥用
         private List<Configurator> configurators;
 
         public OverrideListener(URL subscribeUrl, Invoker originalInvoker) {
@@ -723,6 +756,12 @@ public class RegistryProtocol implements Protocol {
             doOverrideIfNecessary();
         }
 
+        /**
+        *   用 providerConfigurationListener 的 Configurators 覆盖 newUrl
+         *  用 serviceConfigurationListeners 的 Configurators 覆盖 newUrl
+         *
+         *  provider 端的配置由这个函数覆盖
+        * */
         public synchronized void doOverrideIfNecessary() {
             final Invoker<?> invoker;
             if (originInvoker instanceof InvokerDelegate) {
@@ -732,6 +771,7 @@ public class RegistryProtocol implements Protocol {
             }
             //The origin invoker
             URL originUrl = RegistryProtocol.this.getProviderUrl(invoker);
+            // providerUrl
             String key = getCacheKey(originInvoker);
             ExporterChangeableWrapper<?> exporter = bounds.get(key);
             if (exporter == null) {
@@ -742,10 +782,13 @@ public class RegistryProtocol implements Protocol {
             URL currentUrl = exporter.getInvoker().getUrl();
             //Merged with this configuration
             URL newUrl = getConfigedInvokerUrl(configurators, currentUrl);
+            // 用 providerConfigurationListener 的 Configurators 覆盖 newUrl
             newUrl = getConfigedInvokerUrl(providerConfigurationListener.getConfigurators(), newUrl);
+            // 用 serviceConfigurationListeners 的 Configurators 覆盖 newUrl
             newUrl = getConfigedInvokerUrl(serviceConfigurationListeners.get(originUrl.getServiceKey())
                     .getConfigurators(), newUrl);
             if (!currentUrl.equals(newUrl)) {
+                // 注意这里要区分接口级 reExport 和应用级 reExport
                 RegistryProtocol.this.reExport(originInvoker, newUrl);
                 logger.info("exported provider url changed, origin url: " + originUrl +
                         ", old export url: " + currentUrl + ", new export url: " + newUrl);
@@ -792,6 +835,7 @@ public class RegistryProtocol implements Protocol {
         /**
          * 监听的service配置发生变更时，配置中心会通知过来 回调该方法
          *
+         * 由父类 AbstractConfiguratorListener#process 方法回调
          * */
         @Override
         protected void notifyOverrides() {
@@ -800,7 +844,9 @@ public class RegistryProtocol implements Protocol {
     }
 
     private class ProviderConfigurationListener extends AbstractConfiguratorListener {
-
+        // 应用级配置文件变动会刷新所有 service 配置（配置文件中可以指定对哪些 service 生效）
+        // see : notifyOverrides 方法
+        // org.apache.dubbo.rpc.cluster.configurator.parser.model.ConfigItem
         public ProviderConfigurationListener() {
             // key : demo-provider.configurators
             // <dubbo:application name = "demo-provider"/>
@@ -822,7 +868,8 @@ public class RegistryProtocol implements Protocol {
 
         /**
          * 监听的provider配置发生变更时，配置中心会通知过来 回调该方法
-         *
+         * 由父类 AbstractConfiguratorListener#process 方法回调
+         * org.apache.dubbo.registry.integration.AbstractConfiguratorListener#process(org.apache.dubbo.common.config.configcenter.ConfigChangedEvent)
          * */
         @Override
         protected void notifyOverrides() {

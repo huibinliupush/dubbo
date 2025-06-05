@@ -20,7 +20,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * 根据 ConfigItem 来生成 override://
+ * 对于应用级级配置来说：一个 addr,一个 service 对应一个 override://
  *
+ * 一个 ConfigItem 生成 override:// 的个数为 addresses.length * services.length
+ *
+ * 对于服务级配置来说：一个 addr,一个 application 对应一个 override://
+ *
+ * 一个 ConfigItem 生成 override:// 的个数为 addresses.length * applications.length
  */
 public class ConfigItem {
     public static final String GENERAL_TYPE = "general";
@@ -28,13 +35,22 @@ public class ConfigItem {
     public static final String BALANCING_TYPE = "balancing";
     public static final String DISABLED_TYPE = "disabled";
     // see : org.apache.dubbo.rpc.cluster.configurator.parser.ConfigParser.parseEnabled
+    // 如果 Item 中的 type 没有配置或者 type 为 general
+    // 那么 配置的 enabled 属性就按照 ConfiguratorConfig 中的来
+    // 否则按照这里的 ConfigItem enabled 属性来
     private String type;
     private Boolean enabled;
+    // 一个地址,一个 service 对应一个 override://
+    // 对哪些地址生效
     private List<String> addresses;
     private List<String> providerAddresses;
+    // 对哪些服务（ service 或者 reference ）生效（针对应用级配置）
     private List<String> services;
+    // 对哪些应用生效（针对服务级配置）
     private List<String> applications;
+    // 配置参数
     private Map<String, String> parameters;
+    // provider 端还是 consumer 端
     private String side;
 
     public String getType() {

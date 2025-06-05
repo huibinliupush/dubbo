@@ -51,9 +51,11 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
         //service  config 配置路径 : /dubbo/config/dubbo/org.apache.dubbo.demo.DemoService::.configurators
         ruleRepository.addListener(key, this);
         //从配置中心获取 对应的规则 "override://" URL
+        // 从配置中心主动获取配置文件数据，数据在配置中心的体现形式是字节数组，通过 String 编码转换（Yaml格式）
         String rawConfig = ruleRepository.getRule(key, DynamicConfiguration.DEFAULT_GROUP);
         if (!StringUtils.isEmpty(rawConfig)) {
             //将覆盖规则"override://" URL 转换为对应的configurator
+            // 将配置中心的 Yaml 格式转换为 "override://" URL，在近一步转换为 configurator
             genConfiguratorsFromRawRule(rawConfig);
         }
     }
@@ -75,6 +77,7 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
         if (event.getChangeType().equals(ConfigChangeType.DELETED)) {
             configurators.clear();
         } else {
+            // 重新生成 configurators
             if (!genConfiguratorsFromRawRule(event.getContent())) {
                 return;
             }
@@ -87,7 +90,9 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
         boolean parseSuccess = true;
         try {
             // parseConfigurators will recognize app/service config automatically.
-            //将覆盖规则"override://" URL 转换为对应的configurator
+            // rawConfig 为配置中心存放的配置文件数据（格式为 Yaml）
+            // parseConfigurators 负责通过 rawConfig 加载成 Yaml 文件，然后转换成 "override://" URL
+            // 将覆盖规则"override://" URL 转换为对应的configurator
             configurators = Configurator.toConfigurators(ConfigParser.parseConfigurators(rawConfig))
                     .orElse(configurators);
         } catch (Exception e) {

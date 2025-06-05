@@ -25,13 +25,17 @@ import java.util.Map;
 
 /**
  * This class receives an {@link AbstractConfig} and exposes its attributes through {@link Configuration}
+ *
+ * 用于将 config bean 转换成 Configuration（底层通过 map 存储相关配置）
  */
 public class ConfigConfigurationAdapter implements Configuration {
 
     private Map<String, String> metaData;
 
     public ConfigConfigurationAdapter(AbstractConfig config) {
+        // 通过 config 中的 method,提取相关的配置 —— configMetadata
         Map<String, String> configMetadata = config.getMetaData();
+        // 将 config 中的配置属性，加上 prefix + id + key 添加到 metaData 中
         metaData = new HashMap<>(configMetadata.size());
         for (Map.Entry<String, String> entry : configMetadata.entrySet()) {
             String prefix = config.getPrefix().endsWith(".") ? config.getPrefix() : config.getPrefix() + ".";

@@ -61,17 +61,25 @@ public class ZookeeperDynamicConfiguration implements DynamicConfiguration {
 
     ZookeeperDynamicConfiguration(URL url, ZookeeperTransporter zookeeperTransporter) {
         this.url = url;
+        // dubbo/config
         rootPath = PATH_SEPARATOR + url.getParameter(CONFIG_NAMESPACE_KEY, DEFAULT_GROUP) + "/config";
-
+        // 用于等待 TreeCache 初始化成功
         initializedLatch = new CountDownLatch(1);
+        // 创建 DataListener，监听 /dubbo/config 目录下的所有变更
         this.cacheListener = new CacheListener(rootPath, initializedLatch);
         this.executor = Executors.newFixedThreadPool(1, new NamedThreadFactory(this.getClass().getSimpleName(), true));
-
+        // 与注册中心逻辑一样
         zkClient = zookeeperTransporter.connect(url);
+        // 创建 TreeCache 监听 rootPath 下的节点内容变更
+        // 添加 TreeCacheListener (CuratorWatcherImpl), CuratorWatcherImpl 封装  cacheListener
+        // executor 用于执行 TreeCacheListener
+        // TreeCacheListener -> cacheListener
         zkClient.addDataListener(rootPath, cacheListener, executor);
         try {
             // Wait for connection
             long timeout = url.getParameter("init.timeout", 5000);
+            // 等待 TreeCache 初始化成功
+            // org.apache.dubbo.configcenter.support.zookeeper.CacheListener.dataChanged
             boolean isCountDown = this.initializedLatch.await(timeout, TimeUnit.MILLISECONDS);
             if (!isCountDown) {
                 throw new IllegalStateException("Failed to receive INITIALIZED event from zookeeper, pls. check if url "
@@ -106,6 +114,7 @@ public class ZookeeperDynamicConfiguration implements DynamicConfiguration {
 
     @Override
     public String getConfig(String key, String group, long timeout) throws IllegalStateException {
+        // /dubbo/config/group/key
         return (String) getInternalProperty(getPathKey(group, key));
     }
 
@@ -136,6 +145,7 @@ public class ZookeeperDynamicConfiguration implements DynamicConfiguration {
         if (StringUtils.isEmpty(key)) {
             return buildPath(group);
         }
+        // /dubbo/config/group/key
         return buildPath(group) + PATH_SEPARATOR + key;
     }
 

@@ -43,6 +43,12 @@ public class ConfigUtils {
     private static final Logger logger = LoggerFactory.getLogger(ConfigUtils.class);
     private static Pattern VARIABLE_PATTERN = Pattern.compile(
             "\\$\\s*\\{?\\s*([\\._0-9a-zA-Z]+)\\s*\\}?");
+
+    // dubbo.properties 文件
+    // 优先从 -Ddubbo.properties.file 指定的文件路径中加载 dubbo.properties
+    // 其次从环境变种中指定的文件路径中加载 dubbo.properties
+    // 最后在从 classpath 下加载 dubbo.properties
+    // 如果当前工程目录下没有 dubbo.properties，则从工程依赖的各个 jar 包中加载 dubbo.properties 文件
     private static volatile Properties PROPERTIES;
     private static int PID = -1;
 
@@ -148,16 +154,24 @@ public class ConfigUtils {
         if (PROPERTIES == null) {
             synchronized (ConfigUtils.class) {
                 if (PROPERTIES == null) {
-                    // 先从系统变量 dubbo.properties.file 中获取
+                    // 先从系统变量 dubbo.properties.file 中获取指定的 dubbo.properties 文件路径
                     String path = System.getProperty(CommonConstants.DUBBO_PROPERTIES_KEY);
                     if (path == null || path.length() == 0) {
-                        // 在从环境变量中获取
+                        // 在从环境变量中获取 dubbo.properties.file 中获取指定的 dubbo.properties 文件路径
                         path = System.getenv(CommonConstants.DUBBO_PROPERTIES_KEY);
                         if (path == null || path.length() == 0) {
+                            // 默认为 classpath 下的 dubbo.properties 文件
+                            // 以下两种方式均可指定 classpath 下的指定文件
+                            // classpath:/spring/dubbo-provider.properties
+                            // spring/dubbo-provider.xml
+                            // dubbo.properties
                             path = CommonConstants.DEFAULT_DUBBO_PROPERTIES;
                         }
                     }
-                    // 从 classpath 中获取
+                    // 优先从 -Ddubbo.properties.file 指定的文件路径中加载 dubbo.properties
+                    // 其次从环境变种中指定的文件路径中加载 dubbo.properties
+                    // 最后在从 classpath 下加载 dubbo.properties
+                    // 如果当前工程目录下没有 dubbo.properties，则从工程依赖的各个 jar 包中加载 dubbo.properties 文件
                     PROPERTIES = ConfigUtils.loadProperties(path, false, true);
                 }
             }
@@ -186,6 +200,7 @@ public class ConfigUtils {
             return value;
         }
         Properties properties = getProperties();
+        // 支持 value 中带有占位符
         return replaceProperty(properties.getProperty(key, defaultValue), (Map) properties);
     }
 
@@ -228,6 +243,7 @@ public class ConfigUtils {
         // add scene judgement in windows environment Fix 2557
         if (checkFileNameExist(fileName)) {
             try {
+                // 如果当前工程 classpath 下存在 dubbo.properties 文件，那么直接加载
                 FileInputStream input = new FileInputStream(fileName);
                 try {
                     properties.load(input);
@@ -239,9 +255,12 @@ public class ConfigUtils {
             }
             return properties;
         }
-
+        // 如果当前类路径下不存在 dubbo.properties 文件，则到本工程依赖的各个 jar 包中去查找 dubbo.properties
+        // 同样的加载方式也出现在 ExtensionLoader 加载 SPI 的时候，也是需要在多个 jar 包中查找 SPI 实现
+        // org.apache.dubbo.common.extension.ExtensionLoader.loadDirectory(java.util.Map<java.lang.String,java.lang.Class<?>>, java.lang.String, java.lang.String, boolean, boolean, java.lang.String...)
         List<java.net.URL> list = new ArrayList<java.net.URL>();
         try {
+            // urls 中保存的是各个 jar 包下的 dubbo.properties 文件
             Enumeration<java.net.URL> urls = ClassUtils.getClassLoader().getResources(fileName);
             list = new ArrayList<java.net.URL>();
             while (urls.hasMoreElements()) {
@@ -257,7 +276,7 @@ public class ConfigUtils {
             }
             return properties;
         }
-
+        // allowMultiFile = false 表示不允许出现多个 dubbo.properties ，只加载其中一个
         if (!allowMultiFile) {
             if (list.size() > 1) {
                 String errMsg = String.format("only 1 %s file is expected, but %d dubbo.properties files found on class path: %s",
@@ -266,6 +285,7 @@ public class ConfigUtils {
             }
 
             // fall back to use method getResourceAsStream
+            // 利用 getResource 只加载其中一个
             try {
                 properties.load(ClassUtils.getClassLoader().getResourceAsStream(fileName));
             } catch (Throwable e) {
@@ -283,6 +303,7 @@ public class ConfigUtils {
                 if (input != null) {
                     try {
                         p.load(input);
+                        // 多个 dubbo.properties 一个一个的覆盖，最终形成一个 Properties
                         properties.putAll(p);
                     } finally {
                         try {

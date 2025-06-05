@@ -61,12 +61,18 @@ import static org.apache.dubbo.config.AbstractConfig.getTagName;
 import static org.apache.dubbo.config.Constants.PROTOCOLS_SUFFIX;
 import static org.apache.dubbo.config.Constants.REGISTRIES_SUFFIX;
 
+// 每个 configBean 被 spring 初始化之后，都会调用 AbstractConfig.addIntoConfigManager
+// 将自身加入到 configManager 中
 public class ConfigManager extends LifecycleAdapter implements FrameworkExt {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigManager.class);
 
     public static final String NAME = "config";
+    // 缓存 dubbo 中的所有 config bean
+    // key : getTagName , value:{beanId , configBean}
 
+    // 每个 configBean 被 spring 初始化之后，都会调用 AbstractConfig.addIntoConfigManager
+    // 将自身加入到 configManager 中
     private final Map<String, Map<String, AbstractConfig>> configsCache = newMap();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -283,11 +289,13 @@ public class ConfigManager extends LifecycleAdapter implements FrameworkExt {
 
     public Set<String> getRegistryIds() {
         Set<String> registryIds = new HashSet<>();
+        // 获取配置中心中远程存放的 dubbo.properties 配置中配置的 registryIds —— dubbo.registries.
         registryIds.addAll(getSubProperties(ApplicationModel.getEnvironment().getExternalConfigurationMap(),
                 REGISTRIES_SUFFIX));
+        // 获取配置中心中远程存放的应用级 dubbo.properties 配置中配置的 registryIds —— dubbo.registries.
         registryIds.addAll(getSubProperties(ApplicationModel.getEnvironment().getAppExternalConfigurationMap(),
                 REGISTRIES_SUFFIX));
-
+        // AppExternalConfigurationMap 优先于 ExternalConfigurationMap
         return unmodifiableSet(registryIds);
     }
 

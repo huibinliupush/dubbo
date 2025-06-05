@@ -301,6 +301,7 @@ public class ConfigValidationUtils {
             }
         } else {
             //Check whether the mock class is a implementation of the interfaceClass, and if it has a default constructor
+            // mock 直接指定 mockClass
             MockInvoker.getMockObject(normalizedMock, interfaceClass);
         }
     }

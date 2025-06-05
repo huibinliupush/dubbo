@@ -69,12 +69,17 @@ public class ConfigCenterConfig extends AbstractConfig {
 
     /* Used to specify the key that your properties file mapping to, most of the time you do not need to change this parameter.
     Notice that for Apollo, this parameter is meaningless, set the 'namespace' is enough.
+
+    该配置文件全局共享， 配置中心存放路径： namespace/config/group/dubbo.properties
+    dubbo/config/dubbo/dubbo.properties (全局 dubbo 配置)
     */
-    private String configFile = CommonConstants.DEFAULT_DUBBO_PROPERTIES;
+    private String configFile = CommonConstants.DEFAULT_DUBBO_PROPERTIES; // 指定全局 dubbo 配置文件名
 
     /* the .properties file under 'configFile' is global shared while .properties under this one is limited only to this application
+    该配置文件只对具体应用生效，顾名思义，应用级配置 ，配置中心存放路径： namespace/config/group/dubbo.properties
+    dubbo/config/applicationName/dubbo.properties (应用级 dubbo 配置)
     */
-    private String appConfigFile;
+    private String appConfigFile; // 配置文件名默认为 dubbo.properties
 
     /* If the Config Center product you use have some special parameters that is not covered by this class, you can add it to here.
     For example, with XML:

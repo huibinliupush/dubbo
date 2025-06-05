@@ -227,6 +227,11 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     /**
      * 设置默认配置，并根据配置源的优先级顺序依次覆盖得到最终配置
      * 配置优先级：-D 系统变量 > 环境变量 > 外部化配置 > XML，注解，API设置的配置 > 本地配置文件 dubbo.properties
+     *
+     * 按照配置项的优先级，填充 ServiceConfig 或者 ReferenceConfig 中缺失的配置，然后 refresh
+     * 检查 stub , mock 相关配置的有效性
+     *
+     * 注意这里只是填充缺失的配置，最终的 url 配置生成是在 doExportUrlsFor1Protocol 方法中进行
      * */
     private void checkAndUpdateSubConfigs() {
         // Use default configs defined explicitly with global scope
@@ -236,6 +241,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //设置默认provider配置
         checkDefault();
         //设置protocolConfig（按照配置源的优先级加载），refresh Protocol config
+        // 按照配置项的优先级填充 protocol 的配置，如果都没有配置，则选择全局 protocol
         checkProtocol();
         // init some null configuration.
         // 回调配置处理前置处理器
@@ -250,6 +256,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             //检查<dubbo:service />中的registry（值为注册中心<dubbo:registry />中的id或者name
             //将配置的中的registryIds转换成为RegistryConfig
             // refresh Registry config
+
+            // 按照配置项的优先级填充 registry 的配置，如果都没有配置，则选择全局 registry
             checkRegistry();
         }
 
@@ -284,6 +292,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             }
             //检查如果dubbo配置了Method相关：<dubbo:method />，检查method配置的合理性
             // refresh MethodConfig
+
+            // MethodConfig 相关的配置在这里才会 refresh , 前面加载配置中心的时候 refresh 的全部是基本类型的配置
             checkInterfaceAndMethods(interfaceClass, getMethods());
             //检查ref是否实现了interfaceClass接口
             checkRef();
@@ -325,9 +335,10 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         //stub实现类是否实现了interfaceClass接口，并且是否包含可传入Proxy（消费者端会传入service的远程代理）的构造函数，构造器参数为interfaceClass
         //stub由服务端实现，打包放在api jar包中 (客户端提供也可以)然后在客户端执行。客户端创建远程服务代理proxy通过 stub实现类的构造函数传递给stub实现类。
         //客户端实际引用的就是stub实现类，然后stub实现类包装了远程服务代理proxy。
+        // see : StubProxyFactoryWrapper(这里会将 proxy 传入 stub 中)
         checkStubAndLocal(interfaceClass);
         //https://dubbo.apache.org/zh/docs/v2.7/user/examples/local-mock/
-        //检查Mock配置的有效性
+        //检查Mock配置的有效性, mock 指定为 true ,这里会自动寻找 Mock 后缀的 Class ,或者直接指定 mockClass
         ConfigValidationUtils.checkMock(interfaceClass, this);
         //检查ServiceConfig 也就是<dubbo:service />中相关配置的有效性
         // 检查所有配置的相关扩展点是否已经加载
@@ -345,7 +356,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             return;
         }
         exported = true;
-
+        // 如果 service 配置中设置了 path , 那么后续就会用 path 来代替 interfaceName
         if (StringUtils.isEmpty(path)) {
             path = interfaceName;
         }
@@ -432,6 +443,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
          *         </dubbo:method>
          *     </dubbo:service>
          *
+         *     Method 相关配置参数放入 url 中的配置前缀为 methodName.
+         *     Argument 相关配置参数放入 url 中的配置前缀为 methodName.index.
+         *
          * */
         if (CollectionUtils.isNotEmpty(getMethods())) {
             for (MethodConfig method : getMethods()) {
@@ -506,7 +520,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             map.put(GENERIC_KEY, generic);
             map.put(METHODS_KEY, ANY_VALUE);
         } else {
-            //dubbo自省架构中服务注册模型中的概念，后续会深入解析。
+            // 这里的 revision 和应用级服务发现里的 revision 不是一样
+            // 从 MANIFEST.MF 或者 jar 包中提取版本号
+            // 也就是说获取 Dubbo 当前版本号
             String revision = Version.getVersion(interfaceClass, version);
             if (revision != null && revision.length() > 0) {
                 map.put(REVISION_KEY, revision);
@@ -533,6 +549,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
         // token配置值为true或者default时 token默认为随机UUID
         // token配置了具体的字符串，就将配置的字符串作为token
+        // consumer 从注册中心获取 providerURl，从而得到 token
+        // consumer 携带该 token 发起 rpc, 这样一来，直连 provider 就不行了，必须通过注册中心
         if (!ConfigUtils.isEmpty(token)) {
             if (ConfigUtils.isDefault(token)) {
                 map.put(TOKEN_KEY, UUID.randomUUID().toString());
@@ -544,19 +562,22 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         serviceMetadata.getAttachments().putAll(map);
 
         // export service
+        // DUBBO_IP_TO_BIND 以及 DUBBO_IP_TO_REGISTRY 都可以通过环境变量特殊指定
         String host = findConfigedHosts(protocolConfig, registryURLs, map);
+        // DUBBO_PORT_TO_BIND 以及 DUBBO_PORT_TO_REGISTRY 都可以通过环境变量特殊指定
         Integer port = findConfigedPorts(protocolConfig, name, map);
         //<dubbo:protocol id="dubbo" contextpath="servicePathPrefix" name="dubbo" port="20880" />
         //<dubbo:service interface="org.apache.dubbo.demo.DemoService" path="servicePath"  ref="demoService"/>
         //url格式： 协议://host:port/contextpatcj/path?服务参数=参数值&......
         // path 用来指定 URL 的 path , 默认为 interfaceName
+        // 如果我们特殊指定了 path , 那么 url 中的 path 将不会采用 interfaceName
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
         //dubbo://10.52.38.28:20880/servicePathPrefix/org.apache.dubbo.demo.provider.api.CallbackService?addListener.1.callback=true&anyhost=true&application=demo-provider&bind.ip=10.52.38.28&bind.port=20880&callbacks=1000&connections=1&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.provider.api.CallbackService&metadata-type=remote&methods=addListener&pid=5148&qos.port=22222&release=&side=provider&timestamp=1615865248401
         // You can customize Configurator to append extra parameters
         //通过SPI加载Configurator扩展（自定义URL参数配置扩展）
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                 .hasExtension(url.getProtocol())) {
-            // 从配置中心覆盖 URL
+            // 我们可以实现 Configurator 扩展，来自定义添加额外的 url 参数
             url = ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
@@ -708,7 +729,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                                      List<URL> registryURLs,
                                      Map<String, String> map) {
         boolean anyhost = false;
-
+        // 从系统变量中获取特殊指定的 DUBBO_IP_TO_BIND
         String hostToBind = getValueFromConfig(protocolConfig, DUBBO_IP_TO_BIND);
         if (hostToBind != null && hostToBind.length() > 0 && isInvalidLocalHost(hostToBind)) {
             throw new IllegalArgumentException("Specified invalid bind ip from property:" + DUBBO_IP_TO_BIND + ", value:" + hostToBind);

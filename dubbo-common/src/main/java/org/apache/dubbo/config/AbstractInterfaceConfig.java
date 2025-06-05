@@ -334,6 +334,8 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     /**
      * 根据优先级设置默认的配置
      * 配置优先级<dubbo:provider> > <dubbo:module> > <dubbo:appliction>
+     *
+     * 根据给定的 interfaceConfig 来填充当前 config 缺失的配置，比如这里用 providerconfig 来填充 serviceconfig 缺失的配置
      * */
     public void completeCompoundConfigs(AbstractInterfaceConfig interfaceConfig) {
         if (interfaceConfig != null) {

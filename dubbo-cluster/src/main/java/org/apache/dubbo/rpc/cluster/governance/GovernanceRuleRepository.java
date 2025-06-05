@@ -27,7 +27,7 @@ public interface GovernanceRuleRepository {
     /**
      * {@link #addListener(String, String, ConfigurationListener)}
      *
-     * @param key      the key to represent a configuration
+     * @param key      the key to represent a configuration（配置文件名称：demo-provider.configurators）
      * @param listener configuration listener
      */
     default void addListener(String key, ConfigurationListener listener) {

@@ -219,8 +219,11 @@ public interface DynamicConfiguration extends Configuration, AutoCloseable {
      * @since 2.7.5
      */
     static DynamicConfiguration getDynamicConfiguration(URL connectionURL) {
+        // 获取配置中心协议： zooKeeper ? nacos ?
         String protocol = connectionURL.getProtocol();
+        // 根据协议获取对应 DynamicConfigurationFactory ： ZookeeperDynamicConfigurationFactory ？NacosDynamicConfigurationFactory？
         DynamicConfigurationFactory factory = getDynamicConfigurationFactory(protocol);
+        // NacosDynamicConfiguration ? ZookeeperDynamicConfiguration ?
         return factory.getDynamicConfiguration(connectionURL);
     }
 

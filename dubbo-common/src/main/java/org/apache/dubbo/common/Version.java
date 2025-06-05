@@ -158,6 +158,9 @@ public final class Version {
     public static String getVersion(Class<?> cls, String defaultVersion) {
         try {
             // find version info from MANIFEST.MF first
+            // MANIFEST.MF 是 Java JAR 文件中的清单文件，位于 META-INF/ 目录下。它采用键值对格式存储 JAR 包的元数据信息
+            // Implementation-Version: 3.3.1(dubbo 版本号)
+            // Specification-Version: 3.3.1
             Package pkg = cls.getPackage();
             String version = null;
             if (pkg != null) {
@@ -181,6 +184,7 @@ public final class Version {
 
             String file = codeSource.getLocation().getFile();
             if (!StringUtils.isEmpty(file) && file.endsWith(".jar")) {
+                // 获取 jar 包命名中的版本号
                 version = getFromFile(file);
             }
 

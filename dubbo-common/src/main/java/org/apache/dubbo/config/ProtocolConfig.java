@@ -529,6 +529,7 @@ public class ProtocolConfig extends AbstractConfig {
             this.setName(DUBBO_VERSION_KEY);
         }
         super.refresh();
+        // 处理复数配置
         if (StringUtils.isNotEmpty(this.getId())) {
             this.setPrefix(PROTOCOLS_SUFFIX);
             super.refresh();

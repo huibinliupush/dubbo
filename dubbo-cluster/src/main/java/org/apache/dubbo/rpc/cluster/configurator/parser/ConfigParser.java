@@ -42,27 +42,45 @@ public class ConfigParser {
 
     public static List<URL> parseConfigurators(String rawConfig) {
         List<URL> urls = new ArrayList<>();
+        // ConfiguratorConfig 为配置文件的 Yaml 格式
+        // 将 rawConfig 中的 yaml 内容加载到对应的 ConfiguratorConfig 中
         ConfiguratorConfig configuratorConfig = parseObject(rawConfig);
-
+        // service 级配置还是 application 级配置
         String scope = configuratorConfig.getScope();
+        // 获取动态配置参数
         List<ConfigItem> items = configuratorConfig.getConfigs();
 
+        /**
+         * 根据 ConfigItem 来生成 override://
+         * 对于应用级级配置来说：一个 addr,一个 service 对应一个 override://
+         *
+         * 一个 ConfigItem 生成 override:// 的个数为 addresses.length * services.length
+         *
+         * 对于服务级配置来说：一个 addr,一个 application 对应一个 override://
+         *
+         * 一个 ConfigItem 生成 override:// 的个数为 addresses.length * applications.length
+         */
         if (ConfiguratorConfig.SCOPE_APPLICATION.equals(scope)) {
+            // application 级配置
             items.forEach(item -> urls.addAll(appItemToUrls(item, configuratorConfig)));
         } else {
             // service scope by default.
+            // service 级配置（默认）
             items.forEach(item -> urls.addAll(serviceItemToUrls(item, configuratorConfig)));
         }
         return urls;
     }
 
     private static <T> T parseObject(String rawConfig) {
+        // ConfiguratorConfig 为配置文件的 Yaml 格式
         Constructor constructor = new Constructor(ConfiguratorConfig.class);
         TypeDescription itemDescription = new TypeDescription(ConfiguratorConfig.class);
+        // items 类型
         itemDescription.addPropertyParameters("items", ConfigItem.class);
         constructor.addTypeDescription(itemDescription);
 
         Yaml yaml = new Yaml(constructor);
+        // 将 rawConfig 中的 yaml 内容加载到对应的 ConfiguratorConfig 中
         return yaml.load(rawConfig);
     }
 
@@ -72,16 +90,19 @@ public class ConfigParser {
 
         addresses.forEach(addr -> {
             StringBuilder urlBuilder = new StringBuilder();
+            // override://addr/
             urlBuilder.append("override://").append(addr).append("/");
-
+            // 服务级配置，key 为 serviceKey : group/interface:version
+            // interface?group=x&versison=y&
             urlBuilder.append(appendService(config.getKey()));
+            // category=dynamicconfigurators&side=side&parametersKey=parametersValue&providerAddresses=多个provideraddr逗号分隔
             urlBuilder.append(toParameterString(item));
 
             parseEnabled(item, config, urlBuilder);
-
+            // &category=dynamicconfigurators(服务级动态配置)
             urlBuilder.append("&category=").append(DYNAMIC_CONFIGURATORS_CATEGORY);
             urlBuilder.append("&configVersion=").append(config.getConfigVersion());
-
+            // 对哪些应用生效
             List<String> apps = item.getApplications();
             if (CollectionUtils.isNotEmpty(apps)) {
                 apps.forEach(app -> urls.add(URL.valueOf(urlBuilder.append("&application=").append(app).toString())));
@@ -95,10 +116,13 @@ public class ConfigParser {
 
     private static List<URL> appItemToUrls(ConfigItem item, ConfiguratorConfig config) {
         List<URL> urls = new ArrayList<>();
+        // 配置对哪些地址生效，一个 addr,一个 service 对应一个 override://
         List<String> addresses = parseAddresses(item);
         for (String addr : addresses) {
             StringBuilder urlBuilder = new StringBuilder();
+            // override://addr/
             urlBuilder.append("override://").append(addr).append("/");
+            // 配置对哪些服务生效
             List<String> services = item.getServices();
             if (services == null) {
                 services = new ArrayList<>();
@@ -107,13 +131,16 @@ public class ConfigParser {
                 services.add("*");
             }
             for (String s : services) {
+                // interface?group=x&versison=y&
                 urlBuilder.append(appendService(s));
+                // category=dynamicconfigurators&side=side&parametersKey=parametersValue&providerAddresses=多个provideraddr逗号分隔
                 urlBuilder.append(toParameterString(item));
-
+                // 应用级配置，key 为 application name
+                // &application=key
                 urlBuilder.append("&application=").append(config.getKey());
-
+                // &enabled=
                 parseEnabled(item, config, urlBuilder);
-
+                // &category=appdynamicconfigurators
                 urlBuilder.append("&category=").append(APP_DYNAMIC_CONFIGURATORS_CATEGORY);
                 urlBuilder.append("&configVersion=").append(config.getConfigVersion());
 
@@ -123,6 +150,9 @@ public class ConfigParser {
         return urls;
     }
 
+    /**
+     * category=dynamicconfigurators&side=side&parametersKey=parametersValue&providerAddresses=多个provideraddr逗号分隔
+     * */
     private static String toParameterString(ConfigItem item) {
         StringBuilder sb = new StringBuilder();
         sb.append("category=");
@@ -153,16 +183,20 @@ public class ConfigParser {
 
         return sb.toString();
     }
-
+    /**
+     * serviceKey: group/interface:version
+     * 返回 interface?group=x&versison=y
+     * */
     private static String appendService(String serviceKey) {
         StringBuilder sb = new StringBuilder();
         if (StringUtils.isEmpty(serviceKey)) {
             throw new IllegalStateException("service field in configuration is null.");
         }
-
+        // group/interface:version
         String interfaceName = serviceKey;
         int i = interfaceName.indexOf('/');
         if (i > 0) {
+            // 提取 group
             sb.append("group=");
             sb.append(interfaceName, 0, i);
             sb.append("&");

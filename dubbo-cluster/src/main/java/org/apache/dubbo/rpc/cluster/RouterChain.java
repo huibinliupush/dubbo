@@ -33,6 +33,8 @@ import java.util.stream.Collectors;
 public class RouterChain<T> {
 
     // full list of addresses from registry, classified by method name.
+    // RouterChanin 中的 invokers 也是会动态更新的
+    // see : setInvokers 方法
     private List<Invoker<T>> invokers = Collections.emptyList();
 
     // containing all routers, reconstruct every time 'route://' urls change.
@@ -55,7 +57,20 @@ public class RouterChain<T> {
         List<Router> routers = extensionFactories.stream()
                 .map(factory -> factory.getRouter(url))
                 .collect(Collectors.toList());
+        // TagRouter : 标签路由，订阅配置中心的 providerApplicationName.tag-router 文件
+        // 监听 /dubbo/config/dubbo/providerApplication.tag-router 动态路由配置文件
+        // 什么时候订阅呢 ？ 当 RegistryDirectory 第一次向注册中心拉取 providers 或者 provider 变动，注册中心通知变动的时候
+        // 都会重新生成 invokers , 随后会更新 RouterChain 中的 invokers
+        // see : org.apache.dubbo.rpc.cluster.RouterChain.setInvokers
 
+        // 在 RouterChain.setInvokers 会触发 router 的 notify 方法，notify 中会第一次向配置中心拉取 providerApplicationName.tag-router 动态路由
+        // 并监听动态路由的变化
+
+        // AppRouter : consumer 应用级条件路由，创建 AppRouter 的时候在父类 ListenableRouter.init 中订阅动态路由
+        // 监听 /dubbo/config/dubbo/consumerApplication.condition-router 动态条件路由配置文件
+
+        // ServiceRouter : reference 级条件路由，创建 ServiceRouter 的时候在父类 ListenableRouter.init 中订阅动态路由
+        // 监听 /dubbo/config/dubbo/{interfaceName}:[version]:[group].condition-router
         initWithRouters(routers);
     }
 
@@ -106,9 +121,14 @@ public class RouterChain<T> {
     /**
      * Notify router chain of the initial addresses from registry at the first time.
      * Notify whenever addresses in registry change.
+     *
+     * consumer 第一次向注册中心发起订阅的时候，会全量拉取 providers，转换为 invokers 会调用到这里
+     * 当注册中心中的 providers 发生变化的时候，consumer 会重新拉取 provider 重新生成 invokers , 也会调用到这里
+     * RouterChanin 中的 invokers 也是会动态更新的
      */
     public void setInvokers(List<Invoker<T>> invokers) {
         this.invokers = (invokers == null ? Collections.emptyList() : invokers);
+        // 触发 routers 向配置中心订阅动态路由规则
         routers.forEach(router -> router.notify(this.invokers));
     }
 }

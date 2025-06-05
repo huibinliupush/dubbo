@@ -27,6 +27,7 @@ public class EnvironmentConfiguration implements Configuration {
     public Object getInternalProperty(String key) {
         String value = System.getenv(key);
         if (StringUtils.isEmpty(value)) {
+            // key 中的 . 替换为 _
             value = System.getenv(StringUtils.toOSStyleKey(key));
         }
         return value;

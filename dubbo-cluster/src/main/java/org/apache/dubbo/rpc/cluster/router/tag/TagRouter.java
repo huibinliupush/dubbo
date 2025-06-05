@@ -44,7 +44,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.TAG_KEY;
 import static org.apache.dubbo.rpc.Constants.FORCE_USE_TAG;
 
 /**
- * TagRouter, "application.tag-router"
+ * TagRouter, "providerApplication.tag-router"
  *
  * 标签路由是一套严格隔离的流量体系，对于同一个应用而言，一旦打了标签则这部分地址子集就被隔离出来，
  * 只有带有对应标签的请求流量可以访问这个地址子集，这部分地址不再接收没有标签或者具有不同标签的流量。
@@ -52,6 +52,8 @@ import static org.apache.dubbo.rpc.Constants.FORCE_USE_TAG;
  * 标签路由的作用域是提供者应用，消费者应用无需配置标签路由规则
  *
  * 一个提供者应用内的所有服务只能有一条分组规则，不会有服务 A 使用一条路由规则、服务 B 使用另一条路由规则的情况出现。
+ *
+ * 因为路由的逻辑是在 consuemr 端，所以为 provider 打 tag 也是在 consumer 端实现
  */
 public class TagRouter extends AbstractRouter implements ConfigurationListener {
     public static final String NAME = "TAG_ROUTER";
@@ -63,8 +65,9 @@ public class TagRouter extends AbstractRouter implements ConfigurationListener {
     private TagRouterRule tagRouterRule;
     // tag 路由对应的 provider 端的 remote.application
     // 在第一次拉取 invokers 的时候通过 notify 方法设置
-    private String application;
+    private String application; // providerApplicationName
 
+    // 由类中的 notify 方法触发动态路由规则的订阅
     public TagRouter(URL url) {
         // consumerURL
         super(url);
@@ -270,8 +273,24 @@ public class TagRouter extends AbstractRouter implements ConfigurationListener {
         this.application = app;
     }
 
-    // see : org.apache.dubbo.rpc.cluster.RouterChain.setInvokers
-    // RegistryDirectory 初始拉取所有 invokers , 以及后续 invokers 发生变化都会通过这里
+
+
+/**
+ *     RegistryDirectory 初始拉取所有 invokers , 以及后续 invokers 发生变化都会通过这里
+ *     consumer 第一次向注册中心发起订阅的时候，会全量拉取 providers，转换为 invokers 会调用到这里
+ *     当注册中心中的 providers 发生变化的时候，consumer 会重新拉取 provider 重新生成 invokers , 也会调用到这里
+ *     RouterChanin 中的 invokers 也是会动态更新的
+ *
+ *     触发 router chain 中的 routers 向配置中心订阅动态路由规则(也就是这里的 notify 方法)
+ *
+ *     see : org.apache.dubbo.rpc.cluster.RouterChain.setInvokers
+ *
+ *     为什么不是创建 Router 的时候就订阅，干嘛非要等到拉取到 invoker 的时候才订阅呢 ？
+ *
+ *     因为我们需要用到 providerApplicationName , 这个只有获取到 providerUrl 才能知道
+ *
+ *     标签规则是针对 provider 的，provider 打上标签之后，只有特定的标签流量才能经过 provider
+ * */
     @Override
     public <T> void notify(List<Invoker<T>> invokers) {
         if (CollectionUtils.isEmpty(invokers)) {
@@ -297,6 +316,7 @@ public class TagRouter extends AbstractRouter implements ConfigurationListener {
                 }
                 // tag 是针对 provider 的，所以这里要监听 provider 的相关配置文件（config center）*.tag-router
                 String key = providerApplication + RULE_SUFFIX;
+                // 监听 /dubbo/config/dubbo/providerApplication.tag-router 动态路由配置文件
                 ruleRepository.addListener(key, this);
                 application = providerApplication;
                 // 初始拉取 provider 端的 tag 路由

@@ -328,6 +328,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             // 没有 invokers，forbidden 设置为 true 禁止调用
             this.forbidden = true; // Forbid to access
             this.invokers = Collections.emptyList();
+            // 更新 routerchanin 中的 invokers
+            // 触发 routers 向配置中心订阅动态路由规则
             routerChain.setInvokers(this.invokers);
             destroyAllInvokers(); // Close all invokers
         } else {
@@ -368,6 +370,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             List<Invoker<T>> newInvokers = Collections.unmodifiableList(new ArrayList<>(newUrlInvokerMap.values()));
             // pre-route and build cache, notice that route cache should build on original Invoker list.
             // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not should be routed.
+
+            // 更新 routerchanin 中的 invokers
+            // 触发 routers 向配置中心订阅动态路由规则
             routerChain.setInvokers(newInvokers);
             // 同一分组下的 Invokers 包装成一个 AbstractClusterInvoker
             // 多个分组就会有多个 AbstractClusterInvoker 保存在这里的 invokers
@@ -801,6 +806,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         ReferenceConfigurationListener(RegistryDirectory directory, URL url) {
             this.directory = directory;
             this.url = url;
+            // {interfaceName}:[version]:[group]
+            // 配置文件和 provider 端是同一文件，由配置项 side 进行区分
+            // org.apache.dubbo.registry.integration.RegistryProtocol.ServiceConfigurationListener
             this.initWith(DynamicConfiguration.getRuleKey(url) + CONFIGURATORS_SUFFIX);
         }
 
@@ -808,19 +816,30 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             this.stopListen(DynamicConfiguration.getRuleKey(url) + CONFIGURATORS_SUFFIX);
         }
 
+        /**
+         * 由父类 AbstractConfiguratorListener#process 通知
+         * org.apache.dubbo.registry.integration.AbstractConfiguratorListener#process(org.apache.dubbo.common.config.configcenter.ConfigChangedEvent)
+         * */
         @Override
         protected void notifyOverrides() {
             // to notify configurator/router changes
             // 传入一个空的集合在 RegistryDirectory 的 refreshInvoker 调用链刷新 invoker 配置如下：
             // cachedInvokerUrls -> toInvokers -> mergeUrl -> overrideWithConfigurator
             // 覆盖原有的 url 重新生成 invoker
+
+            // 因为这里只是配置变动，而不是注册中心的服务变动，所以传入一个空集合就行
+            // 只对 cachedInvokerUrls 已经现存的 invoker 配置根据条件进行刷新
             directory.refreshInvoker(Collections.emptyList());
         }
     }
 
+    // consumer 级应用配置发生变动会刷新所有 reference 配置（配置文件中可以指定对哪些 reference 生效）
+    // org.apache.dubbo.rpc.cluster.configurator.parser.model.ConfigItem
     private static class ConsumerConfigurationListener extends AbstractConfiguratorListener {
+        // 一个 reference 对应一个 RegistryDirectory
         List<RegistryDirectory> listeners = new ArrayList<>();
-
+        // 逻辑同 org.apache.dubbo.registry.integration.RegistryProtocol.ProviderConfigurationListener 一样
+        // 监听应用级配置文件，应用级配置变动，会刷新所有 reference
         ConsumerConfigurationListener() {
             this.initWith(ApplicationModel.getApplication() + CONFIGURATORS_SUFFIX);
         }
@@ -838,6 +857,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             // 传入一个空的集合在 RegistryDirectory 的 refreshInvoker 调用链刷新 invoker 配置如下：
             // cachedInvokerUrls -> toInvokers -> mergeUrl -> overrideWithConfigurator
             // 覆盖原有的 url 重新生成 invoker
+
+            // 因为这里只是配置变动，而不是注册中心的服务变动，所以传入一个空集合就行
+            // 只对 cachedInvokerUrls 已经现存的 invoker 配置根据条件进行刷新
             listeners.forEach(listener -> listener.refreshInvoker(Collections.emptyList()));
         }
     }

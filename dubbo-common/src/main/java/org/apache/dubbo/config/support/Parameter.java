@@ -46,6 +46,8 @@ public @interface Parameter {
      *    if (parameter != null && parameter.escaped()) {
      *         str = URL.encode(str);
      *    }
+     *
+     *    true 表示参数值需要 URL.encode 之后再添加到 url 参数中
      * */
     boolean escaped() default false;
 
@@ -58,7 +60,7 @@ public @interface Parameter {
      *              str = pre + "," + str;
      *          }
      *      }
-     *      属性值要加上前缀key
+     *      参数 key 对应多个配置，需要追加到后面，多个值用 , 分隔
      * */
     boolean append() default false;
 

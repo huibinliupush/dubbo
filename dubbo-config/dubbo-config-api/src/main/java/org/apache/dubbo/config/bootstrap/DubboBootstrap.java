@@ -503,15 +503,22 @@ public class DubboBootstrap extends GenericEventListener {
         if (!initialized.compareAndSet(false, true)) {
             return;
         }
-
+        // 初始化 ConfigManager , Environment , ServiceRepository
+        // 主要是初始化 Environment ， 封装多种配置源
         ApplicationModel.initFrameworkExts();
-
+        // 启动配置中心，将 ConfigCenterConfig 转换为 DynamicConfiguration，并加载外部化配置
+        // 加载所有配置源，并按照优先级重新覆盖 configManager 中的 config bean
+        // 按照配置源优先级刷新本地配置 ， loadRemoteConfigs 中是刷新远程配置（本地没有的配置）
         startConfigCenter();
-
+        // 在没有明确指定配置中心的情况下，采用注册中心作为配置中心
+        // registryConfig 中的 UseAsConfigCenter 需要指定为 true (默认)
+        // registryConfig 转换为 configCenterConfig , 然后重新 startConfigCenter
         useRegistryAsConfigCenterIfNecessary();
-
+        // 从配置中心中提取，远程配置的 RegistryConfigs , ProtocolConfigs
+        // 并将这些远程配置重新按照配置源的优先级重新覆盖，添加到 ConfigManager 中
+        // 远程配置和本地配置重复的，将被远程配置覆盖
         loadRemoteConfigs();
-
+        // 检验所有配置的合法性
         checkGlobalConfigs();
         // 初始化元数据服务相关的信息，后续暴露 MetadataService 的时候会用到
         initMetadataService();
@@ -528,7 +535,8 @@ public class DubboBootstrap extends GenericEventListener {
         // check Application
         ConfigValidationUtils.validateApplicationConfig(getApplication());
 
-        // check Metadata
+        // check Metadata - MetadataReportConfig
+        // 刷新 Metadata 配置，校验配置合法性（字符串长度，命名规范）
         Collection<MetadataReportConfig> metadatas = configManager.getMetadataConfigs();
         if (CollectionUtils.isEmpty(metadatas)) {
             MetadataReportConfig metadataReportConfig = new MetadataReportConfig();
@@ -595,18 +603,28 @@ public class DubboBootstrap extends GenericEventListener {
             }
         } else {
             for (ConfigCenterConfig configCenterConfig : configCenters) {
+                // 按照配置源优先级: 系统变量，环境变量，配置中心，(xml , 注解) ， 本地 dubbo.properties
+                // 重新生成配置中心的最终配置
                 configCenterConfig.refresh();
+                // 检查 parameters 配置中的命名格式是否合法
                 ConfigValidationUtils.validateConfigCenterConfig(configCenterConfig);
             }
         }
 
         if (CollectionUtils.isNotEmpty(configCenters)) {
+            // CompositeDynamicConfiguration 组织多个配置中心内的配置
             CompositeDynamicConfiguration compositeDynamicConfiguration = new CompositeDynamicConfiguration();
             for (ConfigCenterConfig configCenter : configCenters) {
+                // ConfigCenterConfig 转换为 DynamicConfiguration
+                // 创建配置中心 DynamicConfiguration ， 从配置中心中获取外部化配置, 全局 dubbo.properties , 应用级 dubbo.properties
+                // 填充 environment 相关的外部化配置缓存
                 compositeDynamicConfiguration.addConfiguration(prepareEnvironment(configCenter));
             }
             environment.setDynamicConfiguration(compositeDynamicConfiguration);
         }
+        // 现在所有配置源中的配置已经按照优先级全部加载完毕
+        // 开始刷新所有 config bean 中的配置
+        // ServiceConfig , ReferenceConfig 除外，他俩在对应的服务暴露，引用阶段刷新，生成最终 url
         configManager.refreshAll();
     }
 
@@ -681,21 +699,24 @@ public class DubboBootstrap extends GenericEventListener {
     private void loadRemoteConfigs() {
         // registry ids to registry configs
         List<RegistryConfig> tmpRegistries = new ArrayList<>();
+        // 从配置中心中提取远程配置文件中的 registryIds
         Set<String> registryIds = configManager.getRegistryIds();
         registryIds.forEach(id -> {
             if (tmpRegistries.stream().noneMatch(reg -> reg.getId().equals(id))) {
                 tmpRegistries.add(configManager.getRegistry(id).orElseGet(() -> {
                     RegistryConfig registryConfig = new RegistryConfig();
                     registryConfig.setId(id);
+                    // 远程配置按照配置源的优先级重新覆盖
                     registryConfig.refresh();
                     return registryConfig;
                 }));
             }
         });
-
+        // 添加配置中心中配置的 RegistryConfigs
         configManager.addRegistries(tmpRegistries);
 
         // protocol ids to protocol configs
+        // 从配置中心中提取远程配置文件中的 protocolIds
         List<ProtocolConfig> tmpProtocols = new ArrayList<>();
         Set<String> protocolIds = configManager.getProtocolIds();
         protocolIds.forEach(id -> {
@@ -755,7 +776,8 @@ public class DubboBootstrap extends GenericEventListener {
             //是否启动完毕
             ready.set(false);
             //初始化配置管理configManager等dubboLifeCycleComponent,配置中心，dubbo自省元数据，事件监听等组件以及检查全局配置的有效性
-            //这些内容我们会在后续论述dubbo自省架构系列文章中去详细讲解。
+            // 按照优先级初始化多种配置源，并根据配置源的优先级重新覆盖 configManager 中的 config bean
+            // ServiceConfig 以及 ReferenceConfig 会在后续的 export , refer 阶段 refresh
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
@@ -902,12 +924,16 @@ public class DubboBootstrap extends GenericEventListener {
             if (!configCenter.checkOrUpdateInited()) {
                 return null;
             }
+            // NacosDynamicConfiguration ? ZookeeperDynamicConfiguration ?
             DynamicConfiguration dynamicConfiguration = getDynamicConfiguration(configCenter.toUrl());
+            // 从配置中心中获取对应配置文件的内容
+            // zooKeeper ： 获取 /dubbo/config/dubbo/dubbp.properties 的内容
             String configContent = dynamicConfiguration.getProperties(configCenter.getConfigFile(), configCenter.getGroup());
 
             String appGroup = getApplication().getName();
             String appConfigContent = null;
             if (isNotEmpty(appGroup)) {
+                // zooKeeper ： 获取 /dubbo/config/appGroup/dubbp.properties 的内容
                 appConfigContent = dynamicConfiguration.getProperties
                         (isNotEmpty(configCenter.getAppConfigFile()) ? configCenter.getAppConfigFile() : configCenter.getConfigFile(),
                                 appGroup
@@ -915,7 +941,9 @@ public class DubboBootstrap extends GenericEventListener {
             }
             try {
                 environment.setConfigCenterFirst(configCenter.isHighestPriority());
+                // 配置中心获取到的全局 dubbo.properties 内容 configContent 转换为 Map
                 environment.updateExternalConfigurationMap(parseProperties(configContent));
+                // 配置中心获取到的应用级 dubbo.properties 内容 configContent 转换为 Map
                 environment.updateAppExternalConfigurationMap(parseProperties(appConfigContent));
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to parse configurations from Config Center.", e);
@@ -952,6 +980,9 @@ public class DubboBootstrap extends GenericEventListener {
     private void exportServices() {
         //configManger用于管理所有加载的dubbo config bean,后续介绍dubbo配置中心的时候会详细介绍
         //这里从configManager中获取所有加载的ServiceConfig(dubbo中是以服务接口为粒度暴露服务的 一个服务接口在dubbo框架中对应一个ServiceConfig)
+
+        // dubbo 中的每个 config bean 在初始化之后都会通过 AbstractConfig.addIntoConfigManager 将自己加入到 ConfigManager 中统一缓存管理
+        // see: org.apache.dubbo.config.AbstractConfig.addIntoConfigManager
         configManager.getServices().forEach(sc -> {
             // TODO, compatible with ServiceConfig.export()
             ServiceConfig serviceConfig = (ServiceConfig) sc;

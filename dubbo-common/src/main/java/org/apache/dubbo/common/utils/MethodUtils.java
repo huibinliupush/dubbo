@@ -81,6 +81,9 @@ public interface MethodUtils {
      *
      * @param method the method to check
      * @return whether the given method is meta method
+     *
+     * 以 get 开头的 public 方法（不包含 get , getClass，is 方法）
+     * 返回类型不是基本类型，参数为 0
      */
     public static boolean isMetaMethod(Method method) {
         String name = method.getName();

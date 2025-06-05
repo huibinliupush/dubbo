@@ -200,6 +200,8 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
 
         ReferenceConfigBase.appendRuntimeParameters(map);
         if (!ProtocolUtils.isGeneric(generic)) {
+            // 从 MANIFEST.MF 或者 jar 包中提取版本号
+            // 也就是说获取 Dubbo 当前版本号
             String revision = Version.getVersion(interfaceClass, version);
             if (revision != null && revision.length() > 0) {
                 map.put(REVISION_KEY, revision);
@@ -286,7 +288,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         } else {
             // 填充待引用的 urls ，后续挨个对这些 urls 调用 Protocol.refer
             urls.clear();
+            // 处理 reference 直连
             if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
+                // 可以配置多个直连的 url , 多个用 , 分隔，然后根据多个直连的 url 生成 invoker ,负载均衡
                 String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
                 if (us != null && us.length > 0) {
                     for (String u : us) {
@@ -431,7 +435,8 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 this,
                 null,
                 serviceMetadata);
-
+        // 直连提供者，配置文件（配置直连的 url）
+        // https://cn.dubbo.apache.org/zh-cn/docs/advanced/explicit-target/
         resolveFile();
         ConfigValidationUtils.validateReferenceConfig(this);
         postProcessConfig();

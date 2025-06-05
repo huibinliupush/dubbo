@@ -142,12 +142,19 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
 
     @Override
     public void addDataListener(String path, DataListener listener, Executor executor) {
+        // path : /dubbo/config
+        // listener : org.apache.dubbo.configcenter.support.zookeeper.ZookeeperDynamicConfiguration.cacheListener
+
         // 添加path节点数据的监听
         // 创建dubbo内部数据监听模型 到 具体zk客户端 实现的数据监听器的映射
         ConcurrentMap<DataListener, TargetDataListener> dataListenerMap = listeners.computeIfAbsent(path, k -> new ConcurrentHashMap<>());
         // 创建具体zk客户端实现的数据监听器TreeCache
+        // CuratorWatcherImpl
         TargetDataListener targetListener = dataListenerMap.computeIfAbsent(listener, k -> createTargetDataListener(path, k));
         // 在具体zk客户端实现上 添加 相应的数据监听器
+        // 创建 path 对应的 TreeCache
+        // 并将 targetListener 添加到 TreeCache 中
+        // executor 用于执行变更通知
         addTargetDataListener(path, targetListener, executor);
     }
 

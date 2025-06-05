@@ -54,6 +54,8 @@ public abstract class ListenableRouter extends AbstractRouter implements Configu
     public ListenableRouter(URL url, String ruleKey) {
         super(url);
         this.force = false;
+        // AppRouter : 监听 /dubbo/config/dubbo/consumerApplication.condition-router 动态条件路由配置文件
+        // ServiceRouter : 监听 /dubbo/config/dubbo/{interfaceName}:[version]:[group].condition-router
         this.init(ruleKey);
     }
 
@@ -120,6 +122,7 @@ public abstract class ListenableRouter extends AbstractRouter implements Configu
             return;
         }
         String routerKey = ruleKey + RULE_SUFFIX;
+        // 监听 /dubbo/config/dubbo/consumerApplication.condition-router 动态条件路由配置文件
         ruleRepository.addListener(routerKey, this);
         String rule = ruleRepository.getRule(routerKey, DynamicConfiguration.DEFAULT_GROUP);
         if (StringUtils.isNotEmpty(rule)) {

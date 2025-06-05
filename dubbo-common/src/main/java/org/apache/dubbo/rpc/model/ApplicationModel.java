@@ -77,9 +77,17 @@ public class ApplicationModel {
 
     private static final ExtensionLoader<FrameworkExt> LOADER = ExtensionLoader.getExtensionLoader(FrameworkExt.class);
 
+    /**
+     * ConfigManager：缓存的是 dubbo 中所有的 config bean，这里的 config bean 在启动的时候已经被 xml , 注解， dubbo.properties 文件填充（本地配置）
+     * Environment：这里封装的是所有的配置源：系统变量，环境变量，配置中心中的相关配置
+     * */
     public static void initFrameworkExts() {
+        // 在创建扩展实例的时候,如果该扩展是一个 Lifecycle ， 那么在 initExtension 方法中调用它的 initialize 方法
+        // see : org.apache.dubbo.common.extension.ExtensionLoader.createExtension
         Set<FrameworkExt> exts = ExtensionLoader.getExtensionLoader(FrameworkExt.class).getSupportedExtensionInstances();
+        // ConfigManager , Environment , ServiceRepository
         for (FrameworkExt ext : exts) {
+            // 这里的语句就多余了，因为在 getSupportedExtensionInstances 的过程中已经在 createExtension 中初始化过了
             ext.initialize();
         }
     }

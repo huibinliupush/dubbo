@@ -40,8 +40,11 @@ public class ConfigChangedEvent extends EventObject {
 
     public ConfigChangedEvent(String key, String group, String content, ConfigChangeType changeType) {
         super(key + "," + group);
+        // 配置文件名称
         this.key = key;
+        // 配置 group
         this.group = group;
+        // 配置文件变化的内容
         this.content = content;
         this.changeType = changeType;
     }

@@ -66,6 +66,15 @@ public interface Configurator extends Comparable<Configurator> {
      * <li>override://0.0.0.0/ without parameters means clearing the override</li>
      * </ol>
      *
+     * override://addr/interface?group=x&versison=y&category=dynamicconfigurators&side=side&parametersKey=parametersValue&providerAddresses=多个provideraddr逗号分隔&category=dynamicconfigurators&configVersion=&application=&enabled=
+     * 应用级动态配置：&category=appdynamicconfigurators  针对哪些地址，哪些服务
+     * 服务级动态配置：&category=dynamicconfigurators  针对哪些地址，哪些应用
+     *
+     * 不管什么级别的配置最终都会生成多个 override:// url
+     *
+     * see : org.apache.dubbo.rpc.cluster.configurator.parser.ConfigParser#parseConfigurators(java.lang.String)
+     *
+     * 这里会根据生成的多个  override:// url 生成对应的 Configurator
      * @param urls URL list to convert
      * @return converted configurator list
      */
@@ -73,16 +82,18 @@ public interface Configurator extends Comparable<Configurator> {
         if (CollectionUtils.isEmpty(urls)) {
             return Optional.empty();
         }
-
+        // 根据协议 override:// 获取对应的 Configurator 实现 OverrideConfigurator
         ConfiguratorFactory configuratorFactory = ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                 .getAdaptiveExtension();
 
         List<Configurator> configurators = new ArrayList<>(urls.size());
         for (URL url : urls) {
+            // 如果有一个是 empty 协议，则清空所有 configurators
             if (EMPTY_PROTOCOL.equals(url.getProtocol())) {
                 configurators.clear();
                 break;
             }
+            // 动态配置文件中的 Parameters
             Map<String, String> override = new HashMap<>(url.getParameters());
             //The anyhost parameter of override may be added automatically, it can't change the judgement of changing url
             override.remove(ANYHOST_KEY);
@@ -90,6 +101,7 @@ public interface Configurator extends Comparable<Configurator> {
                 configurators.clear();
                 continue;
             }
+            // 生成 OverrideConfigurator
             configurators.add(configuratorFactory.getConfigurator(url));
         }
         Collections.sort(configurators);

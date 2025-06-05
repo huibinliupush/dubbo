@@ -298,6 +298,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
         //包装dubbo内部子节点监听模型
         private volatile ChildListener childListener;
         //包装dubbo内部节点数据监听模型
+        // org.apache.dubbo.configcenter.support.zookeeper.ZookeeperDynamicConfiguration.cacheListener
         private volatile DataListener dataListener;
         // 监听节点的Path
         private String path;
@@ -309,6 +310,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
         }
 
         public CuratorWatcherImpl(CuratorFramework client, DataListener dataListener) {
+            // org.apache.dubbo.configcenter.support.zookeeper.ZookeeperDynamicConfiguration.cacheListener
             this.dataListener = dataListener;
         }
 
@@ -334,6 +336,10 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
             }
         }
 
+        /**
+         * 由 treeCache 进行通知
+         * org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient#addTargetDataListener(java.lang.String, org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorWatcherImpl, java.util.concurrent.Executor)
+         * */
         @Override
         public void childEvent(CuratorFramework client, TreeCacheEvent event) throws Exception {
             //treeCache回调 TreeCacheListener  用来响应节点变化
@@ -372,11 +378,12 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
                         eventType = EventType.CONNECTION_RECONNECTED;
                         break;
                     case CONNECTION_SUSPENDED:
-                        //连接丢失
+                        //连接丢失，新 session 创建
                         eventType = EventType.CONNECTION_SUSPENDED;
                         break;
 
                 }
+                // org.apache.dubbo.configcenter.support.zookeeper.ZookeeperDynamicConfiguration.cacheListener
                 dataListener.dataChanged(path, content, eventType);
             }
         }

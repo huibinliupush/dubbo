@@ -38,9 +38,9 @@ public interface RegistryConstants {
     String DEFAULT_CATEGORY = PROVIDERS_CATEGORY;
 
     String CONFIGURATORS_CATEGORY = "configurators";
-
+    // 服务级动态配置
     String DYNAMIC_CONFIGURATORS_CATEGORY = "dynamicconfigurators";
-
+    // 应用级动态配置
     String APP_DYNAMIC_CONFIGURATORS_CATEGORY = "appdynamicconfigurators";
 
     String ROUTERS_SUFFIX = ".routers";
