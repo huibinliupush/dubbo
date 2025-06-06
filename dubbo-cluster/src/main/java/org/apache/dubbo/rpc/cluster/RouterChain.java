@@ -129,6 +129,7 @@ public class RouterChain<T> {
     public void setInvokers(List<Invoker<T>> invokers) {
         this.invokers = (invokers == null ? Collections.emptyList() : invokers);
         // 触发 routers 向配置中心订阅动态路由规则
+        // 重新根据新的 invokers 集合构建路由缓存
         routers.forEach(router -> router.notify(this.invokers));
     }
 }

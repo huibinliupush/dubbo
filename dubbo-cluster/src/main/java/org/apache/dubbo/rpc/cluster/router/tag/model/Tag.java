@@ -19,7 +19,41 @@ package org.apache.dubbo.rpc.cluster.router.tag.model;
 import java.util.List;
 
 /**
+ * tag 其实也可以根据 providerUrl 中的 key:value 进行打标
+ * https://cn.dubbo.apache.org/zh-cn/overview/what/core-features/traffic/tag-rule/
  *
+ * configVersion: v3.0
+ * force: true
+ * enabled: true
+ * key: shop-detail
+ * tags:
+ *   - name: gray
+ *     match:
+ *       - key: env
+ *         value:
+ *           exact: gray
+ *
+*  providerUrl 中包含 env=gray (url参数 env ，值为 gray)
+ *
+ *  也可以在 provider 实例所在的环境变量中设置 DUBBO_LABELS = "region=hangzhou; env=gray" 自动给实例打标
+ *  这样 providerURl 中就有了两个参数：region=hangzhou&env=gray
+ *
+ *  我们可以在路由规则中设置
+ *
+ *  tags:
+ *   - name: gray
+ *     match:
+ *       - key: env
+ *         value:
+ *           exact: gray
+ *
+ *   - name: hangzhou
+ *     match:
+ *       - key: region
+ *         value:
+ *           exact: hangzhou
+ *
+ *   自动在 consumer 端根据 invoker 中的 providerUrl ，给 invoker 打上 gray 或者 hangzhou 的标签
  */
 public class Tag {
     private String name;

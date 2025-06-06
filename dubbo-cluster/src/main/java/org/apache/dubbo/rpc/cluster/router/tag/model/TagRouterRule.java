@@ -42,8 +42,10 @@ import java.util.stream.Collectors;
  */
 public class TagRouterRule extends AbstractRouterRule {
     private List<Tag> tags;
-
+    // 一个 provider 实例可以被打上不同的 tags
+    // provider 实例对应的 tags
     private Map<String, List<String>> addressToTagnames = new HashMap<>();
+    // tag 对应的 provider 实例，可以为不同的 provider 实例打不同的 tag
     private Map<String, List<String>> tagnameToAddresses = new HashMap<>();
 
     public void init() {
@@ -59,14 +61,14 @@ public class TagRouterRule extends AbstractRouterRule {
             });
         });
     }
-
+    // 获取所有被打上 tag 的 provider 实例
     public List<String> getAddresses() {
         return tags.stream()
                 .filter(tag -> CollectionUtils.isNotEmpty(tag.getAddresses()))
                 .flatMap(tag -> tag.getAddresses().stream())
                 .collect(Collectors.toList());
     }
-
+    // 获取所有的 tag 名称
     public List<String> getTagNames() {
         return tags.stream().map(Tag::getName).collect(Collectors.toList());
     }

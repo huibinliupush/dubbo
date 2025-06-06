@@ -24,6 +24,12 @@ public abstract class AbstractRouterRule {
     // 表示是否在每次调用时执行该路由规则。如果设置为 false，
     // 则会在 Provider 列表变更时预先执行并缓存结果，调用时直接从缓存中获取路由结果。
     private boolean runtime = true;
+
+    // Force 以 invocation ， consuemrUrl 中的 dubbo.force.tag 优先
+    // 其次在按照 tagRouterRule 中的 force
+    // 如果该路由规则过滤出一个空的 invoker 集合，没有任何 invokers 可以调用
+    // true 表示强制按照路由规则执行，返回一个空的 invoker 集合
+    // false 则返回一个不带任何 tag 的 invoker 集合
     private boolean force = false;
     private boolean valid = true;
     private boolean enabled = true;

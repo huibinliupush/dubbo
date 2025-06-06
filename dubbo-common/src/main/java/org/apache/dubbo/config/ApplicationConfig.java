@@ -448,6 +448,7 @@ public class ApplicationConfig extends AbstractConfig {
     @Override
     public void refresh() {
         super.refresh();
+        // 获取 DUBBO_LABELS 并填充到 parameters 中，后续会一并填充到 url 中
         appendEnvironmentProperties();
     }
 
@@ -455,7 +456,7 @@ public class ApplicationConfig extends AbstractConfig {
         if (parameters == null) {
             parameters = new HashMap<>();
         }
-
+        // 获取 DUBBO_LABELS 并填充到 parameters 中，后续会一并填充到 url 中
         Set<InfraAdapter> adapters = ExtensionLoader.getExtensionLoader(InfraAdapter.class).getSupportedExtensionInstances();
         if (CollectionUtils.isNotEmpty(adapters)) {
             Map<String, String> inputParameters = new HashMap<>();

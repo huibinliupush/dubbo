@@ -40,7 +40,7 @@ public class EnvironmentAdapter implements InfraAdapter {
     @Override
     public Map<String, String> getExtraAttributes(Map<String, String> params) {
         Map<String, String> parameters = new HashMap<>();
-
+        // 获取 DUBBO_LABELS
         String rawLabels = ConfigurationUtils.getProperty(DUBBO_LABELS);
         if (StringUtils.isNotEmpty(rawLabels)) {
             String[] labelPairs = SEMICOLON_SPLIT_PATTERN.split(rawLabels);
