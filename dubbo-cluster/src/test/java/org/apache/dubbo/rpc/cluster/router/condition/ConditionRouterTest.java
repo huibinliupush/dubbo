@@ -52,6 +52,19 @@ public class ConditionRouterTest {
     }
 
     @Test
+    public void testParseRule() {
+        new ConditionRouterFactory().getRouter(getRouteUrl("method = getDetail & arguments[0] = dubbo"));
+
+        new ConditionRouterFactory().getRouter(getRouteUrl("host = 2.2.2.2,1.1.1.1,3.3.3.3 => host = 1.2.3.4"));
+
+        new ConditionRouterFactory().getRouter(getRouteUrl("host = 2.2.2.2,1.1.1.1,3.3.3.3 & host !=1.1.1.1 => host = 1.2.3.4"));
+
+        new ConditionRouterFactory()
+                .getRouter(getRouteUrl("methods=getFoo & host=1.1.1.1 => host = 1.2.3.4"));
+
+    }
+
+    @Test
     public void testRoute_matchWhen() {
         Invocation invocation = new RpcInvocation();
 

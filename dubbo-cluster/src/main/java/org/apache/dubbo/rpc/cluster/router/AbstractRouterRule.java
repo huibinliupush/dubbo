@@ -21,8 +21,8 @@ package org.apache.dubbo.rpc.cluster.router;
  */
 public abstract class AbstractRouterRule {
     private String rawRule;
-    // 表示是否在每次调用时执行该路由规则。如果设置为 false，
-    // 则会在 Provider 列表变更时预先执行并缓存结果，调用时直接从缓存中获取路由结果。
+    // 是否为每个 rpc 调用运行路由规则或使用路由缓存（如果可用）。默认值是false（false则走缓存，true不走缓存）
+    // 否是false（false则走缓存，true不走缓存）
     private boolean runtime = true;
 
     // Force 以 invocation ， consuemrUrl 中的 dubbo.force.tag 优先
@@ -37,8 +37,10 @@ public abstract class AbstractRouterRule {
     // 表示该路由规则是否为持久数据，当注册方退出时，路由规则是否依然存在。
     // 类比注册的 URL , 如果是 false 表示静态数据，注册方退出不会删除
     private boolean dynamic = false;
-
+    // 规则生效的范围： service ? application ?
     private String scope;
+    // 当 scope = application 时， key 指定为应用名
+    // 当 scope = service 时， key 指定为具体 service
     private String key;
 
     public String getRawRule() {

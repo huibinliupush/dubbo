@@ -57,7 +57,15 @@ public class ConditionRouter extends AbstractRouter {
 
     private static final Logger logger = LoggerFactory.getLogger(ConditionRouter.class);
     protected static final Pattern ROUTE_PATTERN = Pattern.compile("([&!=,]*)\\s*([^&!=,\\s]+)");
+    // 匹配参数 key -> 匹配条件 MatchPair
+    // MatchPair 中的 matches 集合存放 key = 后面的字符
+    // MatchPair 中的 mismatches 集合存放 key != 后面的字符
+
+    // when 条件中的参数 key 从 consuemrUrl 或者 invovation 中获取，然后与 MatchPair 中的值进行匹配
     protected Map<String, MatchPair> whenCondition;
+    // then 条件中的参数 key 从 providerUrl 中获取，然后与 MatchPair 中的值进行匹配
+    // MatchPair 集合中的值如果遇到 $ , 则从 consumerURL 中提取
+    // '=> region = $region'
     protected Map<String, MatchPair> thenCondition;
 
     private boolean enabled;
@@ -84,8 +92,11 @@ public class ConditionRouter extends AbstractRouter {
             }
             rule = rule.replace("consumer.", "").replace("provider.", "");
             int i = rule.indexOf("=>");
+            // 如果条件中不存在 => ， 那么默认是 thenRule
             String whenRule = i < 0 ? null : rule.substring(0, i).trim();
             String thenRule = i < 0 ? rule.trim() : rule.substring(i + 2).trim();
+            // 如果匹配条件为空，表示对所有请求生效，如：=> status != staging
+            //如果过滤条件为空，表示禁止来自相应请求的访问，如：application = product =>
             Map<String, MatchPair> when = StringUtils.isBlank(whenRule) || "true".equals(whenRule) ? new HashMap<String, MatchPair>() : parseRule(whenRule);
             Map<String, MatchPair> then = StringUtils.isBlank(thenRule) || "false".equals(thenRule) ? null : parseRule(thenRule);
             // NOTE: It should be determined on the business level whether the `When condition` can be empty or not.
@@ -95,9 +106,15 @@ public class ConditionRouter extends AbstractRouter {
             throw new IllegalStateException(e.getMessage(), e);
         }
     }
-
+    // rule :
+    // method = getDetail & arguments[0] = dubbo
+    // host = 2.2.2.2,1.1.1.1,3.3.3.3 => host = 1.2.3.4
+    // host = 2.2.2.2,1.1.1.1,3.3.3.3 & host !=1.1.1.1 => host = 1.2.3.4
+    // methods=getFoo & host=1.1.1.1 => host = 1.2.3.4
+    // see : org.apache.dubbo.rpc.cluster.router.condition.ConditionRouterTest.testParseRule
     private static Map<String, MatchPair> parseRule(String rule)
             throws ParseException {
+        // 条件中的匹配参数 key 对应的 MatchPair （匹配的参数 value）
         Map<String, MatchPair> condition = new HashMap<String, MatchPair>();
         if (StringUtils.isBlank(rule)) {
             return condition;
@@ -106,6 +123,50 @@ public class ConditionRouter extends AbstractRouter {
         MatchPair pair = null;
         // Multiple values
         Set<String> values = null;
+
+        /**
+         * ([&!=,]*)\s*([^&!=,\s]+) 分为两个匹配组：
+         * 第一个匹配组：([&!=,]*) ，匹配条件中的 & != = , 零个或者多个，用来匹配条件中的指定字符
+         * 中间匹配零个或者多个空白字符
+         * 第一个匹配组：([^&!=,\s]+) ，匹配一个或者多个所有不是 & != = , 空白字符的字符（遇到这些字符则停止匹配），用来匹配指定字符前面的参数 key , 以及指定字符后面的参数 value
+         * method = getDetail & arguments[0] = dubbo
+         *
+         * 第一次 find :
+         *
+         * 1. 第一个匹配组匹配不到任何字符，第二个匹配组匹配到 method
+         * null = separator = matcher.group(1)
+         * method = content = matcher.group(2); 参数 key
+         *
+         * condition : method -> MatchPair
+         *
+         * 第二次 find :
+         * = getDetail & arguments[0] = dubbo
+         *
+         * 1. 第一个匹配组匹配到 = ，第二个匹配组匹配到 getDetail
+         * "=" = separator = matcher.group(1)
+         * getDetail = content = matcher.group(2)
+         * pair.matches -> (getDetail)
+         *
+         * 第三次 find :
+         * & arguments[0] = dubbo
+         *
+         * 1. 第一个匹配组匹配到 & ，第二个匹配组匹配到 arguments[0]
+         * "&" = separator = matcher.group(1)
+         * arguments[0] = content = matcher.group(2)
+         *
+         * condition : method -> MatchPair
+     *                 arguments[0] -> MatchPair (局部变量 pair 切换到这里)
+         *
+         * 第四次 find :
+         * = dubbo
+         *
+         * 1. 第一个匹配组匹配到 = ，第二个匹配组匹配到 dubbo
+         * "=" = separator = matcher.group(1)
+         * dubbo = content = matcher.group(2)
+         *
+         * pair.matches -> (dubbo)
+         *
+         * */
         final Matcher matcher = ROUTE_PATTERN.matcher(rule);
         while (matcher.find()) { // Try to match one by one
             String separator = matcher.group(1);
@@ -114,6 +175,7 @@ public class ConditionRouter extends AbstractRouter {
             if (StringUtils.isEmpty(separator)) {
                 // 遇到新的 key(content) 为该 key 创建 MatchPair
                 pair = new MatchPair();
+                // method -> MatchPair
                 condition.put(content, pair);
             }
             // The KV part of the condition expression
@@ -186,9 +248,14 @@ public class ConditionRouter extends AbstractRouter {
         }
         try {
             // 针对 consumerUrl 的过滤
-            // 不支持 $ 引用
+            // when 条件不支持 $ 引用（ then 条件遇到 $ 则从 consumerurl 或者 invocation 中获取对应的参数值）
+            // '=> region = $region'
+
+            // when 条件中的参数值全部从 consumeURL ,Invocation 中获取
+            // 首先检查 参数值 是否和 mismatches 集合中的值不匹配
+            // 在检查是否和 matches 集合中的值匹配
             if (!matchWhen(url, invocation)) {
-                // consumer 不适用路由规则，返回全部 provider
+                // when 条件匹配失败表示 consumer 不适用路由规则，返回全部 provider
                 return invokers;
             }
             List<Invoker<T>> result = new ArrayList<Invoker<T>>();
@@ -198,7 +265,11 @@ public class ConditionRouter extends AbstractRouter {
             }
             for (Invoker<T> invoker : invokers) {
                 // 针对 providerUrl 的过滤
+                // then 条件遇到 $ 则从 consumerurl 或者 invocation 中获取对应的参数值
+                // '=> region = $region'
+                // see : UrlUtils.isMatchGlobPattern(java.lang.String, java.lang.String, org.apache.dubbo.common.URL)
                 if (matchThen(invoker.getUrl(), url)) {
+                    // 将符合 then 条件的 invoker 添加到返回结果中
                     result.add(invoker);
                 }
             }
@@ -230,18 +301,22 @@ public class ConditionRouter extends AbstractRouter {
     boolean matchWhen(URL url, Invocation invocation) {
         return CollectionUtils.isEmptyMap(whenCondition) || matchCondition(whenCondition, url, null, invocation);
     }
-
+    // url 为 providerUrl
+    // param 为 consumerUrl
     private boolean matchThen(URL url, URL param) {
         return CollectionUtils.isNotEmptyMap(thenCondition) && matchCondition(thenCondition, url, param, null);
     }
 
-    // url 为 providerUrl
-    // param 为 consumerUrl 中的参数
+    // matchWhen : url 为 consumerUrl
+
+
+    // matchThen ： url 为 providerUrl ， param 为 consumerUrl
     private boolean matchCondition(Map<String, MatchPair> condition, URL url, URL param, Invocation invocation) {
         Map<String, String> sample = url.toMap();
         boolean result = false;
         for (Map.Entry<String, MatchPair> matchPair : condition.entrySet()) {
             String key = matchPair.getKey();
+            // 提取 key 在 url 或者 invocation 中对应的值
             String sampleValue;
             //get real invoked method name from invocation
             if (invocation != null && (METHOD_KEY.equals(key) || METHODS_KEY.equals(key))) {
@@ -258,6 +333,8 @@ public class ConditionRouter extends AbstractRouter {
                 }
             }
             if (sampleValue != null) {
+                // 首先检查 sampleValue 是否和 mismatches 集合中的值不匹配
+                // 在检查是否和 matches 集合中的值匹配
                 if (!matchPair.getValue().isMatch(sampleValue, param)) {
                     return false;
                 } else {
@@ -265,6 +342,9 @@ public class ConditionRouter extends AbstractRouter {
                 }
             } else {
                 //not pass the condition
+                // 条件路由中指定的参考key 在 url 或者 invocation 中不存在
+                // 如果 matches 集合为空，则匹配
+                // matches 集合不为空，则不匹配
                 if (!matchPair.getValue().matches.isEmpty()) {
                     return false;
                 } else {
@@ -276,10 +356,13 @@ public class ConditionRouter extends AbstractRouter {
     }
 
     protected static final class MatchPair {
+        // 存放 = 后面的字符
         final Set<String> matches = new HashSet<String>();
+        // 存放 != 后面的字符
         final Set<String> mismatches = new HashSet<String>();
 
         private boolean isMatch(String value, URL param) {
+            //
             if (!matches.isEmpty() && mismatches.isEmpty()) {
                 for (String match : matches) {
                     if (UrlUtils.isMatchGlobPattern(match, value, param)) {

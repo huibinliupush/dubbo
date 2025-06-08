@@ -49,6 +49,7 @@ public abstract class ListenableRouter extends AbstractRouter implements Configu
     // 解析出来的 yaml 文件
     private ConditionRouterRule routerRule;
     // routerRule 转换出来的 ConditionRouter
+    // 一条 condition 对应一个 ConditionRouter
     private List<ConditionRouter> conditionRouters = Collections.emptyList();
 
     public ListenableRouter(URL url, String ruleKey) {
@@ -87,6 +88,7 @@ public abstract class ListenableRouter extends AbstractRouter implements Configu
         }
 
         // We will check enabled status inside each router.
+        // 根据条件路由中的 condition ， 一条一条的过滤
         for (Router router : conditionRouters) {
             invokers = router.route(invokers, url, invocation);
         }

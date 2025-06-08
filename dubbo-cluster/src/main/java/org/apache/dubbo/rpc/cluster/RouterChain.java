@@ -71,6 +71,14 @@ public class RouterChain<T> {
 
         // ServiceRouter : reference 级条件路由，创建 ServiceRouter 的时候在父类 ListenableRouter.init 中订阅动态路由
         // 监听 /dubbo/config/dubbo/{interfaceName}:[version]:[group].condition-router
+
+        /**
+         * AppRouter 与 ServiceRouter 的配置方式是一样的，作用也是一样的
+         * 两者不同的是 AppRouter 仅对当前 consumer 应用生效，其他应用则无效，因为这里监听的是 consumerApplication.condition-router
+         *
+         * ServiceRouter 只对该 service 的 reference 生效，适用于所有 consuemr 应用
+         * 因为这里监听的是 {interfaceName}:[version]:[group].condition-router
+         * */
         initWithRouters(routers);
     }
 
