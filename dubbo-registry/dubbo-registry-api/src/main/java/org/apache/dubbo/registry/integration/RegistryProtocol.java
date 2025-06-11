@@ -127,7 +127,7 @@ public class RegistryProtocol implements Protocol {
 
     private final static Logger logger = LoggerFactory.getLogger(RegistryProtocol.class);
     //overrideSubscribeUrl -> OverrideListener的映射
-    // 订阅动态配置 url 与 动态配置监听器的映射
+    // providerUrl(订阅动态配置 url) 与 动态配置监听器的映射
     private final Map<URL, NotifyListener> overrideListeners = new ConcurrentHashMap<>();
     //serviceKey：{group}/{interfaceName}:{version}  ->   serviceConfigurationListener 映射
     // 监听 service 级配置变更

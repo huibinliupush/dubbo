@@ -538,6 +538,11 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
      */
     private URL mergeUrl(URL providerUrl) {
         // 用 consumer 端的配置先覆盖 providerUrl
+        /**
+         *     这里会将 providerUrl 中的 side 覆盖为 consumer
+         *     方便在动态配置文件中的 side=consumer 的 configurators 生效，覆盖这里的 providerUrl
+         *     org.apache.dubbo.rpc.cluster.configurator.AbstractConfigurator#configure(org.apache.dubbo.common.URL)
+         * */
         providerUrl = ClusterUtils.mergeUrl(providerUrl, queryMap); // Merge the consumer side parameters
         // 用动态配置覆盖 providerUrl
         // configurators , CONSUMER_CONFIGURATION_LISTENER , serviceConfigurationListener
@@ -798,7 +803,10 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             return providerUrl;
         }
     }
-
+    /**
+     *
+     * ReferenceConfiguration 动态配置只会修改 invokers 中的 providerURL(side 会被设置为 consumer)
+     * */
     private static class ReferenceConfigurationListener extends AbstractConfiguratorListener {
         private RegistryDirectory directory;
         private URL url;
@@ -835,6 +843,10 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     // consumer 级应用配置发生变动会刷新所有 reference 配置（配置文件中可以指定对哪些 reference 生效）
     // org.apache.dubbo.rpc.cluster.configurator.parser.model.ConfigItem
+
+    /**
+     * 用 ConsumerConfiguration 配置动态刷新，所有 reference 中的 invokers providerUrl(side 会被设置为 consumer)
+     * */
     private static class ConsumerConfigurationListener extends AbstractConfiguratorListener {
         // 一个 reference 对应一个 RegistryDirectory
         List<RegistryDirectory> listeners = new ArrayList<>();

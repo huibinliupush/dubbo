@@ -42,18 +42,24 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
     private final SystemConfiguration systemConfiguration;
     private final EnvironmentConfiguration environmentConfiguration;
     // 封装配置中心中的全局 dubbo.properties 的配置，配置文件由 configFile 参数指定（全局）
-    private final InmemoryConfiguration externalConfiguration;
+    // 底层关联 externalConfigurationMap 存放所有配置中心的配置（重复的配置将会相互覆盖）
+    private final InmemoryConfiguration externalConfiguration;// 所有配置中心的配置聚合
     // 封装配置中心中的应用级 dubbo.properties 的配置，配置文件由 appConfigFile 参数指定（应用级），默认 dubbo.properties
     // see : org.apache.dubbo.config.ConfigCenterConfig.appConfigFile
-    private final InmemoryConfiguration appExternalConfiguration;
+    // 底层关联 appExternalConfigurationMap 存放所有配置中心的配置（重复的配置将会相互覆盖）
+    private final InmemoryConfiguration appExternalConfiguration;// 所有配置中心的配置聚合
 
     private CompositeConfiguration globalConfiguration;
+
+    /**
+     * 如果配置了多个配置中心，那么下面两个 map 中将会存放所有配置中心的配置，相同的配置会被后一个配置中心覆盖
+     * */
     // 在配置中心启动之后，会从配置中心获取对应的全局 dubbo.properties ， 应用级 dubbo.properties 分别填充到以下 Map 集合中
     // org.apache.dubbo.config.bootstrap.DubboBootstrap.prepareEnvironment
-    private Map<String, String> externalConfigurationMap = new HashMap<>(); // 全局
+    private Map<String, String> externalConfigurationMap = new HashMap<>(); // 全局 ，关联 externalConfiguration
     // appExternalConfigurationMap 的优先级高于 externalConfigurationMap
     // see : org.apache.dubbo.config.ConfigCenterConfig.appConfigFile
-    private Map<String, String> appExternalConfigurationMap = new HashMap<>(); // 应用级 dubbo 配置
+    private Map<String, String> appExternalConfigurationMap = new HashMap<>(); // 应用级 dubbo 配置，关联 appExternalConfiguration
 
     private boolean configCenterFirst = true;
     // 类型为 CompositeDynamicConfiguration ， 用于组织多配置中心中的配置

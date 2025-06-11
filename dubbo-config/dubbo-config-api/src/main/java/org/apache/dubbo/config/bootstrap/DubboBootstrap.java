@@ -519,6 +519,13 @@ public class DubboBootstrap extends GenericEventListener {
         // 远程配置和本地配置重复的，将被远程配置覆盖
         loadRemoteConfigs();
         // 检验所有配置的合法性
+
+        /**
+         *  如果 xml 或者本地 dubbo.properties 中没有配相关的 Config
+         *  那么就从系统变量或者环境变量中获取 Config 相关属性
+         *
+         *  new config and refresh
+         * */
         checkGlobalConfigs();
         // 初始化元数据服务相关的信息，后续暴露 MetadataService 的时候会用到
         initMetadataService();
@@ -596,6 +603,8 @@ public class DubboBootstrap extends GenericEventListener {
         // check Config Center
         if (CollectionUtils.isEmpty(configCenters)) {
             ConfigCenterConfig configCenterConfig = new ConfigCenterConfig();
+            // 如果 xml 或者本地 dubbo.properties 中没有配置 ConfigCenterConfig
+            // 那么就从系统变量或者环境变量中获取 ConfigCenterConfig 相关属性
             configCenterConfig.refresh();
             if (configCenterConfig.isValid()) {
                 configManager.addConfigCenter(configCenterConfig);
@@ -699,7 +708,7 @@ public class DubboBootstrap extends GenericEventListener {
     private void loadRemoteConfigs() {
         // registry ids to registry configs
         List<RegistryConfig> tmpRegistries = new ArrayList<>();
-        // 从配置中心中提取远程配置文件中的 registryIds
+        // 从配置中心中提取远程配置文件中的 registryIds —— dubbo.registries.id ...
         Set<String> registryIds = configManager.getRegistryIds();
         registryIds.forEach(id -> {
             if (tmpRegistries.stream().noneMatch(reg -> reg.getId().equals(id))) {
@@ -716,7 +725,7 @@ public class DubboBootstrap extends GenericEventListener {
         configManager.addRegistries(tmpRegistries);
 
         // protocol ids to protocol configs
-        // 从配置中心中提取远程配置文件中的 protocolIds
+        // 从配置中心中提取远程配置文件中的 protocolIds —— dubbo.protocols.id ....
         List<ProtocolConfig> tmpProtocols = new ArrayList<>();
         Set<String> protocolIds = configManager.getProtocolIds();
         protocolIds.forEach(id -> {
@@ -940,7 +949,11 @@ public class DubboBootstrap extends GenericEventListener {
                         );
             }
             try {
+                /**
+                 * 多个配置中心中所有配置在这里聚合到 environment 中
+                 * */
                 environment.setConfigCenterFirst(configCenter.isHighestPriority());
+                // 如果配置多个配置中心的话，那么这里后面的配置中心中的配置会覆盖前一个配置中心的配置
                 // 配置中心获取到的全局 dubbo.properties 内容 configContent 转换为 Map
                 environment.updateExternalConfigurationMap(parseProperties(configContent));
                 // 配置中心获取到的应用级 dubbo.properties 内容 configContent 转换为 Map

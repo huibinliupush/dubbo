@@ -23,6 +23,7 @@ import org.apache.dubbo.common.config.configcenter.DynamicConfiguration;
  * Service level router, "server-unique-name.condition-router" 条件路由的生效范围为：指定的 service 服务
  *
  * 该条件路由仅对该 service 生效，多个不同的 consumer 应用，只要包含对 service 的访问均生效
+ * 对所有引用该 service 的客户端生效，不缺分 consumer 应用，因为 service 的 reference 都会监听 server-unique-name.condition-router
  *
  * 而应用级条件路由 AppRouter 仅针对某个 conmsumer 应用生效路由规则
  *

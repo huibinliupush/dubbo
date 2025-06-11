@@ -42,7 +42,8 @@ public class ConfigItem {
     private Boolean enabled;
     // 一个地址,一个 service 对应一个 override://
     // 对哪些地址生效
-    private List<String> addresses;
+    // 地址的格式 see ： org.apache.dubbo.rpc.cluster.Configurator.toConfigurators(注释)
+    private List<String> addresses; // IP：port
     private List<String> providerAddresses;
     // 对哪些服务（ service 或者 reference ）生效（针对应用级配置）
     private List<String> services;

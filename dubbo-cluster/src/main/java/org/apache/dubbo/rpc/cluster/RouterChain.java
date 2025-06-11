@@ -50,6 +50,14 @@ public class RouterChain<T> {
         return new RouterChain<>(url);
     }
 
+    /**
+     * Routers 都会缓存
+     *
+     * TagRouterFactory ， ServiceRouterFactory 均继承于 CacheableRouterFactory
+     * 在 CacheableRouterFactory 中会按照 consumerURL 的 serviceKey 缓存 Routers
+     *
+     * AppRouter 全局唯一
+     * */
     private RouterChain(URL url) {
         List<RouterFactory> extensionFactories = ExtensionLoader.getExtensionLoader(RouterFactory.class)
                 .getActivateExtension(url, "router");

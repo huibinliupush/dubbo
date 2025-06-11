@@ -73,6 +73,14 @@ public abstract class AbstractConfigurator implements Configurator {
         String apiVersion = configuratorUrl.getParameter(CONFIG_VERSION_KEY);
         if (StringUtils.isNotEmpty(apiVersion)) {
             // consumer or provider ?
+            /**
+             * 对于 consumer 端来说，reference 中的 invokers providerUrl 会在 mergeURl 中设置 side=consumer
+             * (会被 consumerUrl 覆盖)
+             * org.apache.dubbo.registry.integration.RegistryDirectory#mergeUrl(org.apache.dubbo.common.URL)
+             *
+             * 这样一来，我们在动态配置文件中设置的 side=consumer 端的动态配置，就可以在 consumer 端生效了
+             * 生效的结果就是用 configuratorUrl 覆盖 invokerts 中的 providerUrl
+             * */
             String currentSide = url.getParameter(SIDE_KEY);
             String configuratorSide = configuratorUrl.getParameter(SIDE_KEY);
             if (currentSide.equals(configuratorSide) && CONSUMER.equals(configuratorSide) && 0 == configuratorUrl.getPort()) {

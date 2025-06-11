@@ -353,32 +353,100 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
                 String path = null;
                 switch (type) {
                     case NODE_ADDED:
+                        /**
+                         *
+                         * 含义：一个新的节点被添加到缓存树中。
+                         *
+                         * 触发场景：
+                         *
+                         * 在 TreeCache 启动后，首次发现一个符合监听路径范围的新节点（包括根节点）。
+                         *
+                         * 在 TreeCache 运行期间，监听到 ZooKeeper 中创建了一个新的子节点（在监听路径范围内）。
+                         *
+                         * 可用数据：getData() 可以获取到新节点的数据（如果节点有数据）。getInitialData() 对于此事件类型通常为 null。getPath() 返回新节点的完整路径。
+                         * */
                         eventType = EventType.NodeCreated;
                         path = event.getData().getPath();
                         content = event.getData().getData() == null ? "" : new String(event.getData().getData(), CHARSET);
                         break;
                     case NODE_UPDATED:
+                        /**
+                         *
+                         * 含义：缓存树中一个已存在节点的数据内容被更新。
+                         *
+                         * 触发场景：监听到 ZooKeeper 中某个节点的 setData 操作（在监听路径范围内）。
+                         *
+                         * 可用数据：getData() 返回节点更新后的数据。getInitialData() 返回节点更新前的数据（非常关键，用于比较变化）。getPath() 返回被更新节点的完整路径。
+                         * */
                         eventType = EventType.NodeDataChanged;
                         path = event.getData().getPath();
                         content = event.getData().getData() == null ? "" : new String(event.getData().getData(), CHARSET);
                         break;
                     case NODE_REMOVED:
+                        /**
+                         * 含义：一个节点从缓存树中被移除。
+                         *
+                         * 触发场景：监听到 ZooKeeper 中某个节点被删除（在监听路径范围内）。
+                         *
+                         * 可用数据：getData() 通常为 null（因为节点已不存在）。getInitialData() 返回节点被删除前的数据（即最后缓存的数据）。getPath() 返回被删除节点的完整路径。
+                         * */
                         path = event.getData().getPath();
                         eventType = EventType.NodeDeleted;
                         break;
                     case INITIALIZED:
+                        // TreeCache connecnt 成功
+                        /**
+                         *
+                         * 含义：TreeCache 实例已完成初始的 ZooKeeper 树结构同步，其内部缓存树现在被认为是完整且最新的。
+                         *
+                         * 触发场景：仅在 TreeCache 启动（调用 start()）后，当它成功连接到 ZooKeeper 并首次完整拉取并构建了指定路径下的整个子树缓存时触发一次。这是最重要的初始化完成事件。
+                         *
+                         * 可用数据：getData() 和 getInitialData() 通常为 null。getPath() 通常是根路径（TreeCache 监听的路径）。
+                         *
+                         * 重要性：在收到此事件之前，缓存可能不完整或为空。通常在这个事件之后，应用才会认为缓存可用并开始处理其他业务逻辑或查询缓存。
+                         * */
                         eventType = EventType.INITIALIZED;
                         break;
                     case CONNECTION_LOST:
-                        //连接session到期
+                        //连接session到期，zk 会自动重新创建回话
+                        /**
+                         * 含义：与 CONNECTION_SUSPENDED 类似，表示连接永久丢失（通常意味着会话过期）。TreeCache 实例将关闭且不再可用。
+                         *
+                         * 触发场景：Curator 的连接状态监听器报告连接状态变为 LOST（会话过期）。
+                         *
+                         * 可用数据：getData(), getInitialData() 通常为 null。getPath() 通常是根路径或 null。
+                         *
+                         * 关键区别：收到此事件后，TreeCache 实例会停止工作并关闭。应用必须创建新的 TreeCache 实例并重新启动它来恢复功能。
+                         * */
                         eventType = EventType.CONNECTION_LOST;
                         break;
                     case CONNECTION_RECONNECTED:
-                        //连接丢失后，重连成功
+                        //连接丢失后，重连成功， session 未过期，重连成功之后自动同步 zookeeper 数据
+                        /**
+                         *
+                         * 含义：TreeCache 在经历连接中断后，已成功重新连接到 ZooKeeper 集群。
+                         *
+                         * 触发场景：Curator 的连接状态监听器报告连接状态从 LOST/SUSPENDED 变回 RECONNECTED。
+                         *
+                         * 可用数据：getData(), getInitialData() 通常为 null。getPath() 通常是根路径或 null。
+                         *
+                         * 后续动作：TreeCache 会自动执行全量同步（类似于初始同步），以确保缓存与 ZooKeeper 服务器状态一致。
+                         * 这意味着在同步期间或之后，你可能会收到一系列的 NODE_ADDED, NODE_UPDATED, NODE_REMOVED 事件来反映连接中断期间发生的所有变更。
+                         * 最终会再次触发一个 INITIALIZED 事件表示同步完成。
+                         * */
                         eventType = EventType.CONNECTION_RECONNECTED;
                         break;
                     case CONNECTION_SUSPENDED:
-                        //连接丢失，新 session 创建
+                        // connection timeout 连接空闲自动重连
+                        /**
+                         * 含义：TreeCache 检测到与 ZooKeeper 集群的连接已中断。
+                         *
+                         * 触发场景：Curator 的连接状态监听器报告连接状态变为 LOST 或 SUSPENDED。
+                         *
+                         * 可用数据：getData(), getInitialData() 通常为 null。getPath() 通常是根路径或 null。
+                         *
+                         * 含义：此时缓存数据可能已过时（因为无法接收实时更新）。应用应进入“连接中断”处理模式（如显示警告、暂停写操作等）。TreeCache 会尝试自动重连。
+                         * */
                         eventType = EventType.CONNECTION_SUSPENDED;
                         break;
 
@@ -413,12 +481,12 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
             }
 
             if (state == ConnectionState.LOST) {
-                //session 过期
+                //session 过期，zk 会重新创建 session, 并触发 RECONNECTED（NEW_SESSION_CREATED）
                 logger.warn("Curator zookeeper session " + Long.toHexString(lastSessionId) + " expired.");
                 // 通知dubbo内部 连接状态监听器，实例内部类(private class)可访问其所属的类 this 实例指针
                 CuratorZookeeperClient.this.stateChanged(StateListener.SESSION_LOST);
             } else if (state == ConnectionState.SUSPENDED) {
-                //连接丢失 connection timeout
+                //连接丢失 connection timeout （连接空闲自动重连），触发 RECONNECTED
                 logger.warn("Curator zookeeper connection of session " + Long.toHexString(sessionId) + " timed out. " +
                         "connection timeout value is " + timeout + ", session expire timeout value is " + sessionExpireMs);
                 CuratorZookeeperClient.this.stateChanged(StateListener.SUSPENDED);

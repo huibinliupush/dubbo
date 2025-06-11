@@ -348,7 +348,7 @@ public class ConfigManager extends LifecycleAdapter implements FrameworkExt {
             getApplication().ifPresent(ApplicationConfig::refresh);
             getMonitor().ifPresent(MonitorConfig::refresh);
             getModule().ifPresent(ModuleConfig::refresh);
-
+            // 先处理单数，在处理负数配置
             getProtocols().forEach(ProtocolConfig::refresh);
             getRegistries().forEach(RegistryConfig::refresh);
             getProviders().forEach(ProviderConfig::refresh);

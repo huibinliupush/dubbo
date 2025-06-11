@@ -88,7 +88,7 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
      * the default timeout in millis to get config from nacos
      */
     private static final long DEFAULT_TIMEOUT = 5000L;
-
+    // 缓存 nacos 相关配置属性
     private Properties nacosProperties;
 
     /**
@@ -100,12 +100,19 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
 
     /**
      * The map store the key to {@link NacosConfigListener} mapping
+     * key : key-group(配置文件-group)  value : NacosConfigListener(和 nacos 交互，内部封装 ConfigurationListener)
+     *
+     *       key: 为配置文件名称 ： dubbp.properties ， xx.configurator , xx.tag-router , xx.condition-router
+     *       group: dubbo（全局）， applicationName（应用级配置）
      */
     private final ConcurrentMap<String, NacosConfigListener> watchListenerMap;
 
     NacosDynamicConfiguration(URL url) {
+        // 缓存 nacos 相关配置属性
         this.nacosProperties = buildNacosProperties(url);
+        // 根据 nacosProperties 创建 nacos 客户端 configService
         this.configService = buildConfigService(url);
+        // 获取 openApi HttpAgent （configService 中的 agent 字段）
         this.httpAgent = getHttpAgent(configService);
         watchListenerMap = new ConcurrentHashMap<>();
     }
@@ -137,7 +144,9 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
 
     private Properties buildNacosProperties(URL url) {
         Properties properties = new Properties();
+        // 添加 SERVER_ADDR
         setServerAddr(url, properties);
+        // 添加 nacos 相关配置属性
         setProperties(url, properties);
         return properties;
     }
@@ -208,13 +217,20 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
         return configListener;
     }
 
+    // key: 为配置文件名称 ： dubbp.properties ， xx.configurator , xx.tag-router , xx.condition-router
+    // group: dubbo（全局）， applicationName（应用级配置）
     @Override
     public void addListener(String key, String group, ConfigurationListener listener) {
+        // group 中的 / 替换为 -
         String resolvedGroup = resolveGroup(group);
+        // key-group
         String listenerKey = buildListenerKey(key, group);
+        // NacosConfigListener - 监听 nacos 中具体的配置文件
         NacosConfigListener nacosConfigListener = watchListenerMap.computeIfAbsent(listenerKey, k -> createTargetListener(key, resolvedGroup));
+        // ConfigurationListener 对该配置文件感兴趣的 listener （dubbo 框架内部）
         nacosConfigListener.addListener(listener);
         try {
+            // 监听配置变化，通知 nacosConfigListener，然后通知 ConfigurationListener
             configService.addListener(key, resolvedGroup, nacosConfigListener);
         } catch (NacosException e) {
             logger.error(e.getMessage());
@@ -230,6 +246,8 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
         }
     }
 
+    // key: 为配置文件名称 ： dubbp.properties ， xx.configurator , xx.tag-router , xx.condition-router
+    // group: dubbo（全局）， applicationName（应用级配置）
     @Override
     public String getConfig(String key, String group, long timeout) throws IllegalStateException {
         String resolvedGroup = resolveGroup(group);

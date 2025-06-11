@@ -99,11 +99,13 @@ public abstract class AbstractConfig implements Serializable {
     }
 
     public static String getTagName(Class<?> cls) {
+        // RegistryConfig
         String tag = cls.getSimpleName();
         // "Config", "Bean", "ConfigBase"
         for (String suffix : SUFFIXES) {
             if (tag.endsWith(suffix)) {
                 // 去掉后缀 SUFFIXES
+                // Registry
                 tag = tag.substring(0, tag.length() - suffix.length());
                 break;
             }
@@ -475,6 +477,8 @@ public abstract class AbstractConfig implements Serializable {
              *
              * 将配置源按照 系统变量，环境变量，配置中心，（xml,注解），dubbo.properties
              * 的优先级组合成 CompositeConfiguration
+             *
+             * 一个 config bean 对应一个 CompositeConfiguration
              *
              * */
             CompositeConfiguration compositeConfiguration = env.getPrefixedConfiguration(this);
