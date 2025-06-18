@@ -218,10 +218,14 @@ public class ReferenceConfigCache {
         }
 
         referredReferences.forEach((_k, referenceConfig) -> {
+            // 主要是销毁 RegistryDirectory
             referenceConfig.destroy();
             ApplicationModel.getConfigManager().removeConfig(referenceConfig);
         });
-
+        // 销毁所有的动态代理(reference)
+        // proxy 主要封装的是 dubboInvoker ，现在 invoker 已经销毁了，proxy 没啥可销毁的了吧 ？
+        // proxy.$destroy() 其实底层也是调用 dubboInvoker.destroy()
+        // see : org.apache.dubbo.rpc.proxy.InvokerInvocationHandler.invoke
         proxies.forEach((_type, proxiesOfType) -> {
             proxiesOfType.forEach((_k, v) -> {
                 Destroyable proxy = (Destroyable) v;

@@ -35,7 +35,9 @@ public class ServiceDescriptor {
     private final String serviceName;
     private final Class<?> serviceInterfaceClass;
     // to accelerate search
+    // key : methodName
     private final Map<String, List<MethodDescriptor>> methods = new HashMap<>();
+    // key : methodName ,value [ key:ParamDesc , value: MethodDescriptor]
     private final Map<String, Map<String, MethodDescriptor>> descToMethods = new HashMap<>();
 
     public ServiceDescriptor(Class<?> interfaceClass) {

@@ -166,6 +166,8 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
                 }
                 for (ExchangeClient client : clients) {
                     try {
+                        // 共享连接 ： ReferenceCountExchangeClient -> HeaderExchangeClient -> NettyClient
+                        // 独享连接 ： HeaderExchangeClient -> NettyClient
                         client.close(ConfigurationUtils.getServerShutdownTimeout());
                     } catch (Throwable t) {
                         logger.warn(t.getMessage(), t);

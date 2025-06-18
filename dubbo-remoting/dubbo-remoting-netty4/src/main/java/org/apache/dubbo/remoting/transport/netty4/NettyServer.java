@@ -147,7 +147,7 @@ public class NettyServer extends AbstractServer implements RemotingServer {
         // 其实这里直接调用 netty 的 shutdownGracefully 就可以 ？
         try {
             if (channel != null) {
-                // unbind.
+                // unbind. 关闭 ServerChannel
                 channel.close();
             }
         } catch (Throwable e) {

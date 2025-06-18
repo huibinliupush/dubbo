@@ -155,6 +155,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
     public void close() {
         try {
             // graceful close
+            // 强行关闭 channel 上的 future(通知 disconnectResponse)
             DefaultFuture.closeChannel(channel);
             channel.close();
         } catch (Throwable e) {
@@ -171,7 +172,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         closed = true;
         if (timeout > 0) {
             long start = System.currentTimeMillis();
-            // 循环等待 channel 上的 future 响应结果
+            // 如果 channel 上还有未响应的 future ，那么这里循环等待 future 的响应直到 timeout
             while (DefaultFuture.hasFuture(channel)
                     && System.currentTimeMillis() - start < timeout) {
                 try {

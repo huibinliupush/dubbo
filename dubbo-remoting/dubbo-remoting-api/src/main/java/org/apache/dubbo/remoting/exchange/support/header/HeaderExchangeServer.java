@@ -103,23 +103,51 @@ public class HeaderExchangeServer implements ExchangeServer {
 
     @Override
     public void close(final int timeout) {
-        // 先设置 close 标识 为 true , 再有连接进来，server 会直接断开
+        // 先设置 closing 标识 为 true , 再有连接进来，server 会直接断开
         startClose();
         if (timeout > 0) {
             final long max = (long) timeout;
             final long start = System.currentTimeMillis();
+            /**
+             * 这里就是 server 关闭的核心流程，在这之前，dubbo 首先会将进程的所有 provider 全部取消注册
+             * 然后 consumer 收到取消注册事件，会销毁对应的 dubboInovker，关闭底层的客户端连接（由客户端主动关闭）
+             *
+             * 但是 consumer 收到注册中心的通知以及处理这个通知（销毁 invoker）是有延迟的，延迟主要看注册中心的通知是否及时
+             * 所以很有可能是 server 要关闭了，但是 consumer 还没有收到注册中心的通知，依然还在用客户端连接发送消息
+             *
+             * 所以为了避免这个延迟的影响，在 server 关闭的时候会向所有的客户端连接发送 read only 事件，consumer 收到 read only 事件之后
+             * 就只能接受来自 server 的响应，不能向 server 发送消息了。（consumer 对应的 dubboInvoker 状态变为不可用，负载均衡将不会选取）
+             *
+             * 这样一来虽然注册中心通知会有延迟，但是 consumer 收到了 read only ，在这段时间内不会向 server 继续发送消息
+             *
+             * 在服务向注册中心注销的时候，也会马上等待 10s, see : org.apache.dubbo.registry.integration.RegistryProtocol.ExporterChangeableWrapper#unexport()
+             * */
             if (getUrl().getParameter(Constants.CHANNEL_SEND_READONLYEVENT_KEY, true)) {
                 // 向所有 client 发送 read only 事件，client 在收到 read only 事件之后，channel 就会变为只读，不能在发送数据了
                 sendChannelReadOnlyEvent();
             }
-            // 这里循环等待所有 client 主动关闭连接，其实 client 在收到 read only 事件之后就应该关闭了
-            // 让 client 主动去关，避免大量 timewait 连接
-
-            // client 端也会等待一段时间，如果等待超时，连接上还有未响应的 futrue,
-            // 则会自己创建一个状态码将连接关闭的 Response 交给 DefaultFuture 处理
-            while (HeaderExchangeServer.this.isRunning()
+            /**
+             * 当 server 向所有客户端发送完 read only 事件之后，就会在这里等待 timeout (10s) 的时间，等待这个时间就是为了
+             * 等注册中心通知 consumer,然后 consumer 销毁相应的 dubboInvoker。
+             *
+             * see : org.apache.dubbo.registry.integration.RegistryDirectory#destroyUnusedInvokers(java.util.Map, java.util.Map)
+             *
+             * 销毁 dubboInvoker 核心就是主动关闭客户端连接（由客户端主动关闭连接，避免 server 端过多的 time wait）
+             *
+             * 1. 说白了，server 这里等待 timeout (10s) 就是为了等客户端来主动关闭连接
+             *
+             * 2. 还有一个作用就是 server 可能正在处理之前的请求，那么在这里等待一段时间，等这些现有请求都处理完成，向客户端发送响应
+             * 客户端虽然是 read only 了，但仍然可以接受来自 server 的响应
+             *
+             * 3. client 连接上如果还有未响应的 futrue , 也会等待一段时间，如果等待超时，则会自己创建一个状态码将连接关闭的 Response 交给 DefaultFuture 处理
+             * 然后在关闭连接
+             *
+             * */
+            while (HeaderExchangeServer.this.isRunning() // server 端的所有连接均已关闭时（客户端主动断连）running = false
                     && System.currentTimeMillis() - start < max) {
                 try {
+                    // 1. 等待客户端主动断开连接
+                    // 2. 处理已有的请求，向客户端发送响应
                     Thread.sleep(10);
                 } catch (InterruptedException e) {
                     logger.warn(e.getMessage(), e);

@@ -38,9 +38,11 @@ public class LocalHostPermitHandler extends ChannelHandlerAdapter {
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         if (!acceptForeignIp) {
+            // 只允许本机发起 qos 命令
             if (!((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().isLoopbackAddress()) {
                 ByteBuf cb = Unpooled.wrappedBuffer((QosConstants.BR_STR + "Foreign Ip Not Permitted."
                         + QosConstants.BR_STR).getBytes());
+                // 发送提示信息，然后关闭连接
                 ctx.writeAndFlush(cb).addListener(ChannelFutureListener.CLOSE);
             }
         }

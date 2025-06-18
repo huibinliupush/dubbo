@@ -842,7 +842,8 @@ public class DubboBootstrap extends GenericEventListener {
 
     /**
      * Block current thread to be await.
-     *
+     * 启动 dubbo 的 main 线程调用该方法，阻止 main 线程退出
+     * 当 dubbo 关闭之后，main 线程会从这里唤醒，然后退出
      * @return {@link DubboBootstrap}
      */
     public DubboBootstrap await() {
@@ -1155,25 +1156,55 @@ public class DubboBootstrap extends GenericEventListener {
                 if (started.compareAndSet(true, false)
                         && destroyed.compareAndSet(false, true)) {
 
-                    //取消注册
+                    //取消注册应用级实例
                     unregisterServiceInstance();
-                    //取消元数据服务
+                    //unexport元数据服务
                     unexportMetadataService();
-                    //停止暴露服务
+                    /**
+                     * 1. 从 bounds(RegistryProtocol) 缓存中移除对应的 eexporter
+                     * 2. unRegister  registerUrl（取消注册）
+                     * 3. 移除对配置文件 interface:group:version.configurators 的监听
+                     * 4. 销毁 AbstractProxyInvoker (没啥可做的)
+                     * */
                     unexportServices();
-                    //取消订阅服务
+                    /**
+                     * 主要是销毁所有 Reference 中的 ClusterInvoker -> RegistryDirectory
+                     * 1. unRegister consumerurl
+                     * 2. 移除对 provider 的监听， unSubscribe (subscribeURL , RegistryDirectory)
+                     * 3. 移除对 consumerAppName.configurators 配置的监听
+                     * 4. 销毁所有 invokers , 关闭底层连接
+                     * */
                     unreferServices();
-                    //注销注册中心
+                    /**
+                     * 销毁所有注册中心实例（接口级服务发现级别）
+                     * 1. unRegister 所有已经注册过的 providerUrl or consumerUrl
+                     * 2. unSubscribe 所有的订阅 url ，移除监听器
+                     * 3. 从缓存 REGISTRIES  中移除 Registry 实例
+                     * 4. 关闭 zooKeeper or nacos 客户端
+                     * */
                     destroyRegistries();
-                    //关闭服务
+                    /**
+                     * 关闭所有协议的 server，关闭 server 的核心：
+                     *
+                     * 1. server 准备关闭时，就不允许有新的连接进来了，通过设置 closing =- true
+                     * 2. 客户端不允许在向 server 发送信息，通过注册中心通知，以及向所有客户端发送 read only 事件
+                     * 3. 等待客户端主动关闭连接（防止 server 端过多 timewait）,处理存量请求向客户端发送响应
+                     * 4. 所有客户端连接主动断连或者等待超时（10s）,开始强制关闭
+                     * 5. executor  shutdown
+                     * 6. 设置 closed = true
+                     * 7. 关闭 ServerChannel
+                     * 8. 关闭剩余的所有 channel
+                     * 9. bossGroup , workGroup shutdownGracefully
+                     *
+                     * */
                     DubboShutdownHook.destroyProtocols();
-                    //销毁注册中心客户端实例
+                    //销毁注册中心客户端实例(应用级服务发现)
                     destroyServiceDiscoveries();
                     //清除应用配置类以及相关应用模型
                     clear();
                     //关闭线程池
                     shutdown();
-                    //释放资源
+                    // 唤醒阻塞在 org.apache.dubbo.config.bootstrap.DubboBootstrap.await 上的线程
                     release();
                 }
             } finally {

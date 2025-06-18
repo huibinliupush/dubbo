@@ -208,6 +208,7 @@ final class NettyChannel extends AbstractChannel {
             if (logger.isInfoEnabled()) {
                 logger.info("Close netty channel " + channel);
             }
+            // native channel
             channel.close();
         } catch (Exception e) {
             logger.warn(e.getMessage(), e);

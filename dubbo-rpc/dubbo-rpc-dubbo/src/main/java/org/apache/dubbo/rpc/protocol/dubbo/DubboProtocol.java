@@ -745,6 +745,8 @@ public class DubboProtocol extends AbstractProtocol {
     @Override
     public void destroy() {
         for (String key : new ArrayList<>(serverMap.keySet())) {
+            // 按照本地 ip:port 缓存所有 server , port 为暴露的端口
+            // 每个端口对应一个 server , 一般都是一个 server
             ProtocolServer protocolServer = serverMap.remove(key);
 
             if (protocolServer == null) {
@@ -757,14 +759,14 @@ public class DubboProtocol extends AbstractProtocol {
                 if (logger.isInfoEnabled()) {
                     logger.info("Close dubbo server: " + server.getLocalAddress());
                 }
-
+                // 10s
                 server.close(ConfigurationUtils.getServerShutdownTimeout());
 
             } catch (Throwable t) {
                 logger.warn(t.getMessage(), t);
             }
         }
-
+        // 关闭共享连接, referenceClientMap 按照 server 端的 IP：port 来缓存对应的共享连接
         for (String key : new ArrayList<>(referenceClientMap.keySet())) {
             List<ReferenceCountExchangeClient> clients = referenceClientMap.remove(key);
 

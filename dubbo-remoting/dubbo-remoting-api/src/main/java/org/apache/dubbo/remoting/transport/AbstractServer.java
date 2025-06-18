@@ -131,6 +131,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
         }
         ExecutorUtil.shutdownNow(executor, 100);
         try {
+            // 设置 closed = true
             super.close();
         } catch (Throwable e) {
             logger.warn(e.getMessage(), e);
@@ -144,6 +145,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
 
     @Override
     public void close(int timeout) {
+        // 先对线程池进行 shutdown , 等待 timeout 的时间，如果还未停止，调用 shutdownNow
         ExecutorUtil.gracefulShutdown(executor, timeout);
         close();
     }

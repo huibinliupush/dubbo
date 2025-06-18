@@ -222,6 +222,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         connectLock.lock();
         try {
             try {
+                // NettyChannel
                 Channel channel = getChannel();
                 if (channel != null) {
                     // 关闭连接
@@ -279,6 +280,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         }
 
         try {
+            // 空操作
             doClose();
         } catch (Throwable e) {
             logger.warn(e.getMessage(), e);

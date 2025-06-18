@@ -92,11 +92,13 @@ public class InvokeTelnetHandler implements TelnetHandler {
             for (ProviderModel provider : ApplicationModel.allProviderModels()) {
                 if (isServiceMatch(service, provider)) {
                     selectedProvider = provider;
+                    // 匹配方法名以及方法参数个数
                     List<Method> methodList = findSameSignatureMethod(provider.getAllMethods(), method, list);
                     if (CollectionUtils.isNotEmpty(methodList)) {
                         if (methodList.size() == 1) {
                             invokeMethod = methodList.get(0);
                         } else {
+                            // 传入的参数与方法参数类型是否匹配
                             List<Method> matchMethods = findMatchMethods(methodList, list);
                             if (CollectionUtils.isNotEmpty(matchMethods)) {
                                 if (matchMethods.size() == 1) {
@@ -123,6 +125,8 @@ public class InvokeTelnetHandler implements TelnetHandler {
         if (selectedProvider != null) {
             if (invokeMethod != null) {
                 try {
+                    // 给定参数 list 转换为方法参数类型（主要针对一些特殊类型的处理）
+                    // 基本类型或者实体类不需要转换，但枚举类，集合类 需要做转换
                     Object[] array = realize(list.toArray(), invokeMethod.getParameterTypes(),
                             invokeMethod.getGenericParameterTypes());
                     long start = System.currentTimeMillis();

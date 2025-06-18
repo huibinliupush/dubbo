@@ -38,15 +38,18 @@ public class ServiceRepository extends LifecycleAdapter implements FrameworkExt 
     public static final String NAME = "repository";
 
     // services
+    // interfaceClazz.getName -> ServiceDescriptor
     private ConcurrentMap<String, ServiceDescriptor> services = new ConcurrentHashMap<>();
 
     // consumers
     private ConcurrentMap<String, ConsumerModel> consumers = new ConcurrentHashMap<>();
 
     // providers
+    // key : serviceKey
     private ConcurrentMap<String, ProviderModel> providers = new ConcurrentHashMap<>();
 
     // useful to find a provider model quickly with serviceInterfaceName:version
+    // key : serviceKey(不带 group —— serviceInterfaceName:version)
     private ConcurrentMap<String, ProviderModel> providersWithoutGroup = new ConcurrentHashMap<>();
 
     public ServiceRepository() {

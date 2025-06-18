@@ -86,6 +86,7 @@ public class Server {
             return;
         }
         boss = new NioEventLoopGroup(1, new DefaultThreadFactory("qos-boss", true));
+        // NioEventLoopGroup 中的 threads 指定为 0 ，那么就采用默认的 DEFAULT_EVENT_LOOP_THREADS
         worker = new NioEventLoopGroup(0, new DefaultThreadFactory("qos-worker", true));
         ServerBootstrap serverBootstrap = new ServerBootstrap();
         serverBootstrap.group(boss, worker);

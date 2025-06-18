@@ -57,6 +57,8 @@ public abstract class AbstractExporter<T> implements Exporter<T> {
             return;
         }
         unexported = true;
+        // DelegateProviderMetaDataInvoker -> AbstractProxyInvoker -> serviceRef
+        // 对应 destroy 方法为空闲实现
         getInvoker().destroy();
     }
 

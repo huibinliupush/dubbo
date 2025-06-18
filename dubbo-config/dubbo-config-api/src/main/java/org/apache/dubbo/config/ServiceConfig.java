@@ -365,7 +365,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
-        //服务元数据存储
+        //服务元数据存储, 在 QOS 相关模块会使用到，例如 online ,offline ,invoker 等 qos 命令模块
         ServiceRepository repository = ApplicationModel.getServiceRepository();
         //注册服务的元数据
         ServiceDescriptor serviceDescriptor = repository.registerService(getInterfaceClass());

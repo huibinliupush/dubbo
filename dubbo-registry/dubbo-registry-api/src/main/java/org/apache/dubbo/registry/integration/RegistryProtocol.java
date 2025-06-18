@@ -137,6 +137,7 @@ public class RegistryProtocol implements Protocol {
     //To solve the problem of RMI repeated exposure port conflicts, the services that have been exposed are no longer exposed.
     //providerurl <--> exporter
     //providerUrl（去除dynamic enable参数） -> ExporterChangeableWrapper映射
+    // 缓存所有协议的 exporter
     private final ConcurrentMap<String, ExporterChangeableWrapper<?>> bounds = new ConcurrentHashMap<>();
     // 依赖注入相关扩展点的 adaptive 实例
     private Cluster cluster;
@@ -916,10 +917,14 @@ public class RegistryProtocol implements Protocol {
         @Override
         public void unexport() {
             String key = getCacheKey(this.originInvoker);
+            // 缓存所有协议的 exporter
             bounds.remove(key);
-
+            // ExporterChangeableWrapper 设计为 RegistryProtocol 内部实例类的原因
+            // 这里会处理注销相关的逻辑，会用到 RegistryProtocol 内部属性和方法
             Registry registry = RegistryProtocol.this.getRegistry(originInvoker);
             try {
+                // 接口级服务发现，从注册中心中删除
+                // 应用级服务发现，从本地元数据中心中删除
                 registry.unregister(registerUrl);
             } catch (Throwable t) {
                 logger.warn(t.getMessage(), t);
@@ -927,21 +932,26 @@ public class RegistryProtocol implements Protocol {
             try {
                 NotifyListener listener = RegistryProtocol.this.overrideListeners.remove(subscribeUrl);
                 registry.unsubscribe(subscribeUrl, listener);
+                // 取消对 {interfaceName}:[version]:[group].configurators 动态配置的监听
                 ExtensionLoader.getExtensionLoader(GovernanceRuleRepository.class).getDefaultExtension()
                         .removeListener(subscribeUrl.getServiceKey() + CONFIGURATORS_SUFFIX,
                                 serviceConfigurationListeners.get(subscribeUrl.getServiceKey()));
             } catch (Throwable t) {
                 logger.warn(t.getMessage(), t);
             }
-
+            // 异步对 DubboExporter 进行 unexport
             executor.submit(() -> {
                 try {
+                    // 10s
                     int timeout = ConfigurationUtils.getServerShutdownTimeout();
+                    // 此时 service 已经向注册中心注销了，但注册中心通知对应的 consumer 有一定的延迟
+                    // 这里等待 10s, 目的是等待 consumer 收到服务注销的通知
                     if (timeout > 0) {
                         logger.info("Waiting " + timeout + "ms for registry to notify all consumers before unexport. " +
                                 "Usually, this is called when you use dubbo API");
                         Thread.sleep(timeout);
                     }
+                    // 在 unexport 之前需要等待所有 consumer 都收到注册中心服务注销通知
                     exporter.unexport();
                 } catch (Throwable t) {
                     logger.warn(t.getMessage(), t);

@@ -82,6 +82,7 @@ public class DubboShutdownHook extends Thread {
     }
 
     private void callback() {
+        // see : org.apache.dubbo.config.bootstrap.DubboBootstrap.DubboBootstrap
         callbacks.callback();
     }
 
@@ -103,6 +104,7 @@ public class DubboShutdownHook extends Thread {
         if (registered.compareAndSet(true, false)) {
             DubboShutdownHook dubboShutdownHook = getDubboShutdownHook();
             Runtime.getRuntime().removeShutdownHook(dubboShutdownHook);
+            // 没有内置 listenr
             dispatch(new DubboShutdownHookUnregisteredEvent(dubboShutdownHook));
         }
     }
@@ -112,6 +114,7 @@ public class DubboShutdownHook extends Thread {
      */
     public void doDestroy() {
         // dispatch the DubboDestroyedEvent @since 2.7.5
+        // 没有内置 listenr
         dispatch(new DubboServiceDestroyedEvent(this));
     }
 
@@ -125,6 +128,7 @@ public class DubboShutdownHook extends Thread {
 
     public static void destroyAll() {
         if (destroyed.compareAndSet(false, true)) {
+            // 取消所有 provider 的注册，取消所有 consumer 的 listener
             AbstractRegistryFactory.destroyAll();
             destroyProtocols();
         }
@@ -135,6 +139,7 @@ public class DubboShutdownHook extends Thread {
      */
     public static void destroyProtocols() {
         ExtensionLoader<Protocol> loader = ExtensionLoader.getExtensionLoader(Protocol.class);
+        // 获取已经加载的所有扩展（运行中加载的所有扩展），这里不包括已定义，未加载的扩展
         for (String protocolName : loader.getLoadedExtensions()) {
             try {
                 Protocol protocol = loader.getLoadedExtension(protocolName);

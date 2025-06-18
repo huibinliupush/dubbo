@@ -38,6 +38,7 @@ public class HttpCommandDecoder {
             String path = queryStringDecoder.path();
             String[] array = path.split("/");
             if (array.length == 2) {
+                // command
                 String name = array[1];
 
                 // process GET request and POST request separately. Check url for GET, and check body for POST

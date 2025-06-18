@@ -141,9 +141,11 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private volatile Set<URL> cachedInvokerUrls; // The initial value is null and the midway may be assigned to null, please use the local variable reference
     // 对比于发布过程中的 providerConfigurationListener
     // 注意 ConsumerConfigurationListener 是静态的
+    // 它们监听的是同一配置文件： appName.configurators
     private static final ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER = new ConsumerConfigurationListener();
     // 对比于发布过程中的 serviceConfigurationListener
     // ReferenceConfigurationListener 是实例级别（一个注册中心一个）
+    // 它们监听的是同一配置文件： interface:group:version.configurators
     private ReferenceConfigurationListener serviceConfigurationListener;
 
 
@@ -234,6 +236,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             if (getConsumerUrl() != null && registry != null && registry.isAvailable()) {
                 registry.unsubscribe(getConsumerUrl(), this);
             }
+            // 与 providerConfigurationListener 监听的是同一配置文件： appName.configurators
             ExtensionLoader.getExtensionLoader(GovernanceRuleRepository.class).getDefaultExtension()
                     .removeListener(ApplicationModel.getApplication(), CONSUMER_CONFIGURATION_LISTENER);
         } catch (Throwable t) {
@@ -381,6 +384,10 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
             try {
                 // 销毁不在使用的 invoker (oldUrlInvokerMap - newUrlInvokerMap)
+                // 当 server 关闭的时候，会将所有的 provider 从注册中心中取消注册，然后 consumer 收到取消注册的通知，
+                // 这里就会销毁对应的 dubbo invoker (实现由客户端主动关闭连接)
+                // 在服务向注册中心注销的时候，会马上等待 10s, see : org.apache.dubbo.registry.integration.RegistryProtocol.ExporterChangeableWrapper#unexport()
+                // see : org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeServer#close(int)                                                                                                                                       * 在销毁 dubbo invoker 的过程中会主动关闭客户端连接
                 destroyUnusedInvokers(oldUrlInvokerMap, newUrlInvokerMap); // Close the unused Invoker
             } catch (Exception e) {
                 logger.warn("destroyUnusedInvokers error. ", e);
@@ -620,6 +627,11 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     /**
      * Check whether the invoker in the cache needs to be destroyed
      * If set attribute of url: refer.autodestroy=false, the invokers will only increase without decreasing,there may be a refer leak
+     *
+     * 当 server 关闭的时候，会将所有的 provider 从注册中心中取消注册，然后 consumer 收到取消注册的通知，这里就会销毁对应的 dubbo invoker
+     * 在销毁 dubbo invoker 的过程中会主动关闭客户端连接
+     *
+     * see : org.apache.dubbo.remoting.exchange.support.header.HeaderExchangeServer#close(int)
      *
      * @param oldUrlInvokerMap
      * @param newUrlInvokerMap

@@ -20,8 +20,8 @@ import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.constants.CommonConstants;
 
 /**
- * Application level router, "consumerApplication.condition-router"  条件路由的生效范围为：指定的 comsumer 应用
- * 该条件路由仅对 consumer 这个应用的客户端生效，其他 consumer 应用的客户端不生效
+ * Application level router, "consumerApplication.condition-router"  条件路由的生效范围为：指定的 comsumer 应用的所有 reference
+ * 该条件路由仅对 consumer 这个应用的所有客户端（reference）生效，其他 consumer 应用的客户端不生效
  * 这个很好理解，因为一个 consumer 只会监听自己的 consumerApplication.condition-router
  *
  * 针对条件路由，我们通常推荐配置 scope: service 的规则，因为它可以跨消费端应用对所有消费特定服务 (service) 的应用生效。

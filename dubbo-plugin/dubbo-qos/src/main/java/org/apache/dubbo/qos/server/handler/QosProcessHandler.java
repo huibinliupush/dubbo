@@ -76,6 +76,7 @@ public class QosProcessHandler extends ByteToMessageDecoder {
         final int magic = in.getByte(in.readerIndex());
 
         ChannelPipeline p = ctx.pipeline();
+        // acceptForeignIp = false ，只允许本机发起 qos 命令
         p.addLast(new LocalHostPermitHandler(acceptForeignIp));
         if (isHttp(magic)) {
             // no welcome output for http protocol
@@ -87,10 +88,15 @@ public class QosProcessHandler extends ByteToMessageDecoder {
             p.addLast(new HttpProcessHandler());
             p.remove(this);
         } else {
+            // 通过特殊字符进行编解码
+            // "\n"(unix) and "\r\n" (windows)通过换行符确定消息的边界
+            // 按照换行符来解码消息，正好贴合 telnet 命令
             p.addLast(new LineBasedFrameDecoder(2048));
             p.addLast(new StringDecoder(CharsetUtil.UTF_8));
             p.addLast(new StringEncoder(CharsetUtil.UTF_8));
+            // 空闲五分钟则关闭连接
             p.addLast(new IdleStateHandler(0, 0, 5 * 60));
+            // PROMPT 并不会传递进来
             p.addLast(new TelnetProcessHandler());
             p.remove(this);
         }

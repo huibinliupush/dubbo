@@ -29,6 +29,7 @@ public class ProviderMethodModel {
     private final Method method;
     private final String methodName;
     private final Class<?>[] parameterClasses;
+    // paramType.getName
     private final String[] methodArgTypes;
     private final Type[] genericParameterTypes;
     private final ConcurrentMap<String, Object> attributeMap = new ConcurrentHashMap<>();

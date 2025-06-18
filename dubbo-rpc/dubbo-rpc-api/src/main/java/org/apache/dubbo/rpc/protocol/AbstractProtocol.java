@@ -46,6 +46,7 @@ public abstract class AbstractProtocol implements Protocol {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     //所有暴露服务的exporter缓存  key:serviceKey   value:exporter
+    // 缓存所有 dubbo 协议的 exporter
     protected final Map<String, Exporter<?>> exporterMap = new ConcurrentHashMap<String, Exporter<?>>();
 
     /**
@@ -54,7 +55,7 @@ public abstract class AbstractProtocol implements Protocol {
     //缓存暴露的服务进程  一个端口一个ProtocolService
     //key:ip:port  value:服务进程
     // 支持多端口暴露，多个端口就对应多个 ProtocolServer
-    // ProtocolServer : DubboProtocolServer -> HeaderExchangeService -> NettyServer
+    // ProtocolServer : DubboProtocolServer -> HeaderExchangeServer -> NettyServer
     protected final Map<String, ProtocolServer> serverMap = new ConcurrentHashMap<>();
 
     //TODO SoftReference
@@ -83,6 +84,7 @@ public abstract class AbstractProtocol implements Protocol {
                     if (logger.isInfoEnabled()) {
                         logger.info("Destroy reference: " + invoker.getUrl());
                     }
+                    // 关闭独享连接
                     invoker.destroy();
                 } catch (Throwable t) {
                     logger.warn(t.getMessage(), t);

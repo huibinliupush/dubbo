@@ -239,6 +239,7 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
 
     @Override
     public void removeListener(String key, String group, ConfigurationListener listener) {
+        // key-group
         String listenerKey = buildListenerKey(key, group);
         NacosConfigListener eventListener = watchListenerMap.get(listenerKey);
         if (eventListener != null) {

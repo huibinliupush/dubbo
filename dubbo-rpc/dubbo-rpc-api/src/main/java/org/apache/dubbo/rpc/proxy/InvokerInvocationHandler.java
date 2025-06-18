@@ -61,6 +61,8 @@ public class InvokerInvocationHandler implements InvocationHandler {
             if ("toString".equals(methodName)) {
                 return invoker.toString();
             } else if ("$destroy".equals(methodName)) {
+                // proxy 自动继承 Destroyable 接口
+                // org.apache.dubbo.rpc.proxy.AbstractProxyFactory.INTERNAL_INTERFACES
                 invoker.destroy();
                 return null;
             } else if ("hashCode".equals(methodName)) {

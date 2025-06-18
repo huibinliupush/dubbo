@@ -102,6 +102,7 @@ public class ExtensionLoader<T> {
     private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
 
     //缓存所有对应扩展实现类中标注的@Activate注解集合。  key：扩展名  value:对应扩展实现类上标注的@Active注解
+    // 获取已经加载的所有扩展（运行中加载的所有扩展），这里不包括已定义，未加载的扩展
     private final Map<String, Object> cachedActivates = new ConcurrentHashMap<>();
     // 缓存扩展名到对应扩展实现类实例（已被 wrappper 包装，已经完成依赖注入）之间的映射
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
@@ -481,6 +482,8 @@ public class ExtensionLoader<T> {
      * Usually {@link #getSupportedExtensions()} should be called in order to get all extensions.
      *
      * @see #getSupportedExtensions()
+     *
+     * 获取已经加载的所有扩展（运行中加载的所有扩展），这里不包括已定义，未加载的扩展
      */
     public Set<String> getLoadedExtensions() {
         return Collections.unmodifiableSet(new TreeSet<>(cachedInstances.keySet()));

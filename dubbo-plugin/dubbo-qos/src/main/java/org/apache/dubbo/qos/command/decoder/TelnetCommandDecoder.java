@@ -24,10 +24,16 @@ import org.apache.dubbo.qos.command.CommandContextFactory;
 public class TelnetCommandDecoder {
     public static final CommandContext decode(String str) {
         CommandContext commandContext = null;
+        // PROMPT 并不会传递进来，传递进来的指挥室 qos 命令以及相关参数
         if (!StringUtils.isBlank(str)) {
+            // (?<![\\])空格，查找非转义的空格，如果字符串中出现 \空格 ，那么就不匹配
+            // (?<![\\])后面可跟随任何想要查找的非转义字符（指定字符前面没有 \）
+            // (?<![\\])" 查找非转义的" （前面没有 \ 的 "）
             String[] array = str.split("(?<![\\\\]) ");
             if (array.length > 0) {
+                // 第一个是命令名
                 String name = array[0];
+                // 后面用空格 隔开的全部是参数
                 String[] targetArgs = new String[array.length - 1];
                 System.arraycopy(array, 1, targetArgs, 0, array.length - 1);
                 commandContext = CommandContextFactory.newInstance( name, targetArgs,false);

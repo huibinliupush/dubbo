@@ -173,7 +173,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         } catch (Throwable t) {
             logger.warn("Unexpected error occured when destroy invoker of ReferenceConfig(" + url + ").", t);
         }
+        // 动态代理封装的 ClusterInvoker 或者 DubboInvoker
         invoker = null;
+        // 动态代理
         ref = null;
 
         // dispatch a ReferenceConfigDestroyedEvent since 2.7.4

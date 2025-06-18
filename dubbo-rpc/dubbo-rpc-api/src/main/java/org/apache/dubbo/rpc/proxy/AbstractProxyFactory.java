@@ -37,6 +37,8 @@ import static org.apache.dubbo.rpc.Constants.INTERFACES;
  * AbstractProxyFactory
  */
 public abstract class AbstractProxyFactory implements ProxyFactory {
+    // 销毁 reference 代理的时候会调用 Destroyable
+    // see : org.apache.dubbo.config.utils.ReferenceConfigCache.destroyAll
     private static final Class<?>[] INTERNAL_INTERFACES = new Class<?>[]{
             EchoService.class, Destroyable.class
     };
