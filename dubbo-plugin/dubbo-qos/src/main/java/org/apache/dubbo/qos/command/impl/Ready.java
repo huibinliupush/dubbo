@@ -37,7 +37,8 @@ public class Ready implements BaseCommand {
     public Ready(FrameworkModel frameworkModel) {
         this.frameworkModel = frameworkModel;
     }
-
+    // 1. dubbo 应用已经启动成功
+    // 2. 所有服务均已注册到注册中心
     @Override
     public String execute(CommandContext commandContext, String[] args) {
         String config = frameworkModel.getApplicationModels().stream()

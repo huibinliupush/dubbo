@@ -37,7 +37,7 @@ public class Live implements BaseCommand {
     public Live(FrameworkModel frameworkModel) {
         this.frameworkModel = frameworkModel;
     }
-
+    // 直接返回 true
     @Override
     public String execute(CommandContext commandContext, String[] args) {
         String config = frameworkModel.getApplicationModels().stream()

@@ -31,7 +31,11 @@ public class DeployerReadinessProbe implements ReadinessProbe {
     public DeployerReadinessProbe(FrameworkModel frameworkModel) {
         this.frameworkModel = frameworkModel;
     }
-
+    // state == COMPLETION 应用启动完毕
+    // 1. 服务暴露结束
+    // 2. 服务引用结束
+    // 3. 应用实例注册完毕
+    // see : org.apache.dubbo.config.deploy.DefaultModuleDeployer.startSync
     @Override
     public boolean check() {
         if (this.frameworkModel == null) {

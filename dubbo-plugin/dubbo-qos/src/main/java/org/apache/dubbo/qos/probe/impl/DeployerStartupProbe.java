@@ -31,7 +31,11 @@ public class DeployerStartupProbe implements StartupProbe {
     public DeployerStartupProbe(FrameworkModel frameworkModel) {
         this.frameworkModel = frameworkModel;
     }
-
+    // state == STARTING || state == STARTED || state == COMPLETION
+    // STARTING : 应用刚准备启动(初始化工作还没有做) ，see : org.apache.dubbo.config.deploy.DefaultApplicationDeployer.start
+    // STARTED : 服务暴露结束，服务引用结束，但还未注册应用实例
+    // COMPLETION : 完成应用实例的注册
+    // see : org.apache.dubbo.config.deploy.DefaultModuleDeployer.startSync
     @Override
     public boolean check() {
         if (this.frameworkModel == null) {

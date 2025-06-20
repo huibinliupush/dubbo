@@ -25,6 +25,7 @@ public class TelnetCommandDecoder {
         CommandContext commandContext = null;
         if (!StringUtils.isBlank(str)) {
             str = str.trim();
+            // commandName 空格 targetArgs
             String[] array = str.split("(?<![\\\\]) ");
             if (array.length > 0) {
                 String[] targetArgs = new String[array.length - 1];

@@ -21,9 +21,11 @@ spring:
 dubbo:
   application:
     name: ${spring.application.name}
+    qos-enable: true
+    qos-port: 22222
   protocol:
-    name: tri
-    port: -1
+    name: dubbo
+    port: 20880
   registry:
     id: zk-registry
     address: zookeeper://127.0.0.1:2181

@@ -37,7 +37,7 @@ public class ProviderReadinessProbe implements ReadinessProbe {
         }
         this.serviceRepository = this.frameworkModel.getServiceRepository();
     }
-
+    // 应用的所有 service 均已注册到注册中心
     @Override
     public boolean check() {
         Collection<ProviderModel> providerModelList = serviceRepository.allProviderModels();

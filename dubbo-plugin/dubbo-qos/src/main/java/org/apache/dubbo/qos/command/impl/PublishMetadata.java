@@ -43,7 +43,8 @@ public class PublishMetadata implements BaseCommand {
     public PublishMetadata(FrameworkModel frameworkModel) {
         this.frameworkModel = frameworkModel;
     }
-
+    // 1. unRegister 旧的 ServiceInstance
+    // 2. Register 新的 ServiceInstance
     @Override
     public String execute(CommandContext commandContext, String[] args) {
         logger.info("received publishMetadata command.");

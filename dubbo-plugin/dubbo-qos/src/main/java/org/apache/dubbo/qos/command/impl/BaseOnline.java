@@ -57,10 +57,11 @@ public class BaseOnline implements BaseCommand {
 
     public boolean online(String servicePattern) {
         boolean hasService = false;
-
+        // 获取所有提供的服务 ProviderModel
         Collection<ProviderModel> providerModelList = serviceRepository.allProviderModels();
         for (ProviderModel providerModel : providerModelList) {
             ServiceMetadata metadata = providerModel.getServiceMetadata();
+            // 筛选出指定 online 的服务
             if (metadata.getServiceKey().matches(servicePattern)
                     || metadata.getDisplayServiceKey().matches(servicePattern)) {
                 hasService = true;
@@ -86,7 +87,9 @@ public class BaseOnline implements BaseCommand {
                 .getOrDefaultApplicationModel()
                 .getExtensionLoader(RegistryFactory.class)
                 .getAdaptiveExtension();
+        // 获取服务要注册的 url
         Registry registry = registryFactory.getRegistry(statedURL.getRegistryUrl());
+        // 向注册中心注册 ， 但如果是应用级服务发现，这里只会向元数据中心写入 providerURl
         registry.register(statedURL.getProviderUrl());
         statedURL.setRegistered(true);
     }

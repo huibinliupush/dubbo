@@ -89,6 +89,7 @@ public class QosProcessHandler extends ByteToMessageDecoder {
             p.addLast(new HttpProcessHandler(frameworkModel, qosConfiguration));
             p.remove(this);
         } else {
+            // 处理在 telnet 中断 Ctrl C 的输入，保证不会中断 telnet, 忽略 Ctrl C
             p.addLast(new CtrlCHandler());
             p.addLast(new LineBasedFrameDecoder(2048));
             p.addLast(new StringDecoder(CharsetUtil.UTF_8));

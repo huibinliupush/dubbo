@@ -64,6 +64,8 @@ public class CtrlCHandler extends SimpleChannelInboundHandler<ByteBuf> {
 
             if (match) {
                 buffer.readerIndex(readerIndex + buffer.readableBytes());
+                // 抑制将被中断进程命令中断的进程的输出
+                // 如果不输出 RESPONSE_SEQUENCE ， 那么 telnet 终端将会一直停留在 ^C ， 其他输出将被中断
                 ctx.writeAndFlush(Unpooled.wrappedBuffer(RESPONSE_SEQUENCE));
                 ctx.writeAndFlush(Unpooled.wrappedBuffer(
                         (QosConstants.BR_STR + QosProcessHandler.PROMPT).getBytes(CharsetUtil.UTF_8)));
