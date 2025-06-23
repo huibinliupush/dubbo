@@ -56,6 +56,23 @@ import static org.apache.dubbo.spring.boot.util.DubboUtils.DUBBO_PREFIX;
             "io.opentelemetry.api.OpenTelemetry",
             "io.micrometer.tracing.SpanCustomizer"
         })
+
+/**
+ * @EnableConfigurationProperties 是 Spring Boot 中用于启用配置属性绑定功能的核心注解，
+ * 它将标注了 @ConfigurationProperties 的类（DubboConfigurationProperties）注册为 Spring Bean，并实现外部配置到 Java 对象的自动绑定
+ *
+ * 核心功能
+ *      1. 配置属性绑定：将配置文件（如 application.properties/yml）中的属性绑定到 Java 对象（DubboConfigurationProperties）
+*          支持嵌套属性绑定
+ *
+ *      2. 类型安全配置：提供强类型配置访问，避免字符串操作错误
+ *
+ *      3. 配置验证：支持 JSR-303 验证注解
+ *
+ *      4. 配置元数据：生成配置元数据用于 IDE 提示
+ *      在 src/main/resources/META-INF 中添加 additional-spring-configuration-metadata.json:
+ *
+ * */
 @EnableConfigurationProperties(DubboConfigurationProperties.class)
 public class OpenTelemetryAutoConfiguration {
 

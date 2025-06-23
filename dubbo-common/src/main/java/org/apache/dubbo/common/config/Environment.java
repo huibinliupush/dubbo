@@ -59,10 +59,13 @@ public class Environment extends LifecycleAdapter implements ApplicationExt {
     private InmemoryConfiguration appExternalConfiguration;
 
     // local app config , such as Spring Environment/PropertySources/application.properties
+    // 由 org.apache.dubbo.config.spring.context.DubboContextPostProcessor.postProcessBeanFactory
+    // 进行填充，从 spring environment 中加载 application.yaml 配置文件
     private InmemoryConfiguration appConfiguration;
 
     protected CompositeConfiguration globalConfiguration;
-
+    // see : org.apache.dubbo.common.config.Environment.getConfigurationMaps()
+    // 用 map 的形式按照优先级几种所有 Configuration
     protected List<Map<String, String>> globalConfigurationMaps;
 
     private CompositeConfiguration defaultDynamicGlobalConfiguration;
@@ -86,6 +89,7 @@ public class Environment extends LifecycleAdapter implements ApplicationExt {
             this.environmentConfiguration = new EnvironmentConfiguration();
             this.externalConfiguration = new InmemoryConfiguration("ExternalConfig");
             this.appExternalConfiguration = new InmemoryConfiguration("AppExternalConfig");
+            // spring boot 中的 application.yaml 或者 application.properties
             this.appConfiguration = new InmemoryConfiguration("AppConfig");
 
             loadMigrationRule();

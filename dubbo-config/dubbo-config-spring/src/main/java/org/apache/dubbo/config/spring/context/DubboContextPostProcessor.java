@@ -60,6 +60,7 @@ public class DubboContextPostProcessor
 
         // Initialize dubbo Environment before ConfigManager
         // Extract dubbo props from Spring env and put them to app config
+        // application.yml (OriginTrackedMapPropertySource) 配置文件中 dubbo 开头相关的配置
         SortedMap<String, String> dubboProperties = EnvironmentUtils.filterDubboProperties(environment);
         applicationModel.getModelEnvironment().getAppConfigMap().putAll(dubboProperties);
 

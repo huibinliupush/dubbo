@@ -47,8 +47,29 @@ import static org.apache.dubbo.spring.boot.util.DubboUtils.DUBBO_SCAN_PREFIX;
  * @see ReferenceAnnotationBeanPostProcessor
  * @since 2.7.0
  */
+// 根据配置文件（如 application.properties 或 application.yml,环境变量, 系统属性等）
+// 中特定属性的值或存在性来决定一个 Bean 是否应该被创建，或者一个配置类是否应该生效。
+// 实现配置驱动的 Bean 注册或配置类激活。它让应用程序的行为能够根据外部配置灵活变化
 @ConditionalOnProperty(prefix = DUBBO_PREFIX, name = "enabled", matchIfMissing = true)
 @Configuration
+/**
+ * 当 Spring Boot 应用启动时：
+ *
+ *  1. 它会从 META-INF/spring.factories 文件中加载所有声明的自动配置类
+ *
+ *  2. 这些配置类可能相互依赖（例如 A 需要 B 注册的 Bean）
+ *
+ *  3. @AutoConfigureAfter 明确告诉 Spring Boot："我的配置必须在这些配置类之后加载"
+ *
+ *  用于控制自动配置类（Auto-configuration classes）的加载顺序。它确保某个自动配置类在指定的其他自动配置类之后加载，
+ *  这对于处理配置类之间的依赖关系至关重要
+ *
+ * 工作位置：
+ *
+ *  1. 只用于自动配置类（标注 @Configuration 且在 spring.factories 中声明）
+ *
+ *  2. 不能用于普通 @Configuration 类
+ * */
 @AutoConfigureAfter(DubboRelaxedBindingAutoConfiguration.class)
 @EnableDubboConfig
 public class DubboAutoConfiguration {
@@ -61,9 +82,11 @@ public class DubboAutoConfiguration {
      */
     @ConditionalOnProperty(prefix = DUBBO_SCAN_PREFIX, name = BASE_PACKAGES_PROPERTY_NAME)
     @ConditionalOnBean(name = BASE_PACKAGES_BEAN_NAME)
-    @Bean
+    @Bean // 方法参数会移动依赖注入
     public static ServiceAnnotationPostProcessor serviceAnnotationBeanProcessor(
             @Qualifier(BASE_PACKAGES_BEAN_NAME) Set<String> packagesToScan) {
+        // BASE_PACKAGES_BEAN_NAME 的注册
+        // see : org.apache.dubbo.spring.boot.autoconfigure.DubboRelaxedBindingAutoConfiguration.dubboBasePackages
         ServiceAnnotationPostProcessor serviceAnnotationPostProcessor;
         try {
             serviceAnnotationPostProcessor =

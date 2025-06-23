@@ -516,6 +516,8 @@ public abstract class AbstractConfigManager extends LifecycleAdapter {
         // load multiple configs with id
         Set<String> configIds = this.getConfigIdsFromProps(cls);
         configIds.forEach(id -> {
+            // 首先从 ConfigMannager 中获取 configCenter 的配置
+            // 此时 ConfigMannager 中缓存的配置类全部来自于 spring boot 中的 application.yaml
             if (!this.getConfig(cls, id).isPresent()) {
                 T config;
                 try {
@@ -528,6 +530,7 @@ public abstract class AbstractConfigManager extends LifecycleAdapter {
 
                 String key = null;
                 boolean addDefaultNameConfig = false;
+                // application.yaml 中没有配置则从 dubbo.properties 获取
                 try {
                     // add default name config (same as id), e.g. dubbo.protocols.rest.port=1234
                     key = DUBBO + "." + AbstractConfig.getPluralTagName(cls) + "." + id + ".name";

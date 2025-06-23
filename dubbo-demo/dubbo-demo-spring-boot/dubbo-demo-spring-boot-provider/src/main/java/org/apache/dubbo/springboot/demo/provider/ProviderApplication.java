@@ -25,6 +25,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @EnableDubbo(scanBasePackages = {"org.apache.dubbo.springboot.demo.provider"})
+// 使用 @ImportResource 带入 xml 配置， 在 spring boot  中使用 xml 驱动
 public class ProviderApplication {
     public static void main(String[] args) throws Exception {
         SpringApplication.run(ProviderApplication.class, args);

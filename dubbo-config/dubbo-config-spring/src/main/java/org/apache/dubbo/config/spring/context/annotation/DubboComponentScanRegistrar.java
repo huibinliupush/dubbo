@@ -55,6 +55,7 @@ public class DubboComponentScanRegistrar implements ImportBeanDefinitionRegistra
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
 
         // initialize dubbo beans
+        // 这里会注册 ReferenceAnnotationBeanPostProcessor
         DubboSpringInitializer.initialize(registry);
 
         Set<String> packagesToScan = getPackagesToScan(importingClassMetadata);

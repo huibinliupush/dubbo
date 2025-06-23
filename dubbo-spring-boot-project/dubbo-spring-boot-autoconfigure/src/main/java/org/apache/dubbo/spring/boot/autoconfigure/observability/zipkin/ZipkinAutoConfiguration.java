@@ -52,6 +52,14 @@ import static org.apache.dubbo.spring.boot.util.DubboUtils.DUBBO_PREFIX;
         after = RestTemplateAutoConfiguration.class,
         afterName = "org.springframework.boot.actuate.autoconfigure.tracing.zipkin")
 @ConditionalOnClass(Sender.class)
+/**
+ *
+ *
+ *  可接受三种类型：导入类，并注册为 spring bean
+ *     1. 普通配置类
+ *     2. ImportSelector 实现类
+ *     3. ImportBeanDefinitionRegistrar 实现类
+ * */
 @Import({
     SenderConfiguration.class,
     ReporterConfiguration.class,

@@ -61,7 +61,8 @@ public abstract class EnvironmentUtils {
     private static Map<String, Object> doExtraProperties(ConfigurableEnvironment environment) {
 
         Map<String, Object> properties = new LinkedHashMap<>(); // orderly
-
+        // OriginTrackedMapPropertySource 该 PropertySource 缓存的是 application.yml 中的配置
+        // spring boot 将 application.yml 格式转换为 properties 格式缓存在 OriginTrackedMapPropertySource
         Map<String, PropertySource<?>> map = doGetPropertySources(environment);
 
         for (PropertySource<?> source : map.values()) {
@@ -121,7 +122,7 @@ public abstract class EnvironmentUtils {
 
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
             String propertyName = entry.getKey();
-
+            // 提取 application.yml 配置文件中 dubbo 开头相关的配置
             if (propertyName.startsWith(DUBBO_PREFIX + PROPERTY_NAME_SEPARATOR) && entry.getValue() != null) {
                 dubboProperties.put(
                         propertyName,
