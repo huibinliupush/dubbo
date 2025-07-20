@@ -43,6 +43,7 @@ public final class PathUtils {
             return StringUtils.EMPTY_STRING;
         }
         int index = path.lastIndexOf(ifName);
+        // path 就是 interface
         if (index + ifName.length() == len) {
             return path.substring(0, index - 1);
         }
@@ -164,8 +165,12 @@ public final class PathUtils {
         }
         return normalize(contextPath + path);
     }
-
+    /**
+     * 主要用于忽略 path 中的 '\t' '\n' '\r' ？ # . 等无效字符
+     * /demo/get/muchParam ，
+     * */
     public static String normalize(@Nonnull String path) {
+        // rest path 长度
         int len = path.length();
         if (len == 0) {
             return RestConstants.SLASH;
@@ -183,6 +188,9 @@ public final class PathUtils {
                 case '\r':
                     continue;
                 case '/':
+                    // 第一次来到这里，path 都是以 / 开头的 , State.INITIAL ， 走到 default 分支，状态继续变为 State.SLASH
+                    // 第二次来到这里是匹配完 /demo 之后，遇到下一个 /get ,但此时 State.NORMAL
+                    // 又会走到 default 分支，状态继续变为 State.SLASH:
                     switch (state) {
                         case State.SLASH:
                             if (start != -1) {
@@ -222,6 +230,7 @@ public final class PathUtils {
                             start = -1;
                             continue;
                         default:
+                            // 如果当前字符是 / , 则转为 State.SLASH
                             state = State.SLASH;
                             break;
                     }
@@ -247,6 +256,8 @@ public final class PathUtils {
                     break;
                 case '?':
                 case '#':
+                    // /demo/get/muchParam?id=123&name=test
+                    // 遇到 ？ 或者 # 会在这里退出 for 循环
                     break out;
                 default:
                     switch (state) {
@@ -255,9 +266,11 @@ public final class PathUtils {
                                 buf = new StringBuilder(len);
                             }
                             buf.append('/');
-                        case State.SLASH:
+                        case State.SLASH: // 第二次匹配的就是正常的字符，来到这里
                         case State.DOT:
                         case State.DOT_DOT:
+                            // 状态变为 State.NORMAL
+                            // 后续只要遇到是正常字符，就直接积累 end
                             state = State.NORMAL;
                             break;
                         default:
@@ -267,8 +280,12 @@ public final class PathUtils {
             if (start == -1) {
                 start = i;
             }
+            // 最后标准化之后的 path 会提取原来 path [start , end+1]
+            // 这里记录 end 位置
             end = i;
         }
+        // /demo/get/muchParam?id=123&name=test
+        // 遇到 ？ 或者 # 通过 break out 来到这里
         switch (state) {
             case State.DOT:
                 end--;
@@ -286,6 +303,7 @@ public final class PathUtils {
             default:
         }
         if (buf == null) {
+            // 最终结果为 /demo/get/muchParam，去掉 ？ 后面的内容
             return start == -1 ? path : path.substring(start, end + 1);
         }
         if (start != -1) {

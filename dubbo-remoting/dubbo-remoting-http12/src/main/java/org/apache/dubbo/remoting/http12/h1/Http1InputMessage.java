@@ -25,6 +25,8 @@ public final class Http1InputMessage implements HttpInputMessage {
     private final InputStream body;
 
     public Http1InputMessage(InputStream body) {
+        // 来自 FullHttpRequest 中的 content
+        // http 请求中的 body
         this.body = body;
     }
 

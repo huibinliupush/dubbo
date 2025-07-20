@@ -40,8 +40,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CodecUtils {
 
     private final FrameworkModel frameworkModel;
+    // JsonPbCodecFactory, JsonCodecFactory,GrpcCompositeCodecFactory,YamlCodecFactory 等
     private final List<HttpMessageDecoderFactory> decoderFactories;
+    // JsonPbCodecFactory, JsonCodecFactory,GrpcCompositeCodecFactory,YamlCodecFactory 等
     private final List<HttpMessageEncoderFactory> encoderFactories;
+    // 不同的 mediaType 对应不同的 HttpMessageEncoderFactory
     private final Map<String, Optional<HttpMessageEncoderFactory>> encoderCache = new ConcurrentHashMap<>();
     private final Map<String, Optional<HttpMessageDecoderFactory>> decoderCache = new ConcurrentHashMap<>();
     private Set<String> disallowedContentTypes = Collections.emptySet();
@@ -67,8 +70,11 @@ public final class CodecUtils {
     public HttpMessageDecoder determineHttpMessageDecoder(String mediaType) {
         return determineHttpMessageDecoder(null, mediaType);
     }
-
+    // 根据 mediaType 获取对应的 HttpMessageEncoder
     public HttpMessageEncoder determineHttpMessageEncoder(URL url, String mediaType) {
+        // 根据 mediaType 选取对应的 HttpMessageEncoderFactory
+        // 比如 application/json 对应的是 JsonPbCodecFactory
+        // 然后通过 JsonPbCodecFactory 来 createCodec -> JsonPbCodec
         return determineHttpMessageEncoderFactory(mediaType)
                 .orElseThrow(() -> new UnsupportedMediaTypeException(mediaType))
                 .createCodec(url, frameworkModel, mediaType);
@@ -95,6 +101,8 @@ public final class CodecUtils {
         Assert.notNull(mediaType, "mediaType must not be null");
         return encoderCache.computeIfAbsent(mediaType, k -> {
             for (HttpMessageEncoderFactory factory : encoderFactories) {
+                // 根据 mediaType 选取对应的 HttpMessageEncoderFactory
+                // 比如 application/json 对应的是 JsonPbCodecFactory
                 if (factory.supports(k)
                         && !disallowedContentTypes.contains(factory.mediaType().getName())) {
                     return Optional.of(factory);

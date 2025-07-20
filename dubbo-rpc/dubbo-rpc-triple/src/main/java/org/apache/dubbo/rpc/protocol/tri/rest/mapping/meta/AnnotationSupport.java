@@ -126,12 +126,19 @@ public abstract class AnnotationSupport {
 
     public final AnnotationMeta[] findAnnotations() {
         return arrayCache.computeIfAbsent(FIND_KEY, k -> {
+            // 这里会获取到多个 elements (Parameter or method）
+            // 因为 server 由继承体系，比如有 父类，接口等
+            // 那么同一方法就会对应多个 method , 方法中的参数 Parameter 也会对应多个
+            // spring mvc 注解支持标注在继承体系的任意位置，比如在接口上标注，那么实现类就不需要标注了
+            // 而为了找出 spring mvc 注解到底标注在了哪里，所以我们需要将继承体系中的对应元素（Method or Parameter）全部存放到一起
             List<? extends AnnotatedElement> elements = getAnnotatedElements();
             List<AnnotationMeta> metas = new ArrayList<>();
+            // 在继承体系中，挨个查找 mvc 注解
             for (int i = 0, size = elements.size(); i < size; i++) {
                 AnnotatedElement element = elements.get(i);
                 Annotation[] annotations = element.getAnnotations();
                 for (Annotation annotation : annotations) {
+                    // 封装具体标注注解的 element（method or Parameter）, 具体的 mvc 注解，rest toolKit
                     metas.add(new AnnotationMeta(element, annotation, toolKit));
                 }
             }
@@ -171,14 +178,26 @@ public abstract class AnnotationSupport {
 
     public final <A extends Annotation> AnnotationMeta<A> findMergedAnnotation(Class<A> annotationType) {
         return cache.computeIfAbsent(new Key(annotationType, FIND_MERGED_KEY), k -> {
+                    // 获取 serviceMeta 中缓存的 service 继承关系 —— List<Class<?>> hierarchy;
+                    // serviceImpl -> 父类 -> 接口 , 均可被 @RequestMapping 注解标注
                     List<? extends AnnotatedElement> elements = getAnnotatedElements();
                     for (int i = 0, size = elements.size(); i < size; i++) {
+                        // 获取 service 类，查找到底继承关系中的哪一个类被 @RequestMapping 标注
+                        // 我们可以在继承关系中的任意类中标注 @RequestMapping
                         AnnotatedElement element = elements.get(i);
+                        // 获取类标注的注解
                         Annotation[] annotations = element.getDeclaredAnnotations();
                         for (Annotation annotation : annotations) {
+                            // 如果是 @RequestMapping 注解，则封装 AnnotationMeta 返回
                             if (annotation.annotationType() == annotationType) {
                                 return Optional.of(new AnnotationMeta(element, annotation, toolKit));
                             }
+                            // 如果是  @GetMapping 或者  @PostMapping 则提取 @RequestMapping 注解
+                            // 这里需要注意的是 @GetMapping 或者 @PostMapping 配置的属性并不会体现在 @RequestMapping 中
+                            // 后续会在 org.apache.dubbo.rpc.protocol.tri.rest.mapping.meta.AnnotationMeta.getRequiredAttribute
+                            // 获取注解属性的时候合并
+                            // see : org.apache.dubbo.rpc.protocol.tri.rest.support.spring.SpringRestToolKit.getAttributes
+                            // AnnotatedElementUtils.getMergedAnnotationAttributes
                             Annotation metaAnnotation =
                                     annotation.annotationType().getAnnotation(annotationType);
                             if (metaAnnotation != null) {

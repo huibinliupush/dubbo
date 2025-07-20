@@ -20,6 +20,8 @@ import org.apache.dubbo.config.annotation.DubboReference;
 import org.apache.dubbo.config.spring.context.annotation.EnableDubbo;
 import org.apache.dubbo.springboot.demo.DemoService;
 
+import org.apache.dubbo.springboot.demo.RestDemoService;
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -31,17 +33,17 @@ import org.springframework.stereotype.Service;
 public class ConsumerApplication {
 
     @DubboReference
-    private DemoService demoService;
+    private RestDemoService restService;
 
     public static void main(String[] args) {
 
         ConfigurableApplicationContext context = SpringApplication.run(ConsumerApplication.class, args);
         ConsumerApplication application = context.getBean(ConsumerApplication.class);
-        String result = application.doSayHello("world");
+        String result = application.Hello("world");
         System.out.println("result: " + result);
     }
 
-    public String doSayHello(String name) {
-        return demoService.sayHello(name);
+    public String Hello(String name) {
+        return restService.hello(name);
     }
 }

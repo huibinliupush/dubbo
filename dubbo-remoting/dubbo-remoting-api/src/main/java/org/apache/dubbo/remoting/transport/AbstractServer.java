@@ -53,6 +53,20 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
 
     public AbstractServer(URL url, ChannelHandler handler) throws RemotingException {
         super(url, handler);
+        // IsolationExecutorRepository (每个 service 一个独立的线程池，前提是需要在 ServiceConfig 中配置 processServiceExecutor，明确指定)
+        // 否则还是按照端口隔离
+        // 具体是通过 getProviderKey 来隔离
+        // see : org.apache.dubbo.common.threadpool.manager.IsolationExecutorRepository.getProviderKey(org.apache.dubbo.common.URL)
+        // 由用户配置化、提供自己想要的线程池，若没有指定，则还是按照端口隔离。
+        // see : org.apache.dubbo.config.ServiceConfig.processServiceExecutor
+
+        // 线程池隔离文档 see : https://cn.dubbo.apache.org/zh-cn/overview/mannual/java-sdk/tasks/framework/threading-model/
+        // executorRepository 实现对线程池的缓存
+
+        // 有两种扩展，一种是 default 就是传统的按照一个端口分配一个线程池
+        // 另一种是 isolation（默认），按照 serverKey 也就是按照暴露 server 分配线程池（但必须在 ServiceConfig 中特殊指定 processServiceExecutor，如没有特殊指定那么还是按照端口来隔离）
+        // IsolationExecutorRepository
+        // 有配置 org.apache.dubbo.config.ApplicationConfig.executorManagementMode 决定
         executorRepository = ExecutorRepository.getInstance(url.getOrDefaultApplicationModel());
         localAddress = getUrl().toInetSocketAddress();
 
@@ -77,6 +91,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
                             + t.getMessage(),
                     t);
         }
+        // IsolationExecutorRepository(默认) 创建线程池， FixedThreadPool
         executors.add(
                 executorRepository.createExecutorIfAbsent(ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME)));
     }

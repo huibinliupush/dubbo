@@ -24,8 +24,10 @@ dubbo:
     qos-enable: true
     qos-port: 22222
   protocol:
-    name: dubbo
-    port: 20880
+   # name: dubbo
+   # port: 20880
+     name: tri
+     port: 50053
   registry:
     id: zk-registry
     address: zookeeper://127.0.0.1:2181

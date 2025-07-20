@@ -28,6 +28,7 @@ import io.netty.handler.codec.http2.Http2CodecUtil;
 public class TripleProtocolDetector implements ProtocolDetector {
 
     public static final String HTTP_VERSION = "HTTP_VERSION";
+    // "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
     private static final ChannelBuffer CLIENT_PREFACE_STRING = new ByteBufferBackedChannelBuffer(
             Http2CodecUtil.connectionPrefaceBuf().nioBuffer());
 
@@ -49,6 +50,7 @@ public class TripleProtocolDetector implements ProtocolDetector {
         //    OPTIONS,
         //    TRACE;
         if (isHttp(magics)) {
+            // 只要请求前面几个字节为 HttpMethod ，那么就认为是 http 协议
             Result recognized = Result.recognized();
             recognized.setAttribute(HTTP_VERSION, HttpVersion.HTTP1.getVersion());
             return recognized;

@@ -30,10 +30,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class MethodMeta extends AnnotationSupport {
-
+    // methods 为 service 继承关系中所有类中对应的同一 method
+    // 比如：接口定义了一个 method , 实现类实现了这个 method
+    // 那么这里就是两个 method, 因为 mvc 注解可以标注在继承关系中的任意一个地方
+    // 所以需要全量查找
     private final List<Method> hierarchy;
     private final Method method;
     private MethodDescriptor methodDescriptor;
+    // 封装方法参数相关的元信息 MethodParameterMeta，包括继承体系中所有的 Parameter ， 参数名称
     private ParameterMeta[] parameters;
     private ParameterMeta returnParameter;
     private final ServiceMeta serviceMeta;
@@ -61,9 +65,15 @@ public final class MethodMeta extends AnnotationSupport {
             parameters = new ParameterMeta[] {new StreamParameterMeta(getToolKit(), genericType, method, hierarchy)};
             return;
         }
-
+        // rest 映射方法的参数个数
         int count = rpcType == RpcType.SERVER_STREAM ? 1 : method.getParameterCount();
+        // parameterHierarchies 第一维 parameterHierarchies[0] 存放的是参数 1 相关的 Parameters(serviceImpl ， 父类 ， 接口)
+        // 一个参数会对应多个 Parameter ， 因为 rest 映射方法 method 本身就对应多个，分别是来自 serviceImpl ， 父类 ， 接口
+        // 针对同一个映射方法，在继承关系体系中会对应多个 method , 那么 method 中的某个 Parameter 自然也对应多个
+        // 同理 parameterHierarchies[n] 对应存储的也就是 参数 n 对应的 Parameters(serviceImpl ， 父类 ， 接口)
         List<List<Parameter>> parameterHierarchies = new ArrayList<>(count);
+        // hierarchy 有多少个，那么对应的 List<Parameter> 就有多少个
+        // 方法参数有多少个，那么 parameterHierarchies 的 size 就有多少个
         for (int i = 0, size = hierarchy.size(); i < size; i++) {
             Method m = hierarchy.get(i);
             Parameter[] mps = m.getParameters();
@@ -78,10 +88,15 @@ public final class MethodMeta extends AnnotationSupport {
                 parameterHierarchy.add(mps[j]);
             }
         }
+        // 读取方法参数名称，后续在处理 rest 请求的时候会使用该方法名称作为 key
+        // 根据参数标注的注解 @RequestParam ， @PathVariable，@RequestHeader
+        // 到 http 请求体中对应的 QueryParam , Path ,Header 中去查找（查找方法调用参数值）
+        // 然后封装成 RpcInvocation 调用 Invoker
         String[] parameterNames = getToolKit().getParameterNames(method);
         ParameterMeta[] parameters = new ParameterMeta[count];
         for (int i = 0; i < count; i++) {
             String parameterName = parameterNames == null ? null : parameterNames[i];
+            // 封装方法参数相关的元信息 MethodParameterMeta，包括继承体系中所有的 Parameter ， 参数名称, 参数index
             parameters[i] = new MethodParameterMeta(parameterHierarchies.get(i), parameterName, i, this);
         }
         this.parameters = parameters;

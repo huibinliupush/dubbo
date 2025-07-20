@@ -189,6 +189,8 @@ public final class RequestUtils {
     }
 
     public static Object decodeBody(HttpRequest request, Type type) {
+        // JsonPbCodec
+        // 由 org.apache.dubbo.rpc.protocol.tri.rest.mapping.RestRequestHandlerMapping.getRequestHandler 设置
         HttpMessageDecoder decoder = request.attribute(RestConstants.BODY_DECODER_ATTRIBUTE);
         if (decoder == null) {
             return null;
@@ -221,6 +223,8 @@ public final class RequestUtils {
             if (canMark) {
                 is.mark(Integer.MAX_VALUE);
             }
+            // see : org.apache.dubbo.remoting.http12.HttpJsonUtils.toJavaObject(fastjson2)
+            // type 为带有泛型的全类型，比如 ： MultiValueMap<String, List<User>>
             return decoder.decode(is, type, request.charsetOrDefault());
         } finally {
             try {

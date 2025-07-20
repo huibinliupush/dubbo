@@ -26,10 +26,13 @@ public final class Http1RequestMetadata implements RequestMetadata {
     private final String method;
 
     private final String path;
-
+    // 来自于 FullHttpRequest
     public Http1RequestMetadata(HttpHeaders headers, String method, String path) {
+        // NettyHttp1HttpHeaders 封装 http 请求中的 headers
         this.headers = headers;
+        // http method
         this.method = method;
+        // http uri
         this.path = path;
     }
 

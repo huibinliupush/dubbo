@@ -33,13 +33,22 @@ public abstract class AbstractAnnotationBaseArgumentResolver extends NamedValueA
             AnnotationMeta<Annotation> annotation,
             HttpRequest request,
             HttpResponse response) {
+
         return resolve(getNamedValueMeta(parameter, annotation), request, response);
     }
 
     @Override
     public final NamedValueMeta getNamedValueMeta(ParameterMeta parameter, AnnotationMeta<Annotation> annotation) {
+        // cache 中缓存方法参数 ParameterMeta 与 NamedValueMeta 之间的映射，下次 rest 请求进来，直接从 cache 中获取 NamedValueMeta 即可
         return cache.computeIfAbsent(parameter, k -> updateNamedValueMeta(k, createNamedValueMeta(k, annotation)));
     }
-
+    /**
+     *
+     *  根据方法参数上标注的 spring mvc 注解，调用对应的 createNamedValueMeta 方法
+     *    @RequestParam 对应 RequestParamArgumentResolver
+     *    @PathVariable 对应 PathVariableArgumentResolver
+     *    @RequestBody 对应 RequestBodyArgumentResolver
+     *    @RequestHeader 对应 RequestHeaderArgumentResolver
+     * */
     protected abstract NamedValueMeta createNamedValueMeta(ParameterMeta param, AnnotationMeta<Annotation> anno);
 }

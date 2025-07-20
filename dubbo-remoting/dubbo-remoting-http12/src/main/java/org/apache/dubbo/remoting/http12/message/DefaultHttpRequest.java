@@ -71,6 +71,7 @@ public class DefaultHttpRequest implements HttpRequest {
     private InputStream inputStream;
 
     public DefaultHttpRequest(HttpMetadata metadata, HttpChannel channel) {
+        // metadata : DefaultHttp1Request 封装 rest 请求的元数据（headers , method , uri , body）
         this.metadata = metadata;
         this.channel = channel;
         headers = metadata.headers();
@@ -374,6 +375,7 @@ public class DefaultHttpRequest implements HttpRequest {
 
     @Override
     public String parameter(String name) {
+        // 通过 netty 的 QueryStringDecoder 查询 request parameters
         List<String> values = getDecoder().parameters().get(name);
         if (CollectionUtils.isNotEmpty(values)) {
             return values.get(0);

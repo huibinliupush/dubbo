@@ -33,15 +33,21 @@ import static org.apache.dubbo.common.logger.LoggerFactory.getErrorTypeAwareLogg
 public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> implements ServerHttpChannelObserver<H> {
 
     private static final ErrorTypeAwareLogger LOGGER = getErrorTypeAwareLogger(AbstractServerHttpChannelObserver.class);
-
+    // NettyHttp1Channel
     private final H httpChannel;
-
+    // 用于设置响应 headers
     private List<BiConsumer<HttpHeaders, Throwable>> headersCustomizers;
-
+    // 比如响应 chunk 的时候，每个 chunk 都会有一个 header （trailers）用于指示 chunk 的大小
     private List<BiConsumer<HttpHeaders, Throwable>> trailersCustomizers;
-
+    // 由 org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.prepareResponseObserver 进行设置
+    // 当 rpc 请求发生异常的时候就会回调这里
+    // 异常的处理 org.apache.dubbo.rpc.protocol.tri.h12.CompositeExceptionHandler.handle
+    // 具体负责处理异常的 handler see: org.apache.dubbo.rpc.protocol.tri.h12.CompositeExceptionHandler.exceptionHandlers
+    // 由 ExceptionHandler 的 spi 定义, 泛型为支持处理的异常类型
+    // org.apache.dubbo.rpc.protocol.tri.h12.CompositeExceptionHandler.cache 按照异常类型聚合对应的 ExceptionHandlers
     private Function<Throwable, ?> exceptionCustomizer;
-
+    // JsonCodec
+    // 由 org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.onMetadataCompletion 设置
     private HttpMessageEncoder responseEncoder;
 
     private boolean headerSent;
@@ -51,6 +57,7 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
     private boolean closed;
 
     protected AbstractServerHttpChannelObserver(H httpChannel) {
+        // NettyHttp1Channel
         this.httpChannel = httpChannel;
     }
 
@@ -64,6 +71,8 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
         if (headersCustomizers == null) {
             headersCustomizers = new ArrayList<>();
         }
+        // 存储用于配置 http header 的 BiConsumer
+        // org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.initializeAltSvc
         headersCustomizers.add(headersCustomizer);
     }
 
@@ -94,6 +103,7 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
             return;
         }
         try {
+            // data 为 dubbo 方法返回的响应数据
             doOnNext(data);
         } catch (Throwable t) {
             LOGGER.warn(INTERNAL_ERROR, "", "", "Error while doOnNext", t);
@@ -139,8 +149,10 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
         }
         onCompleted(null);
     }
-
+    // Http1UnaryServerChannelObserver
     protected void doOnNext(Object data) throws Throwable {
+        // 获取响应码，如果 dubbo 返回返回类型为 HttpResult，那么就直接获取里面的 status
+        // 如果返回类型为普通类型，直接设置 200
         int statusCode = resolveStatusCode(data);
         if (!headerSent) {
             sendMetadata(buildMetadata(statusCode, data, null, HttpOutputMessage.EMPTY_MESSAGE));
@@ -160,10 +172,13 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
 
     protected final HttpMetadata buildMetadata(
             int statusCode, Object data, Throwable throwable, HttpOutputMessage message) {
+        // 创建一个空的 Http1Metadata，后面主要用它来封装响应 headers
         HttpMetadata metadata = encodeHttpMetadata(message == null);
         HttpHeaders headers = metadata.headers();
+        // 向 headers 中填充 :status
         headers.set(HttpHeaderNames.STATUS.getKey(), HttpUtils.toStatusString(statusCode));
         if (message != null) {
+            // 填充 content-type
             headers.set(HttpHeaderNames.CONTENT_TYPE.getKey(), responseEncoder.contentType());
         }
         if (data instanceof HttpResult) {
@@ -172,6 +187,7 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
                 headers.set(result.getHeaders());
             }
         }
+        // 执行 headersCustomizers， 设置响应 headers
         customizeHeaders(headers, throwable, message);
         return metadata;
     }
@@ -179,6 +195,7 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
     protected abstract HttpMetadata encodeHttpMetadata(boolean endStream);
 
     protected void customizeHeaders(HttpHeaders headers, Throwable throwable, HttpOutputMessage message) {
+        // 由 org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.initializeAltSvc 设置
         List<BiConsumer<HttpHeaders, Throwable>> headersCustomizers = this.headersCustomizers;
         if (headersCustomizers != null) {
             for (int i = 0, size = headersCustomizers.size(); i < size; i++) {
@@ -218,9 +235,13 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
             } catch (Throwable ignored) {
             }
         }
+        // 创建一个空的 HttpOutputMessage 里面的 outputStream 此时为空
         HttpOutputMessage message = encodeHttpOutputMessage(data);
         try {
+            // 空实现
             preOutputMessage(message);
+            // 将 data 写入到 HttpOutputMessage 的 outputStream 中
+            // JsonPbCodec encode 将 data 转换为 json, 然后将 json byte 写入到 os 中
             responseEncoder.encode(message.getBody(), data);
         } catch (Throwable t) {
             message.close();
@@ -298,10 +319,11 @@ public abstract class AbstractServerHttpChannelObserver<H extends HttpChannel> i
         if (completed) {
             return;
         }
+        // Http1ServerChannelObserver
         doOnCompleted(throwable);
         completed = true;
     }
-
+    // Http1ServerChannelObserver
     protected void doOnCompleted(Throwable throwable) {
         HttpMetadata trailerMetadata = encodeTrailers(throwable);
         if (trailerMetadata == null) {

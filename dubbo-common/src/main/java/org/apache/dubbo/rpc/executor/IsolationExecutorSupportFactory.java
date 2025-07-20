@@ -30,6 +30,9 @@ public interface IsolationExecutorSupportFactory {
         ApplicationModel applicationModel = url.getOrDefaultApplicationModel();
         ExtensionLoader<IsolationExecutorSupportFactory> extensionLoader =
                 applicationModel.getExtensionLoader(IsolationExecutorSupportFactory.class);
+        // 获取具体协议对应的 ExecutorSupport
+        // triple 协议对应 TripleIsolationExecutorSupport
+        // dubbo  协议对应 DubboIsolationExecutorSupport
         IsolationExecutorSupportFactory factory = extensionLoader.getOrDefaultExtension(url.getProtocol());
         return factory.createIsolationExecutorSupport(url);
     }

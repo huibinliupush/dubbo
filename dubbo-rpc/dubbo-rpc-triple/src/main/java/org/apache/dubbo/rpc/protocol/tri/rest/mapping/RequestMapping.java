@@ -138,13 +138,15 @@ public final class RequestMapping implements Condition<RequestMapping, HttpReque
 
     private RequestMapping doMatch(HttpRequest request, PathCondition pathCondition) {
         MethodsCondition methods = null;
+        // 对于 http method 进行匹配
+        // 暴露的 GET method ， 不能通过 POST 来请求
         if (methodsCondition != null) {
             methods = methodsCondition.match(request);
             if (methods == null) {
                 return null;
             }
         }
-
+        // 路径就不用匹配了，前面映射的时候已经匹配过了
         PathCondition paths = pathCondition;
         if (paths == null && this.pathCondition != null) {
             paths = this.pathCondition.match(request);
@@ -152,7 +154,9 @@ public final class RequestMapping implements Condition<RequestMapping, HttpReque
                 return null;
             }
         }
-
+        // 对于请求参数的匹配，比如：@PostMapping(value = "post/useParams", params = "myParam=myValue")
+        // 要求请求参数中必须还有 key: myParam ,value:myValue
+        // params = "myParam" 这种配置则是表示请求参数中必须包含 myParam 这个 key ,什么值无所谓
         ParamsCondition params = null;
         if (paramsCondition != null) {
             params = paramsCondition.match(request);
@@ -160,7 +164,7 @@ public final class RequestMapping implements Condition<RequestMapping, HttpReque
                 return null;
             }
         }
-
+        // 对于请求 headers 进行匹配，匹配规则同 ParamsCondition
         HeadersCondition headers = null;
         if (headersCondition != null) {
             headers = headersCondition.match(request);
@@ -168,7 +172,7 @@ public final class RequestMapping implements Condition<RequestMapping, HttpReque
                 return null;
             }
         }
-
+        // 针对请求 content-type 进行匹配
         ConsumesCondition consumes = null;
         if (consumesCondition != null) {
             consumes = consumesCondition.match(request);

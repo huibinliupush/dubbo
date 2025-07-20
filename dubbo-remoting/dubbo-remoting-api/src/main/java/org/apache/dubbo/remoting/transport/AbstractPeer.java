@@ -27,9 +27,9 @@ import org.apache.dubbo.remoting.RemotingException;
  * AbstractPeer
  */
 public abstract class AbstractPeer implements Endpoint, ChannelHandler {
-
+    // MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
     private final ChannelHandler handler;
-
+    // 协议对应的 server 端 url, 以最后一个暴露的 service url 为准，里面包含了 server 端的相关配置
     private volatile URL url;
 
     // closing closed means the process is being closed and close is finished
@@ -45,6 +45,7 @@ public abstract class AbstractPeer implements Endpoint, ChannelHandler {
             throw new IllegalArgumentException("handler == null");
         }
         this.url = url;
+        // MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
         this.handler = handler;
     }
 

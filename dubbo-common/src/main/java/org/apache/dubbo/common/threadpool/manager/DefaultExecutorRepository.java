@@ -71,7 +71,21 @@ public class DefaultExecutorRepository implements ExecutorRepository, ExtensionA
     private volatile ScheduledExecutorService serviceExportExecutor;
 
     private volatile ExecutorService serviceReferExecutor;
-
+    /**
+     * 一级key:
+     *    ExecutorService.class.getName() （provider）
+     *    CONSUMER_SHARED_EXECUTOR_SERVICE_COMPONENT_KEY (consumer)
+     *    也就是说，provider 端和 consumer 端的线程池是隔离开的
+     *
+     * 二级key:
+     *
+     *    - 对于 DefaultExecutorRepository 来说，二级 key 是 server 暴露的端口号
+     *      org.apache.dubbo.common.threadpool.manager.DefaultExecutorRepository#getProviderKey(org.apache.dubbo.common.URL)
+     *
+     *    - 对于 IsolationExecutorRepository 来说，二级 key 是 url.getServiceKey (按照服务隔离线程池)
+     *      org.apache.dubbo.common.threadpool.manager.IsolationExecutorRepository#getProviderKey(org.apache.dubbo.common.URL)
+     *      但前提是必须在 ServiceConfig 中特殊指定 processServiceExecutor，如没有特殊指定那么还是按照端口来隔离
+     * */
     private final ConcurrentMap<String, ConcurrentMap<String, ExecutorService>> data = new ConcurrentHashMap<>();
 
     private final Object LOCK = new Object();
@@ -98,15 +112,20 @@ public class DefaultExecutorRepository implements ExecutorRepository, ExtensionA
      */
     @Override
     public synchronized ExecutorService createExecutorIfAbsent(URL url) {
+        // ExecutorService.class.getName() （provider）
+        // CONSUMER_SHARED_EXECUTOR_SERVICE_COMPONENT_KEY (consumer)
+        // 也就是说，provider 端和 consumer 端的线程池是隔离开的
         String executorKey = getExecutorKey(url);
         ConcurrentMap<String, ExecutorService> executors =
                 ConcurrentHashMapUtils.computeIfAbsent(data, executorKey, k -> new ConcurrentHashMap<>());
-
+        // 端口号(default) or serviceKey(IsolationExecutorRepository)
         String executorCacheKey = getExecutorSecondKey(url);
 
         url = setThreadNameIfAbsent(url, executorCacheKey);
 
         URL finalUrl = url;
+        // see : org.apache.dubbo.common.threadpool.support.fixed.FixedThreadPool.getExecutor
+        // FixedThreadPool
         ExecutorService executor =
                 ConcurrentHashMapUtils.computeIfAbsent(executors, executorCacheKey, k -> createExecutor(finalUrl));
         // If executor has been shut down, create a new one
@@ -115,6 +134,7 @@ public class DefaultExecutorRepository implements ExecutorRepository, ExtensionA
             executor = createExecutor(url);
             executors.put(executorCacheKey, executor);
         }
+        // 线程池的缓存结构： provider or consuemr (一级 key) , 端口号（二级 key）, 线程池
         dataStore.put(executorKey, executorCacheKey, executor);
         return executor;
     }

@@ -181,6 +181,10 @@ public interface ExecutorRepository {
     ExecutorSupport getExecutorSupport(URL url);
 
     static ExecutorRepository getInstance(ApplicationModel applicationModel) {
+        // 有两种扩展，一种是 default 就是传统的按照一个端口分配一个线程池
+        // 另一种是 isolation（默认），按照 serverKey 也就是按照暴露 server 分配线程池
+        // IsolationExecutorRepository
+        // 有配置 org.apache.dubbo.config.ApplicationConfig.executorManagementMode 决定
         ExtensionLoader<ExecutorRepository> extensionLoader =
                 applicationModel.getExtensionLoader(ExecutorRepository.class);
         String mode = getMode(applicationModel);

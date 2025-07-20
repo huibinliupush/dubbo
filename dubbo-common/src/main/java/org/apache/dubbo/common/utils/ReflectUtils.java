@@ -1176,15 +1176,24 @@ public final class ReflectUtils {
     }
 
     public static Type[] getReturnTypes(Method method) {
-        Class<?> returnType = method.getReturnType();
+        // 获取返回类型，对于泛型类型来说，这里只会返回形如 ： List , Set , Map 等类型，不会带具体的泛型类型
+        Class<?> returnType = method.getReturnType(); // rawType
+        // 返回泛型类型，形如：List<String> , Set<String> , Map(String , List<String>)
         Type genericReturnType = method.getGenericReturnType();
+        // 如果返回类型形如 CompleteFuture , 这里需要将真正的返回类型提取出来
         if (Future.class.isAssignableFrom(returnType)) {
             if (genericReturnType instanceof ParameterizedType) {
+                // 获取 CompleteFuture 中包裹的泛型类型，形如 CompleteFuture<Result>
+                // actualArgType = Result
                 Type actualArgType = ((ParameterizedType) genericReturnType).getActualTypeArguments()[0];
                 if (actualArgType instanceof ParameterizedType) {
+                    // RawType 表示不带泛型类型的原始类型，比如 List , Set , Map
                     returnType = (Class<?>) ((ParameterizedType) actualArgType).getRawType();
+                    // getActualTypeArguments 会带泛型
                     genericReturnType = actualArgType;
                 } else if (actualArgType instanceof TypeVariable) {
+                    // TypeVariable 指的是类或者方法中申明的泛型 T
+                    // 比如 T<? extends Result>  getBounds 获取到 Result
                     returnType = (Class<?>) ((TypeVariable<?>) actualArgType).getBounds()[0];
                     genericReturnType = actualArgType;
                 } else {

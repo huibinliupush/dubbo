@@ -22,7 +22,10 @@ import java.lang.reflect.Type;
 public interface MethodDescriptor {
 
     String getMethodName();
-
+    // 方法参数的描述
+    // 比如方法参数形如 ：(int.class, boolean[].class, Object.class)
+    // ParamDesc : "I[ZLjava/lang/Object;" 通过一个 string 来描述方法参数
+    // see : org.apache.dubbo.common.utils.ReflectUtils.getDesc(java.lang.Class<?>[])
     String getParamDesc();
 
     /**

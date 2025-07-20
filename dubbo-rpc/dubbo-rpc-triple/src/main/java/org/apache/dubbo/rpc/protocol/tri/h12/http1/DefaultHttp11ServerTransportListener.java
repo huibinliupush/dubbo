@@ -51,27 +51,45 @@ public class DefaultHttp11ServerTransportListener
 
     public DefaultHttp11ServerTransportListener(HttpChannel httpChannel, URL url, FrameworkModel frameworkModel) {
         super(frameworkModel, url, httpChannel);
+        // NettyHttp1Channel
         this.httpChannel = httpChannel;
+        /**
+         * Http1UnaryServerChannelObserver
+         * StreamObserver is a common streaming API. It is an observer for receiving messages. Implementations are NOT required to be thread-safe.
+         * 泛型 T 这里是 HttpChannel （NettyHttp1Channel）， StreamObserver 负责数据的处理（可以是请求数据也可以是响应数据）
+         * responseObserver 负责处理数据的发送
+         * */
         responseObserver = prepareResponseObserver(new Http1UnaryServerChannelObserver(httpChannel));
     }
 
     private Http1ServerChannelObserver prepareResponseObserver(Http1ServerChannelObserver responseObserver) {
+        // 设置 ExceptionHandelr
         responseObserver.setExceptionCustomizer(getExceptionCustomizer());
+        // 后续会在 org.apache.dubbo.rpc.protocol.tri.h12.AbstractServerTransportListener.doRoute 中进行设置
         RpcInvocationBuildContext context = getContext();
+        // 最终会由 org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.onMetadataCompletion 设置
         responseObserver.setResponseEncoder(context == null ? JsonCodec.INSTANCE : context.getHttpMessageEncoder());
         return responseObserver;
     }
 
     @Override
     protected HttpMessageListener buildHttpMessageListener() {
+        // context 会在 org.apache.dubbo.rpc.protocol.tri.h12.AbstractServerTransportListener.doRoute 中填充
         RpcInvocationBuildContext context = getContext();
+        // 构建 dubboInvoker 需要的 RpcInvocation
+        // 1. 封装后边 dubboInvoker 调用时需要用到的方法元信息
+        // 2. 将 http headers 全部添加到 RpcInvocation 中的 attachments
+        // 3. RpcInvocationBuildContext 中设置的相关 attributes 转移到 RpcInvocation 中的 attributes
+        // 4. HeaderFilter 过滤请求，headerFilter 用于跨域，认证（Authenticator），token 等过滤请求，不符合直接抛出异常
         RpcInvocation rpcInvocation = buildRpcInvocation(context);
-
+        // 主要负责进行 Rpc 的调用(rpc 参数值已经 decode 完毕)
+        // AutoCompleteUnaryServerCallListener
         ServerCallListener serverCallListener =
                 startListener(rpcInvocation, context.getMethodDescriptor(), context.getInvoker());
         DefaultListeningDecoder listeningDecoder = new DefaultListeningDecoder(
                 context.getHttpMessageDecoder(), context.getMethodMetadata().getActualRequestTypes());
         listeningDecoder.setListener(serverCallListener::onMessage);
+        // DefaultListeningDecoder 封装了 HttpMessageDecoder , 方法的请求参数类型。以及 serverCallListener::onMessage 回调函数
         return new DefaultHttpMessageListener(listeningDecoder);
     }
 
@@ -116,7 +134,10 @@ public class DefaultHttp11ServerTransportListener
 
         @Override
         public void onMessage(Object message) {
+            // message 为  Object[] decode ， 请求的方法参数
+            // 向 RpcInvocation 中设置调用参数值 invocation.setArguments
             super.onMessage(message);
+            // invoke 后端的 dubboInvoker
             onComplete();
         }
     }

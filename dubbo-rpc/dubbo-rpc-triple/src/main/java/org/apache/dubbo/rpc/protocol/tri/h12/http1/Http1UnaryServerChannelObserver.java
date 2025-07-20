@@ -32,14 +32,21 @@ import io.netty.buffer.ByteBufOutputStream;
 public final class Http1UnaryServerChannelObserver extends Http1ServerChannelObserver {
 
     public Http1UnaryServerChannelObserver(HttpChannel httpChannel) {
+        // NettyHttp1Channel
         super(httpChannel);
     }
-
+    // 对于发送过程的处理转换 see : NettyHttp1Codec
     @Override
     protected void doOnNext(Object data) throws Throwable {
+        // 获取响应码，如果 dubbo 返回返回类型为 HttpResult，那么就直接获取里面的 status
+        // 如果返回类型为普通类型，直接设置 200
         int statusCode = resolveStatusCode(data);
+        // 将 data 按照 mediaType 转换为对应格式的数据，然后写入到 HttpOutputMessage 中的 outStream 中
         HttpOutputMessage message = buildMessage(statusCode, data);
+        // buildMetadata 主要用来构建响应 headers
+        // sendMetadata 发送响应 headers
         sendMetadata(buildMetadata(statusCode, data, null, message));
+        // 发送 body
         sendMessage(message);
     }
 
@@ -66,6 +73,7 @@ public final class Http1UnaryServerChannelObserver extends Http1ServerChannelObs
                 throw new IllegalArgumentException("Unsupported body type: " + body.getClass());
             }
         }
+        // 设置 content-length
         headers.set(HttpHeaderNames.CONTENT_LENGTH.getKey(), String.valueOf(contentLength));
     }
 

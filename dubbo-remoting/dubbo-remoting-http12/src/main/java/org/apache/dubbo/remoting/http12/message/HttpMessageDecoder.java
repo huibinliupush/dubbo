@@ -34,7 +34,7 @@ public interface HttpMessageDecoder extends CodecMediaType {
         if (targetType instanceof Class) {
             return decode(inputStream, (Class<?>) targetType, charset);
         }
-        if (targetType instanceof ParameterizedType) {
+        if (targetType instanceof ParameterizedType) { //
             return decode(inputStream, (Class<?>) ((ParameterizedType) targetType).getRawType(), charset);
         }
         throw new DecodeException("targetType " + targetType + " is not a class");

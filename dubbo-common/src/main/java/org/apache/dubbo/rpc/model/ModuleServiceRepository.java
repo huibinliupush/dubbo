@@ -40,6 +40,8 @@ public class ModuleServiceRepository {
 
     /**
      * services
+     *
+     * interfaceClazz.getName() :
      */
     private final ConcurrentMap<String, List<ServiceDescriptor>> services = new ConcurrentHashMap<>();
 

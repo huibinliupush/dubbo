@@ -59,6 +59,8 @@ public final class PathCondition implements Condition<PathCondition, HttpRequest
         if (expressions == null) {
             expressions = new ArrayList<>();
             for (String path : paths) {
+                // normalize 标准化 rest path 主要用于忽略 path 中的 '\t' '\n' '\r' ？ # . 等无效字符
+                // 根据 path 解析 PathSegment
                 expressions.add(PathExpression.parse(PathUtils.normalize(contextPath, path)));
             }
             this.expressions = expressions;

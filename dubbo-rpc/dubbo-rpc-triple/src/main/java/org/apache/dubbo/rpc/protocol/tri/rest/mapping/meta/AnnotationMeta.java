@@ -34,7 +34,7 @@ public final class AnnotationMeta<A extends Annotation> {
     private final AnnotatedElement element;
     private final A annotation;
     private final RestToolKit toolKit;
-
+    // 注解包含的所有属性值，@RequestMapping ， @GetMapping，@PostMapping
     private Map<String, Object> attributes;
 
     public AnnotationMeta(AnnotatedElement element, A annotation, RestToolKit toolKit) {

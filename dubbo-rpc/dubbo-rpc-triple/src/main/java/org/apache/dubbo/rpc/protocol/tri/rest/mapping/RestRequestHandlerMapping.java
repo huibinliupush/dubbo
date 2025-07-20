@@ -52,7 +52,10 @@ public final class RestRequestHandlerMapping implements RequestHandlerMapping {
     private static final Logger LOGGER = LoggerFactory.getLogger(RestRequestHandlerMapping.class);
 
     private final RequestMappingRegistry requestMappingRegistry;
+    // CompositeArgumentResolver 封装各种 spring mvc 注解的 Resolver，比如，@RequestParam，@PathVariable，@RequestBody，@RequestHeade
+    // 用来指示从 http request 的哪个地方获取请求参数
     private final ArgumentResolver argumentResolver;
+    // GeneralTypeConverter
     private final TypeConverter typeConverter;
     private final ContentNegotiator contentNegotiator;
     private final CodecUtils codecUtils;
@@ -65,11 +68,14 @@ public final class RestRequestHandlerMapping implements RequestHandlerMapping {
         contentNegotiator = beanFactory.getOrRegisterBean(ContentNegotiator.class);
         codecUtils = beanFactory.getOrRegisterBean(CodecUtils.class);
     }
-
+    // DefaultHttpRequest . DefaultHttpResponse(空的)
     @Override
     public RequestHandler getRequestHandler(URL url, HttpRequest request, HttpResponse response) {
         LOGGER.debug("Received http request: {}", request);
-
+        // DefaultRequestMappingRegistry
+        // 到 radixTree 中查找 rest request 映射的 HandlerMeta（dubbo 处理 rest 请求的元信息）
+        // 查找成功之后 request 的 attribute 中就已经填充好了各种元信息，具体可见 lookup 方法
+        // 查找失败返回 null
         HandlerMeta meta = requestMappingRegistry.lookup(request);
         if (meta == null) {
             String path = request.attribute(RestConstants.PATH_ATTRIBUTE);
@@ -80,20 +86,27 @@ public final class RestRequestHandlerMapping implements RequestHandlerMapping {
             LOGGER.debug("No handler found for http request: {}", request);
             return null;
         }
-
+        // request method
         String method = request.method();
         if (HttpMethods.OPTIONS.name().equals(method)) {
             handleOptionsRequest(request);
         }
 
         String requestMediaType = request.mediaType();
+        // 1. 首先根据指定的 produce media type 来
+        // 2. 其次根据 request headers 中的 ACCEPT 来
+        // 3. 根据请求参数中的 format
+        // 4. 根据 uri 中的 . 后缀, 比如， /demo/post/list.json
+        // see : org.apache.dubbo.rpc.protocol.tri.rest.mapping.ContentNegotiator.getMediaTypeByExtension
         String responseMediaType = contentNegotiator.negotiate(request, meta);
         if (responseMediaType != null) {
             response.setContentType(responseMediaType);
         } else {
             if (requestMediaType != null && !RequestUtils.isFormOrMultiPart(request)) {
+                // 如果找不到 responseMediaType 那就按照 requestMediaType 来
                 responseMediaType = requestMediaType;
             } else {
+                // 默认返回 APPLICATION_JSON
                 responseMediaType = MediaType.APPLICATION_JSON.getName();
             }
         }
@@ -103,12 +116,14 @@ public final class RestRequestHandlerMapping implements RequestHandlerMapping {
                 meta.getParameters(),
                 argumentResolver,
                 typeConverter,
-                codecUtils.determineHttpMessageEncoder(url, responseMediaType));
-
+                codecUtils.determineHttpMessageEncoder(url, responseMediaType)); // 根据 MediaType，获取对应的 HttpMessageEncoder
+        // 只有 P 开头的 http method 比如 POST 才支持 body
         if (HttpMethods.supportBody(method) && !RequestUtils.isFormOrMultiPart(request)) {
             if (StringUtils.isEmpty(requestMediaType)) {
                 requestMediaType = responseMediaType;
             }
+            // 根据 MediaType，获取对应的 HttpMessageDecoder,json 对应 JsonPbCodec
+            // see : org.apache.dubbo.rpc.protocol.tri.rest.util.RequestUtils.decodeBody
             request.setAttribute(
                     RestConstants.BODY_DECODER_ATTRIBUTE,
                     codecUtils.determineHttpMessageDecoder(url, requestMediaType));

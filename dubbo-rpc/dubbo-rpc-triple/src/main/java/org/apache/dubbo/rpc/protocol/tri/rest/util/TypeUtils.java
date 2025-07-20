@@ -159,10 +159,13 @@ public final class TypeUtils {
     }
 
     public static Class<?> getMapValueType(Class<?> targetClass) {
+        // 获取 MultiValueMap 的接口 java.util.Map<K, java.util.List<V>>
         for (Type gi : targetClass.getGenericInterfaces()) {
             if (gi instanceof ParameterizedType) {
                 ParameterizedType type = (ParameterizedType) gi;
                 if (type.getRawType() == Map.class) {
+                    // 获取 index = 1 的 ActualType 也就是 value 的类型 List<User>
+                    // 这里返回 List
                     return getActualType(type.getActualTypeArguments()[1]);
                 }
             }
@@ -171,7 +174,10 @@ public final class TypeUtils {
     }
 
     public static Class<?> getSuperGenericType(Class<?> clazz, int index) {
+        // MultiValueMapCreator 的父类为 object, 这里没有嵌套的类型，result = null
         Class<?> result = getNestedActualType(clazz.getGenericSuperclass(), index);
+        // 获取 MultiValueMapCreator 第一个接口 ArgumentConverter<Integer, MultiValueMap<?, ?>>
+        // interface org.apache.dubbo.rpc.protocol.tri.rest.argument.ArgumentConverter
         return result == null ? getNestedActualType(ArrayUtils.first(clazz.getGenericInterfaces()), index) : result;
     }
 
@@ -179,14 +185,24 @@ public final class TypeUtils {
         return getSuperGenericType(clazz, 0);
     }
 
+    /**
+     *  获取参数中的泛型类型，比如 List<User> 这里获取到的泛型类型就是 User
+     *  Map<String,User> 这里获取到的泛型类型就是 [String , User]
+     *
+     *  MultiValueMap<String, List<User>>  这里获取到的泛型类型就是 [String , List]
+     * */
     public static Class<?>[] getNestedActualTypes(Type type) {
         if (type instanceof ParameterizedType) {
+            // 获取类型 type 中定义的所有泛型
+            // MultiValueMap<String, List<User>> 这里获取到的泛型类型就是 [String , List<User>]
             Type[] typeArgs = ((ParameterizedType) type).getActualTypeArguments();
             int len = typeArgs.length;
             Class<?>[] nestedTypes = new Class<?>[len];
             for (int i = 0; i < len; i++) {
+                // 获取 RawType，不带泛型的真实类型，比如 List<User> 这里获取到的就是 List 原始类型
                 nestedTypes[i] = getActualType(typeArgs[i]);
             }
+            // MultiValueMap<String, List<User>>  这里获取到的泛型类型就是 [String , List]
             return nestedTypes;
         }
         return null;
@@ -194,6 +210,8 @@ public final class TypeUtils {
 
     public static Class<?> getNestedActualType(Type type, int index) {
         if (type instanceof ParameterizedType) {
+            // type : ArgumentConverter<Integer, MultiValueMap<?, ?>>
+            // typeArgs --- [Integer , MultiValueMap<?, ?>]
             Type[] typeArgs = ((ParameterizedType) type).getActualTypeArguments();
             if (index < typeArgs.length) {
                 return getActualType(typeArgs[index]);
@@ -201,12 +219,16 @@ public final class TypeUtils {
         }
         return null;
     }
-
+    // 获取 RawType，不带泛型的真实类型，比如 List<User> 这里获取到的就是 List 原始类型
     public static Class<?> getActualType(Type type) {
+        // 不带泛型的普通类型，比如 interface java.util.List ， MultiValueMap
         if (type instanceof Class) {
             return (Class<?>) type;
         }
+        // 带泛型的类型 List<User> , MultiValueMap<?, ?>
         if (type instanceof ParameterizedType) {
+            // List<User> 的 RawType 为 List （去掉泛型的原始类型）
+            // MultiValueMap<?, ?> 的 RawType 为 MultiValueMap
             return getActualType(((ParameterizedType) type).getRawType());
         }
         if (type instanceof TypeVariable) {

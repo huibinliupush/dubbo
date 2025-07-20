@@ -28,12 +28,12 @@ public class TripleConfig implements Serializable {
 
     private static final long serialVersionUID = -3682252713701362155L;
 
-    public static final int DEFAULT_MAX_BODY_SIZE = 8_388_608;
+    public static final int DEFAULT_MAX_BODY_SIZE = 8_388_608; // 8M
     public static final int DEFAULT_MAX_RESPONSE_BODY_SIZE = 8_388_608;
     public static final int DEFAULT_MAX_CHUNK_SIZE = 8_388_608;
-    public static final int DEFAULT_MAX_HEADER_SIZE = 8_192;
-    public static final int DEFAULT_MAX_INITIAL_LINE_LENGTH = 4_096;
-    public static final int DEFAULT_INITIAL_BUFFER_SIZE = 16_384;
+    public static final int DEFAULT_MAX_HEADER_SIZE = 8_192; // 8k
+    public static final int DEFAULT_MAX_INITIAL_LINE_LENGTH = 4_096; // 4K
+    public static final int DEFAULT_INITIAL_BUFFER_SIZE = 16_384; // 16k
     public static final int DEFAULT_HEADER_TABLE_SIZE = 4_096;
     public static final boolean DEFAULT_ENABLE_PUSH = false;
     public static final int DEFAULT_MAX_CONCURRENT_STREAMS = Integer.MAX_VALUE;

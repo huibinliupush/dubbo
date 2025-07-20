@@ -130,6 +130,8 @@ public class GeneralTypeConverter implements TypeConverter {
     @Override
     public <T> T convert(Object source, Type targetType) {
         try {
+            // source : hashmap
+            // targetType : MultiValueMap<String , List<User>>
             return targetType == null ? (T) source : (T) doConvert(source, targetType);
         } catch (Exception e) {
             throw ExceptionUtils.wrap(e);
@@ -636,7 +638,8 @@ public class GeneralTypeConverter implements TypeConverter {
 
         return null;
     }
-
+    // source : hashmap
+    // targetType : MultiValueMap<String , List<User>>
     private Object doConvert(Object source, Type targetType) throws Exception {
         if (targetType instanceof Class) {
             return doConvert(source, (Class) targetType);
@@ -665,19 +668,30 @@ public class GeneralTypeConverter implements TypeConverter {
                 return target;
             }
         }
+        // 参数类型带有泛型，比如，List<User> , Map<String,User>
 
+        // source : hashmap
+        // targetType : MultiValueMap<String , List<User>>
         if (targetType instanceof ParameterizedType) {
+            // MultiValueMap<String , List<User>>
             ParameterizedType type = (ParameterizedType) targetType;
+            // List ,Map (不带泛型)
+            // MultiValueMap
             Type rawType = type.getRawType();
-            if (rawType instanceof Class) {
+            if (rawType instanceof Class) { // rawType 不是带泛型（也就是不是 ParameterizedType）
+                // MultiValueMap
                 Class targetClass = (Class) rawType;
+                // 获取泛型，比如，List 中的 User , Map 中的 String , User
+                // MultiValueMap<String , List<User>> 中的 String , List<User>
                 Type[] argTypes = type.getActualTypeArguments();
-
+                // 处理集合类型List , Set(不带泛型)
                 if (Collection.class.isAssignableFrom(targetClass)) {
+                    // 集合中元素类型, 比如 List 中的 User
                     Type itemType = getActualGenericType(argTypes[0]);
                     if (itemType instanceof Class && targetClass.isInstance(source)) {
                         boolean same = true;
                         Class<?> itemClass = (Class<?>) itemType;
+                        // 检查集合中的类型是否为 User(泛型中指定的类型)
                         for (Object item : (Collection) source) {
                             if (item != null && !itemClass.isInstance(item)) {
                                 same = false;
@@ -696,9 +710,11 @@ public class GeneralTypeConverter implements TypeConverter {
                     }
                     return targetItems;
                 }
-
+                // 处理 Map 类型 , MultiValueMap
                 if (Map.class.isAssignableFrom(targetClass)) {
+                    // String
                     Type keyType = argTypes[0];
+                    // List<User>
                     Type valueType = argTypes[1];
 
                     if (keyType instanceof Class && valueType instanceof Class && targetClass.isInstance(source)) {
@@ -721,17 +737,21 @@ public class GeneralTypeConverter implements TypeConverter {
                             return source;
                         }
                     }
-
+                    // 获取 MultiValueMap 的值类型 List
                     Class<?> mapValueClass = TypeUtils.getMapValueType(targetClass);
+                    // true
                     boolean multiValue = mapValueClass != null && Collection.class.isAssignableFrom(mapValueClass);
 
                     if (source instanceof CharSequence) {
                         source = tokenizeToMap(source.toString());
                     }
-
+                    // source 为 hashmap , target 是 MultiValueMap
                     if (source instanceof Map) {
                         Map<?, ?> map = (Map) source;
+                        // 创建 MultiValueMap 类型的 map
+                        // 通过 MultiValueMapCreator 创建 size 大小的 MultiValueMap
                         Map targetMap = createMap(targetClass, map.size());
+                        // hashmap 类型的 source 转换为 MultiValueMap
                         for (Map.Entry entry : map.entrySet()) {
                             Object key = doConvert(entry.getKey(), keyType);
                             if (multiValue) {
@@ -979,6 +999,7 @@ public class GeneralTypeConverter implements TypeConverter {
                 }
             }
         }
+        // 通过 MultiValueMapCreator 创建 size 大小的 MultiValueMap
         Map map = customCreateMap(targetClass, size);
         if (map != null) {
             return map;

@@ -49,15 +49,24 @@ final class PathParser {
         if (path == null || path.isEmpty() || RestConstants.SLASH.equals(path)) {
             return new PathSegment[] {PathSegment.literal(RestConstants.SLASH)};
         }
+        // 直接路径，不带 PathVariable 以及正则表达式的路径
         if (PathUtils.isDirectPath(path)) {
+            // DirectPath 一般都是一个 PathSegment (LITERAL)
             return new PathSegment[] {PathSegment.literal(path)};
         }
+        // 带有 PathVariable 或者正则表达式的 path 就会对应多个 PathSegment
+        // 字符的 PathSegment 类型为 LITERAL
+        // PathVariable 的 PathSegment 类型为 VARIABLE
+        // PATTERN 的 PathSegment 类型为 PATTERN
         List<PathSegment> segments = new PathParser().doParse(path);
         return segments.toArray(new PathSegment[0]);
     }
 
     private List<PathSegment> doParse(String path) {
         parseSegments(path);
+        // 对于 PATTERN segment 来说，这里会将多个 PATTERN segment 转化为一个 PATTERN segment（按照 path 变量来）
+        // {type=PATTERN, value=(?<name>[a-z-]+)-(?<version>\d\.\d\.\d)(?<ext>\.[a-z]+), variables=[name, version, ext]}
+        // 去掉 SLASH segment
         transformSegments(segments, path);
         for (PathSegment segment : segments) {
             try {
@@ -69,10 +78,23 @@ final class PathParser {
         return segments;
     }
 
+    /**
+     *
+     * /demo/get/head/{id}
+     *
+     * segment 创建完成之后会跟着一个 SLASH segment
+     * 最后一个 segment 之后没有 SLASH segment
+     *
+     * /demo/get/reg/{name:[a-z-]+}-{version:\d\.\d\.\d}{ext:\.[a-z]+}
+     *
+     *
+     *
+     * */
     private void parseSegments(String path) {
         int state = State.INITIAL;
         boolean regexBraceStart = false;
         boolean regexMulti = false;
+        // 用于暂时存放 REGEX 变量名，如 name ， version ， ext
         String variableName = null;
         int len = path.length();
         for (int i = 0; i < len; i++) {
@@ -82,11 +104,18 @@ final class PathParser {
                     switch (state) {
                         case State.INITIAL:
                         case State.SEGMENT_END:
+                            // 初始状态会遇到 / 直接跳过
                             continue;
                         case State.LITERAL_START:
                             if (buf.length() > 0) {
+                                // /demo 正常字符匹配玩之后，此时 buf 中存放的是 demo
+                                // 当遇到下一个 / 的时候，需要把 demo 添加到 LITERAL Segment
+                                // 创建完一个 segment 之后跳转到 default 分支
+                                // 然后创建 SLASH segment ，转化 State.SEGMENT_END
                                 appendSegment(Type.LITERAL);
                             }
+                            // VARIABLE segment 以及 PATTERN segment 创建完成之后，状态会设置为 LITERAL_START ，但此时 buf 是空的
+                            // 继续下一个字符匹配
                             break;
                         case State.WILDCARD_START:
                             appendSegment(Type.WILDCARD);
@@ -102,6 +131,8 @@ final class PathParser {
                             throw new PathParserException(Messages.MISSING_CLOSE_CAPTURE, path, i);
                         default:
                     }
+                    // 每创建完一个 segment , 就在后面创建一个 SLASH segment，然后设置 State.SEGMENT_END
+                    // 接着匹配下一个字符
                     segments.add(SLASH);
                     state = State.SEGMENT_END;
                     continue;
@@ -146,24 +177,39 @@ final class PathParser {
                         }
                     }
                     break;
-                case ':':
+                case ':': // // {name:[a-z-]+}-{version:\d\.\d\.\d}{ext:\.[a-z]+}
+                    // 此时 buf 中是 name , State.VARIABLE_START
                     if (state == State.VARIABLE_START) {
+                        // 遇到 : 字符状态变为 REGEX_VARIABLE_START
                         state = State.REGEX_VARIABLE_START;
+                        // buf 中存放的事 REGEX 变量名 name , versersion , ext
                         variableName = buf.toString();
                         buf.setLength(0);
+                        // 往后继续提取正则表达式
                         continue;
                     }
                     break;
                 case '{':
+                    // /demo/get/head/{id}
+                    // 当遇到 { 的时候，开始创建 VARIABLE segment
+
+                    // {name:[a-z-]+}-{version:\d\.\d\.\d}{ext:\.[a-z]+}
+                    // 遇到 { 也有可能是 PATTERN segment, 但还是会按照 VARIABLE segment 来提取 name ， version ， ext
+                    // 直到遇到 : 字符 标志开始提取 PATTERN segment
                     switch (state) {
                         case State.INITIAL:
                         case State.SEGMENT_END:
+                            // 开始提取 path variable
+                            // 遇到 { 也有可能是 PATTERN segment, 但还是会按照 VARIABLE segment 来提取 name ， version ， ext
+                            // 直到遇到 : 字符 标志开始提取 PATTERN segment
                             state = State.VARIABLE_START;
-                            continue;
+                            continue; // 继续，开始匹配 id 作为 path variable 名称
                         case State.LITERAL_START:
                             if (buf.length() > 0) {
+                                // 上述 PATTERN path 中的 - 会被创建成一个 LITERAL segment
                                 appendSegment(Type.LITERAL);
                             }
+                            // 重新开始提取下一个 PATTERN 变量名，直到遇到 : 字符在进行提取正则表达式
                             state = State.VARIABLE_START;
                             continue;
                         case State.VARIABLE_START:
@@ -177,17 +223,22 @@ final class PathParser {
                         default:
                     }
                     break;
-                case '}':
+                case '}': // /demo/get/head/{id}
                     switch (state) {
                         case State.INITIAL:
                         case State.LITERAL_START:
                         case State.SEGMENT_END:
                             throw new PathParserException(Messages.MISSING_OPEN_CAPTURE, path);
                         case State.VARIABLE_START:
+                            // 当遇到 } 时 ，表示 path 变量的结束位置，此时 buf 中存放的就是 path 变量名称 (id)
+                            // 为 path 变量创建 VARIABLE segment
                             appendSegment(Type.VARIABLE, buf.toString());
+                            // 状态变为 LITERAL_START
                             state = State.LITERAL_START;
                             continue;
                         case State.REGEX_VARIABLE_START:
+                            // {name:[a-z-]+}-{version:\d\.\d\.\d}{ext:\.[a-z]+}
+                            // 遇到 } 字符，此时 name 后面的正则表达式（[a-z-]+）已经提取到 buf 中
                             if (regexBraceStart) {
                                 regexBraceStart = false;
                             } else {
@@ -196,6 +247,7 @@ final class PathParser {
                                 }
                                 appendSegment(regexMulti ? Type.PATTERN_MULTI : Type.PATTERN, variableName);
                                 regexMulti = false;
+                                // 状态变为 LITERAL_START
                                 state = State.LITERAL_START;
                                 continue;
                             }
@@ -208,7 +260,11 @@ final class PathParser {
                     }
                     break;
                 default:
+                    // 正常字符会来到这里
                     if (state == State.INITIAL || state == State.SEGMENT_END) {
+                        // INITIAL 状态下，遇到第一个正常字符，会设置 State.LITERAL_STAR
+                        // SEGMENT_END 状态下，表示刚刚创建完一个 segment (/demo)
+                        // 遇到新的字符（get）, 准备为 get 创建 segment
                         state = State.LITERAL_START;
                     }
                     break;
@@ -216,6 +272,13 @@ final class PathParser {
             if (state == State.END) {
                 throw new PathParserException(Messages.NO_MORE_DATA_ALLOWED, path, i);
             }
+            // 将字符放入 buf 中用于提取 pathSegment
+            // 如果当前是 State.VARIABLE_START ， 那么就将 path 变量名称加入到 buf 中
+            // 当遇到下一个 } 时，将 buf 中存放的 path 变量名称放入到
+
+            // /demo/get/reg/{name:[a-z-]+}-{version:\d\.\d\.\d}{ext:\.[a-z]+}
+            // 正则表达式，比如 name 的 [a-z-]+ 也会被认为是正常字符
+            // buf 可以用于暂时收集正则表达式， 直到遇到 } 字符
             buf.append(c);
         }
 

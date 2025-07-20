@@ -19,13 +19,17 @@ package org.apache.dubbo.remoting.http12.message;
 import java.io.InputStream;
 
 public class DefaultListeningDecoder implements ListeningDecoder {
-
+    // RestHttpMessageCodec
     private final HttpMessageDecoder httpMessageDecoder;
 
     private final Class<?>[] targetTypes;
-
+    // serverCallListener::onMessage
+    // serverCallListener -> AutoCompleteUnaryServerCallListener
+    // 主要负责进行 Rpc 的调用(rpc 参数值已经 decode 完毕)
+    // AutoCompleteUnaryServerCallListener
     private Listener listener;
-
+    // 由 org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.buildHttpMessageListener 创建
+    // 在 onMetaData 的处理中设置
     public DefaultListeningDecoder(HttpMessageDecoder httpMessageDecoder, Class<?>[] targetTypes) {
         this.httpMessageDecoder = httpMessageDecoder;
         this.targetTypes = targetTypes;
@@ -38,7 +42,11 @@ public class DefaultListeningDecoder implements ListeningDecoder {
 
     @Override
     public void decode(InputStream inputStream) {
+        // RestHttpMessageCodec 根据方法参数中标注的 @RequestParam，@PathVariable，@RequestBody，@RequestHeader 注解
+        // 通过对应的 ArgumentResolver 从 rest 请求中将方法参数 decode 出来
         Object[] decode = this.httpMessageDecoder.decode(inputStream, targetTypes);
+        // 现在已经从 rest 请求中提取到了 dubboInvoker 执行的所有信息（invoker , RpcInvocation , 方法参数）
+        // AutoCompleteUnaryServerCallListener 正是处理 rest 请求（由后面映射的 dubboInvoker 进行处理）
         this.listener.onMessage(decode);
     }
 

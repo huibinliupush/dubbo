@@ -37,7 +37,7 @@ public abstract class AbstractIsolationExecutorSupport implements ExecutorSuppor
 
     @Override
     public Executor getExecutor(Object data) {
-
+        // 根据 providerUrl 获取服务暴露时创建的线程池
         ProviderModel providerModel = getProviderModel(data);
         if (providerModel == null) {
             return executorRepository.getExecutor(url);

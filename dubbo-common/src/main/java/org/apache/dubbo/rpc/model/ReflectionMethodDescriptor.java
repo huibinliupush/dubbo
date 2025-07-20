@@ -45,6 +45,8 @@ public class ReflectionMethodDescriptor implements MethodDescriptor {
     private final String[] compatibleParamSignatures;
     private final Class<?>[] parameterClasses;
     private final Class<?> returnClass;
+    // Type[0] 表示 rawType , 对于泛型类型形如： List , Set , Map
+    // Type[1] 表示 genericType  , 形如：List<String> , Set<String> , Map(String , List<String>)
     private final Type[] returnTypes;
     private final String paramDesc;
     private final Method method;

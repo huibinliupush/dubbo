@@ -40,12 +40,18 @@ import java.util.Optional;
 public final class RestHttpMessageCodec implements HttpMessageDecoder, HttpMessageEncoder {
 
     private static final Object[] EMPTY_ARGS = new Object[0];
-
+    // 统一由 org.apache.dubbo.rpc.protocol.tri.rest.mapping.RestRequestHandlerMapping.getRequestHandler 设置
     private final HttpRequest request;
     private final HttpResponse response;
     private final ParameterMeta[] parameters;
     private final ArgumentResolver argumentResolver;
     private final TypeConverter typeConverter;
+    // json 对应 JsonPbCodec
+    // 这里会根据 mediaType 来设置对应的 encoder
+    // see : org.apache.dubbo.remoting.http12.message.codec.CodecUtils.determineHttpMessageEncoder(org.apache.dubbo.common.URL, java.lang.String)
+
+    // 根据我们指定的 produces = MediaType.TEXT_PLAIN_VALUE 不同，这里的 messageEncoder 也不同
+    // MediaType.TEXT_PLAIN_VALUE 对应的是 PlainTextCodec
     private final HttpMessageEncoder messageEncoder;
     private final Charset charset;
 
@@ -61,6 +67,8 @@ public final class RestHttpMessageCodec implements HttpMessageDecoder, HttpMessa
         this.parameters = parameters;
         this.argumentResolver = argumentResolver;
         this.typeConverter = typeConverter;
+        // org.apache.dubbo.rpc.protocol.tri.rest.mapping.RestRequestHandlerMapping.getRequestHandler
+        // org.apache.dubbo.remoting.http12.message.codec.CodecUtils.determineHttpMessageEncoder(org.apache.dubbo.common.URL, java.lang.String)
         this.messageEncoder = messageEncoder;
         charset = request.charsetOrDefault();
     }
@@ -73,17 +81,25 @@ public final class RestHttpMessageCodec implements HttpMessageDecoder, HttpMessa
     public Object decode(InputStream inputStream, Class<?> targetType, Charset charset) throws DecodeException {
         return decode(inputStream, new Class<?>[] {targetType}, charset);
     }
-
+    // RestHttpMessageCodec 根据方法参数中标注的 @RequestParam，@PathVariable，@RequestBody，@RequestHeader 注解
+    // 通过对应的 ArgumentResolver 从 rest 请求中将方法参数 decode 出来
     @Override
     public Object[] decode(InputStream inputStream, Class<?>[] targetTypes, Charset charset) throws DecodeException {
+        // 将传入的 ByteBufInputStream 转换为 ByteArrayInputStream（数组）
         request.setInputStream(decodeInputStream(inputStream));
-        ParameterMeta[] parameters = this.parameters;
+        // 来自于 org.apache.dubbo.rpc.protocol.tri.rest.mapping.RestRequestHandlerMapping.getRequestHandler
+        // 类型为 MethodParameterMeta
+        ParameterMeta[] parameters = this.parameters; // 方法参数元数据
         int len = parameters.length;
         if (len == 0) {
             return EMPTY_ARGS;
         }
+        // 存储 decode 出来的方法参数
         Object[] args = new Object[len];
         for (int i = 0; i < len; i++) {
+            // CompositeArgumentResolver 封装各种 spring mvc 注解的 Resolver，比如，@RequestParam，@PathVariable，@RequestBody，@RequestHeade
+            // 用来指示从 http request 的哪个地方获取请求参数
+            // 根据方法参数上标注的 spring mvc 注解，解析方法参数（不同的注解不同的解析方式）
             args[i] = argumentResolver.resolve(parameters[i], request, response);
         }
         return args;
@@ -139,6 +155,11 @@ public final class RestHttpMessageCodec implements HttpMessageDecoder, HttpMessa
                 throw new EncodeException(e);
             }
         }
+        // JsonPbCodec encode 将 data 转换为 json, 然后将 json byte 写入到 os 中
+        // org.apache.dubbo.remoting.http12.message.codec.JsonCodec.encode(java.io.OutputStream, java.lang.Object, java.nio.charset.Charset)
+
+        // 根据我们指定的 produces = MediaType.TEXT_PLAIN_VALUE 不同，这里的 messageEncoder 也不同
+        // MediaType.TEXT_PLAIN_VALUE 对应的是 PlainTextCodec （直接写入文本串 bytes）
         messageEncoder.encode(os, data, charset);
     }
 

@@ -32,9 +32,11 @@ import java.util.Map;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public final class CompositeArgumentResolver implements ArgumentResolver {
-
+    // CompositeArgumentResolver 封装各种 spring mvc 注解的 Resolver，比如，@RequestParam，@PathVariable，@RequestBody，@RequestHeade
+    // 用来指示从 http request 的哪个地方获取请求参数
     private final Map<Class, AnnotationBaseArgumentResolver> resolverMap = new HashMap<>();
     private final ArgumentResolver[] resolvers;
+    // CompositeArgumentConverter
     private final ArgumentConverter argumentConverter;
 
     public CompositeArgumentResolver(FrameworkModel frameworkModel) {
@@ -61,12 +63,31 @@ public final class CompositeArgumentResolver implements ArgumentResolver {
         return true;
     }
 
+    /**
+     *  CompositeArgumentResolver 封装各种 spring mvc 注解的 Resolver，比如，@RequestParam，@PathVariable，@RequestBody，@RequestHeader
+     *  用来指示从 http request 的哪个地方获取请求参数
+     *  根据方法参数上标注的 spring mvc 注解，解析方法参数（不同的注解不同的解析方式）
+     * */
     @Override
     public Object resolve(ParameterMeta parameter, HttpRequest request, HttpResponse response) {
+        // 获取方法参数 parameter 上标注的所有注解
+        // AnnotationMeta 封装具体标注注解的 element（method or Parameter）, 具体的 mvc 注解，rest toolKit
         for (AnnotationMeta annotation : parameter.findAnnotations()) {
+            // 根据 spring mvc 注解获取对应的 AnnotationBaseArgumentResolver
+            // @RequestParam 对应 RequestParamArgumentResolver
+            // @PathVariable 对应 PathVariableArgumentResolver
+            // @RequestBody 对应 RequestBodyArgumentResolver
+            // @RequestHeader 对应 RequestHeaderArgumentResolver
             AnnotationBaseArgumentResolver resolver = resolverMap.get(annotation.getAnnotationType());
             if (resolver != null) {
+                // 根据参数标注的注解从 rest request 中提取参数值
+                // 比如 @RequestBody 参数：将 body 中的 json 反序列化为 hashMap<String, List<User>> 对象
+                // 注意这里反序列化出来的是 hashmap 并不是参数类型 interface org.springframework.util.MultiValueMap
+                // 所以需要下面的 argumentConverter 将 hashmap 在转换成 MultiValueMap
                 Object value = resolver.resolve(parameter, annotation, request, response);
+                // CompositeArgumentConverter
+                // GeneralTypeConverter 检查 value 是否为指定的 GenericType
+                // 比如 List<User> ,那么检查 value 中的每一个元素是否为 User 类型
                 return argumentConverter.convert(value, parameter);
             }
         }

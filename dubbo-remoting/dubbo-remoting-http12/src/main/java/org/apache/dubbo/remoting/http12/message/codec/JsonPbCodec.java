@@ -79,7 +79,7 @@ public final class JsonPbCodec extends JsonCodec {
     public Object decode(InputStream is, Type targetType, Charset charset) throws DecodeException {
         return targetType instanceof Class
                 ? decode(is, (Class<?>) targetType, charset)
-                : super.decode(is, targetType, charset);
+                : super.decode(is, targetType, charset);// targetType 为 泛型 ParameterizedType
     }
 
     @Override

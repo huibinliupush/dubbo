@@ -83,7 +83,8 @@ public class TripleProtocol extends AbstractProtocol {
         IGNORE_1_0_0_VERSION = conf.getBoolean(H2_SETTINGS_IGNORE_1_0_0_KEY, false);
         RESOLVE_FALLBACK_TO_DEFAULT = conf.getBoolean(H2_SETTINGS_RESOLVE_FALLBACK_TO_DEFAULT_KEY, true);
 
-        // init global settings
+        // init global settings , 各种配置源按照优先级聚合成的混合配置源 —— CompositeConfiguration
+        // 查找配置的时候按照优先级查找
         Configuration globalConf = ConfigurationUtils.getGlobalConfiguration(frameworkModel.defaultApplication());
         VERBOSE_ENABLED = globalConf.getBoolean(H2_SETTINGS_VERBOSE_ENABLED, false);
         REST_ENABLED = globalConf.getBoolean(H2_SETTINGS_REST_ENABLED, true);
@@ -175,6 +176,7 @@ public class TripleProtocol extends AbstractProtocol {
         }
 
         if (bindPort) {
+            // url : tri://192.168.2.101:50052/org.example.RestTestService?anyhost=true&application=dubbo-springboot-triple-rest-springmvc&background=false&bind.ip=192.168.2.101&bind.port=50052&deprecated=false&dubbo=2.0.2&dynamic=true&executor-management-mode=isolation&file-cache=true&generic=false&interface=org.example.RestTestService&methods=getHead,getMuchParam,getMuchVariable,getReg,patchById,postList,postUseConsumesUser,postUseParams&pid=7809&prefer.serialization=hessian2,fastjson2&qos.enable=false&register=false&release=3.3.4&side=provider&timestamp=1752387447880&triple.rest.enable.default.mapping=false&triple.verbose=true
             PortUnificationExchanger.bind(url, new DefaultPuHandler());
         }
 

@@ -109,11 +109,18 @@ final class SpringRestToolKit implements RestToolKit {
         return placeholderHelper.replacePlaceholders(text, configuration);
     }
 
+    // value : hashmap
+    // ParameterMeta : org.springframework.util.MultiValueMap<java.lang.String, java.util.List<org.example.User>>
     @Override
     public Object convert(Object value, ParameterMeta parameter) {
         boolean tried = false;
         if (value instanceof Collection || value instanceof Map) {
             tried = true;
+            // GeneralTypeConverter 检查 value 是否为指定的 GenericType
+            // 比如 List<User> ,那么检查 value 中的每一个元素是否为 User 类型
+
+            // value : hashmap
+            // GenericType : MultiValueMap<String , List<User>>
             Object target = typeConverter.convert(value, parameter.getGenericType());
             if (target != null) {
                 return target;

@@ -66,6 +66,7 @@ public final class DescriptorUtils {
     }
 
     public static ServiceDescriptor getReflectionServiceDescriptor(URL url) {
+        // see : org.apache.dubbo.config.ServiceConfig.buildUrl
         ProviderModel providerModel = (ProviderModel) url.getServiceModel();
         if (providerModel == null || providerModel.getServiceModel() == null) {
             return null;

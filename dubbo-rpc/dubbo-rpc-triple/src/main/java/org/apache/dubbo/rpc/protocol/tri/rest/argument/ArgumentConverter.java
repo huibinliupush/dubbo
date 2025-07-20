@@ -22,6 +22,7 @@ import org.apache.dubbo.rpc.protocol.tri.rest.mapping.meta.ParameterMeta;
 
 @SPI(scope = ExtensionScope.FRAMEWORK)
 public interface ArgumentConverter<S, T> {
-
+    // S 表示转换的源类型
+    // T 表示转换的目的类型
     T convert(S value, ParameterMeta parameter);
 }

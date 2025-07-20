@@ -44,18 +44,25 @@ public final class CompositeArgumentConverter implements ArgumentConverter {
 
     @Override
     public Object convert(Object value, ParameterMeta parameter) {
+        // 获取参数类型（非泛型），interface org.springframework.util.MultiValueMap
         Class<?> type = parameter.getType();
         if (value == null) {
             return TypeUtils.nullDefault(type);
         }
-
+        // value 类型是否正确
+        // 对于 map 类型的参数来说，value 序列化出来的是 hashmap 类型，并不是参数指定的 MultiValueMap
         if (type.isInstance(value)) {
+            // 如果参数类型不是泛型，直接返回
             if (parameter.getGenericType() instanceof Class) {
                 return value;
             }
+            // GeneralTypeConverter 检查 value 是否为指定的 GenericType
+            // 比如 List<User> ,那么检查 value 中的每一个元素是否为 User 类型
             return parameter.getToolKit().convert(value, parameter);
         }
-
+        // value.getClass() : class java.util.HashMap
+        // type : org.springframework.util.MultiValueMap
+        // 这里需要将 value 转换成 MultiValueMap 类型
         List<ArgumentConverter> converters = getSuitableConverters(value.getClass(), type);
         Object target;
         for (int i = 0, size = converters.size(); i < size; i++) {
@@ -64,7 +71,7 @@ public final class CompositeArgumentConverter implements ArgumentConverter {
                 return target;
             }
         }
-
+        // 找不到合适的 ArgumentConverter , 就在这里转换
         return parameter.getToolKit().convert(value, parameter);
     }
 
@@ -78,6 +85,7 @@ public final class CompositeArgumentConverter implements ArgumentConverter {
         }
 
         TypeParameterMeta parameter = new TypeParameterMeta(type);
+        // MultiValueMapCreator
         List<ArgumentConverter> converters = getSuitableConverters(value.getClass(), type);
         Object target;
         for (int i = 0, size = converters.size(); i < size; i++) {
@@ -89,24 +97,31 @@ public final class CompositeArgumentConverter implements ArgumentConverter {
 
         return null;
     }
-
+    // value.getClass() : class java.util.HashMap
+    // type : org.springframework.util.MultiValueMap
     private List<ArgumentConverter> getSuitableConverters(Class sourceType, Class targetType) {
         return cache.computeIfAbsent(Pair.of(sourceType, targetType), k -> {
             List<ArgumentConverter> result = new ArrayList<>();
+            // MultiValueMapCreator
             for (ArgumentConverter converter : converters) {
+                // 获取 MultiValueMapCreator 继承关系中第一个泛型类型 Integer
                 Class<?> supportSourceType = TypeUtils.getSuperGenericType(converter.getClass(), 0);
                 if (supportSourceType == null) {
                     continue;
                 }
+                // 获取 MultiValueMapCreator 继承关系中第一个泛型类型 MultiValueMap
                 Class<?> supportTargetType = TypeUtils.getSuperGenericType(converter.getClass(), 1);
                 if (supportTargetType == null) {
                     continue;
                 }
+                // see : org.apache.dubbo.rpc.protocol.tri.rest.argument.ArgumentConverter.convert
+                // supportSourceType 表示支持转换的源类型，supportTargetType 表示转换之后的目的类型
                 if (supportSourceType.isAssignableFrom(sourceType) && targetType.isAssignableFrom(supportTargetType)) {
                     result.add(converter);
                 }
             }
             if (result.isEmpty()) {
+                // 找不到合适的 ArgumentConverter 就返回空
                 return Collections.emptyList();
             }
             LOGGER.info("Found suitable ArgumentConverter for [{}], converters: {}", sourceType, result);

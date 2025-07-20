@@ -29,6 +29,9 @@ import static org.apache.dubbo.common.constants.CommonConstants.THREAD_NAME_KEY;
 
 /**
  * Thread pool isolation between services, that is, a service has its own thread pool and not interfere with each other
+ *
+ * 由用户配置化、提供自己想要的线程池，若没有指定，则还是会按照端口来隔离。
+ * 线程池隔离文档 see : https://cn.dubbo.apache.org/zh-cn/overview/mannual/java-sdk/tasks/framework/threading-model/
  */
 public class IsolationExecutorRepository extends DefaultExecutorRepository {
 
@@ -46,15 +49,20 @@ public class IsolationExecutorRepository extends DefaultExecutorRepository {
 
     @Override
     protected String getProviderKey(URL url) {
+        // ServerConfig 暴露的时候会提取
+        // see : org.apache.dubbo.config.ServiceConfig.processServiceExecutor
         if (url.getAttributes().containsKey(SERVICE_EXECUTOR)) {
             return url.getServiceKey();
         } else {
+            // 必须在 ServiceConfig 中特殊指定 processServiceExecutor，如没有特殊指定
+            // 那么还是按照端口来隔离
             return super.getProviderKey(url);
         }
     }
 
     @Override
     protected String getProviderKey(ProviderModel providerModel, URL url) {
+        // see : org.apache.dubbo.config.ServiceConfig.processServiceExecutor
         if (url.getAttributes().containsKey(SERVICE_EXECUTOR)) {
             return providerModel.getServiceKey();
         } else {

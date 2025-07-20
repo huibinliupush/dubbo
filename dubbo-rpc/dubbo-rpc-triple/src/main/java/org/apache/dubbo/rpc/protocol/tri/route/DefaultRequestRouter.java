@@ -36,24 +36,31 @@ public final class DefaultRequestRouter implements RequestRouter {
 
     @SuppressWarnings("unchecked")
     public DefaultRequestRouter(FrameworkModel frameworkModel) {
+        // DefaultHttpMessageAdapterFactory
         httpMessageAdapterFactory = frameworkModel.getFirstActivateExtension(HttpMessageAdapterFactory.class);
+        // GrpcRequestHandlerMapping , RestRequestHandlerMapping
         requestHandlerMappings = frameworkModel.getActivateExtensions(RequestHandlerMapping.class);
     }
-
+    // metadata :  DefaultHttp1Request 封装 rest 请求的元数据（headers , method , uri , body）
     @Override
     public RpcInvocationBuildContext route(URL url, RequestMetadata metadata, HttpChannel httpChannel) {
+        // DefaultHttpMessageAdapterFactory 重新封装成 DefaultHttpRequest
         HttpRequest request = httpMessageAdapterFactory.adaptRequest(metadata, httpChannel);
+        // 空的 DefaultHttpResponse
         HttpResponse response = httpMessageAdapterFactory.adaptResponse(request, metadata);
-
+        // GrpcRequestHandlerMapping , RestRequestHandlerMapping
         for (int i = 0, size = requestHandlerMappings.size(); i < size; i++) {
             RequestHandlerMapping mapping = requestHandlerMappings.get(i);
+            // 1. radixTree 中查找 rest path 的映射 handler(rest 请求的处理元数据)
+            // 2. 根据请求，响应的 mediatype 获取对应的 HttpMessageCodec
+            // 3. 将步骤 1 ，2 获取到的请求处理元数据封装到 RequestHandler 中
             RequestHandler handler = mapping.getRequestHandler(url, request, response);
             if (handler == null) {
                 continue;
             }
             handler.setAttribute(TripleConstants.HANDLER_TYPE_KEY, mapping.getType());
-            handler.setAttribute(TripleConstants.HTTP_REQUEST_KEY, request);
-            handler.setAttribute(TripleConstants.HTTP_RESPONSE_KEY, response);
+            handler.setAttribute(TripleConstants.HTTP_REQUEST_KEY, request); // DefaultHttpRequest
+            handler.setAttribute(TripleConstants.HTTP_RESPONSE_KEY, response); // DefaultHttpResponse
             return handler;
         }
 

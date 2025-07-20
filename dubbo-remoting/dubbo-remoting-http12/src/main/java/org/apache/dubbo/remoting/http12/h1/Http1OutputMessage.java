@@ -24,7 +24,7 @@ import java.io.OutputStream;
 import io.netty.buffer.ByteBufOutputStream;
 
 public final class Http1OutputMessage implements HttpOutputMessage {
-
+    // LimitedByteBufOutputStream
     private final OutputStream outputStream;
 
     public Http1OutputMessage(OutputStream outputStream) {

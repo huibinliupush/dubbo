@@ -44,7 +44,7 @@ import java.util.Map;
 public final class CompositeExceptionHandler implements ExceptionHandler<Throwable, Object> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CompositeExceptionHandler.class);
-
+    // HttpResultPayloadExceptionHandler
     private final List<ExceptionHandler> exceptionHandlers;
     private final Map<Class, List<ExceptionHandler>> cache = CollectionUtils.newConcurrentHashMap();
 

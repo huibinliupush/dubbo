@@ -1,0 +1,41 @@
+### 测试多个 RequestParam
+GET http://192.168.2.101:50052/demo/get/muchParam?id=123&name=test
+
+### 测试多个 @PathVariable
+GET http://192.168.2.101:50052/demo/get/muchVariable/345/muchvalue
+
+### 测试 @PostMapping 的 params 条件
+POST http://192.168.2.101:50052/demo/post/useParams?myParam=myValue
+Content-Type: application/json
+
+{
+    "id": "asd"
+}
+
+### 测试 @GetMapping 的 headers 条件
+GET http://192.168.2.101:50052/demo/get/head/254
+myHeader: myValue
+
+
+### 测试 @PostMapping 的 RequestBody
+POST http://192.168.2.101:50052/demo/post/list
+Content-Type: application/json
+
+[{"age":1,"id":1,"name":"user1"},{"age":2,"id":2,"name":"user2"},{"age":3,"id":3,"name":"user3"}]
+
+### 测试 @PatchMapping 的 @PathVariable 与 @RequestBody 混合使用
+PATCH http://192.168.2.101:50052/demo/patch/747
+Content-Type: application/json
+
+{
+    "patchData": "dedededad"
+}
+
+
+### 测试 @PostMapping 中的 consumes ，produces 条件
+POST http://192.168.2.101:50052/demo/post/useConsumes/user
+Content-Type: application/json
+
+{"user1":[{"age":1,"id":1,"name":"user1"},{"age":2,"id":2,"name":"user2"},{"age":3,"id":3,"name":"user3"}]}
+
+

@@ -30,10 +30,13 @@ import org.apache.dubbo.rpc.protocol.tri.TripleHeaderEnum;
 import org.apache.dubbo.rpc.protocol.tri.h12.grpc.GrpcHeaderNames;
 
 public final class ExceptionCustomizerWrapper {
-
+    // 封装 exceptionHandlers ，默认为 HttpResultPayloadExceptionHandler
+    // 可通过 ExceptionHandler spi 进行填充
     private final CompositeExceptionHandler exceptionHandler;
-
+    // DefaultHttp1Request 封装 rest 请求的元数据（headers , method , uri , body）
     private RequestMetadata metadata;
+    // 由 org.apache.dubbo.rpc.protocol.tri.h12.AbstractServerTransportListener.doRoute 进行设置
+    // 在路由之后，会找到 rest 请求对应的 method
     private MethodDescriptor methodDescriptor;
     private boolean needWrap;
 

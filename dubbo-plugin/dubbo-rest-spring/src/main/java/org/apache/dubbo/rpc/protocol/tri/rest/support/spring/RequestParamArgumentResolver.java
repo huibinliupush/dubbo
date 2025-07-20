@@ -40,6 +40,7 @@ public final class RequestParamArgumentResolver extends AbstractSpringArgumentRe
 
     @Override
     protected Object resolveValue(NamedValueMeta meta, HttpRequest request, HttpResponse response) {
+        // 通过 netty 的 QueryStringDecoder 查询 request parameters
         return request.parameter(meta.name());
     }
 

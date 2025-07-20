@@ -45,6 +45,7 @@ public class RequestBodyArgumentResolver extends AbstractSpringArgumentResolver 
 
     @Override
     protected NamedValueMeta createNamedValueMeta(ParameterMeta param, AnnotationMeta<Annotation> anno) {
+        // 获取 Annotation 中的 required 属性（是否必填参数）
         return new NamedValueMeta(null, Helper.isRequired(anno));
     }
 
@@ -61,6 +62,7 @@ public class RequestBodyArgumentResolver extends AbstractSpringArgumentResolver 
 
     @Override
     protected Object resolveCollectionValue(NamedValueMeta meta, HttpRequest request, HttpResponse response) {
+        // 获取参数类型
         Class<?> type = meta.type();
         if (type == byte[].class) {
             try {
@@ -70,8 +72,10 @@ public class RequestBodyArgumentResolver extends AbstractSpringArgumentResolver 
             }
         }
         if (RequestUtils.isFormOrMultiPart(request)) {
+            // 解析表单数据
             return request.formParameterValues(meta.name());
         }
+        // decode json body 为 genericType 类型
         return RequestUtils.decodeBody(request, meta.genericType());
     }
 
@@ -80,6 +84,7 @@ public class RequestBodyArgumentResolver extends AbstractSpringArgumentResolver 
         if (RequestUtils.isFormOrMultiPart(request)) {
             return RequestUtils.getFormParametersMap(request);
         }
+        // genericType -> MultiValueMap<String, List<User>>
         return RequestUtils.decodeBody(request, meta.genericType());
     }
 }

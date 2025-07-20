@@ -40,6 +40,13 @@ public class DubboWireProtocol extends AbstractWireProtocol {
         // ( for triple, some h2 netty handler and logic handler to handle connection;
         //   for dubbo, nothing, an empty handlers is used to trigger operator logic)
         // 3. config Dubbo Inner handler(for dubbo protocol, this handler handles connection)
+
+        // dubbo 协议相关的 pipeline 具体在 org.apache.dubbo.remoting.transport.netty4.NettyConfigOperator.configChannelHandler
+        // 中进行配置，都是通用的，所以统一由 NettyConfigOperator 进行配置（所有协议都会走 NettyConfigOperator 进行配置）
+        // 不管什么协议，最终都是要由 dubboInvoker 来处理，协议只是一个传输数据的角色
+        // 不同协议对应不同的 handlers ，目的是提取数据，所以协议不同这里的 handlers 也不同
+        // 提取完数据之后，封装通用的 RpcInvocation，后面就直接走 dubbo 路线了
+        // 而 dubbo 协议有自己的编解码，所以这里的 handler 就是 nothing
         operator.configChannelHandler(handlers);
     }
 }

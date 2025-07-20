@@ -56,15 +56,22 @@ public class SpringMvcRequestMappingResolver implements RequestMappingResolver {
 
     @Override
     public RequestMapping resolve(ServiceMeta serviceMeta) {
+        // 从 service 的继承关系中查找被 @RequestMapping 注解标注的类
+        // 这里也包括 @RequestMapping 的派生注解 @GetMapping 以及 @PostMapping ,都可以标注在类中或者方法中
+        // AnnotationMeta 中包含了 @RequestMapping 注解，以及标注的 class , restTool
         AnnotationMeta<?> requestMapping = serviceMeta.findMergedAnnotation(Annotations.RequestMapping);
         AnnotationMeta<?> httpExchange = serviceMeta.findMergedAnnotation(Annotations.HttpExchange);
         if (requestMapping == null && httpExchange == null) {
             return null;
         }
+        // 当从 AnnotationMeta 中获取注解属性的时候，会触发，@RequestMapping ， @GetMapping，@PostMapping 的属性合并
+        // see : org.apache.dubbo.rpc.protocol.tri.rest.support.spring.SpringRestToolKit.getAttributes
 
+        // 获取 mvc 注解标注的 rest method
         String[] methods = requestMapping == null
                 ? httpExchange.getStringArray("method")
                 : requestMapping.getStringArray("method");
+        // 获取 mvc 注解标注的 rest path
         String[] paths = requestMapping == null ? httpExchange.getValueArray() : requestMapping.getValueArray();
         return builder(requestMapping, httpExchange, serviceMeta.findMergedAnnotation(Annotations.ResponseStatus))
                 .method(methods)
@@ -72,7 +79,7 @@ public class SpringMvcRequestMappingResolver implements RequestMappingResolver {
                 .path(paths)
                 .contextPath(serviceMeta.getContextPath())
                 .cors(buildCorsMeta(serviceMeta.findMergedAnnotation(Annotations.CrossOrigin), methods))
-                .build();
+                .build(); // 创建初始化各种 Condition （class级）
     }
 
     @Override
@@ -80,8 +87,11 @@ public class SpringMvcRequestMappingResolver implements RequestMappingResolver {
         AnnotationMeta<?> requestMapping = methodMeta.findMergedAnnotation(Annotations.RequestMapping);
         AnnotationMeta<?> httpExchange = methodMeta.findMergedAnnotation(Annotations.HttpExchange);
         if (requestMapping == null && httpExchange == null) {
+            // 提取 @ExceptionHandler 标注的方法
+            // service 类中也可以通过 @ExceptionHandler 来标注错误处理方法
             AnnotationMeta<?> exceptionHandler = methodMeta.getAnnotation(Annotations.ExceptionHandler);
             if (exceptionHandler != null) {
+                // 封装方法参数相关的元信息 MethodParameterMeta，包括继承体系中所有的 Parameter ， 参数名称, 参数index
                 methodMeta.initParameters();
                 methodMeta.getServiceMeta().addExceptionHandler(methodMeta);
             }
@@ -104,7 +114,7 @@ public class SpringMvcRequestMappingResolver implements RequestMappingResolver {
                 .contextPath(serviceMeta.getContextPath())
                 .service(serviceMeta.getServiceGroup(), serviceMeta.getServiceVersion())
                 .cors(buildCorsMeta(methodMeta.findMergedAnnotation(Annotations.CrossOrigin), methods))
-                .build();
+                .build(); // 创建初始化各种 Condition （方法级）
     }
 
     private Builder builder(

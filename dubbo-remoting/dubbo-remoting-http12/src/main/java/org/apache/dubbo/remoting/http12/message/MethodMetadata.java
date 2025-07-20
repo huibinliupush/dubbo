@@ -21,7 +21,8 @@ import org.apache.dubbo.rpc.model.ReflectionMethodDescriptor;
 import org.apache.dubbo.rpc.model.StubMethodDescriptor;
 
 public class MethodMetadata {
-
+    // see : org.apache.dubbo.remoting.http12.message.MethodMetadata.fromMethodDescriptor
+    // 获取方法请求类型，响应类型
     private final Class<?>[] actualRequestTypes;
 
     private final Class<?> actualResponseType;

@@ -40,8 +40,9 @@ import java.util.function.Predicate;
  * @param <T> Type of values associated with the paths.
  */
 public final class RadixTree<T> {
-
+    // Match 封装 PathExpression 和 Registration
     private final Map<KeyString, List<Match<T>>> directPathMap = new HashMap<>();
+    // 叶子节点中存放 PathExpression 和 Registration（ Pair 封装）
     private final Node<T> root = new Node<>();
     private final char separator;
     private final boolean caseSensitive;
@@ -65,7 +66,9 @@ public final class RadixTree<T> {
 
     public T addPath(PathExpression path, T value) {
         if (path.isDirect()) {
+            // 底层的 hashCode 以及 equals 方法使用 netty 的 PlatformDependent 生成
             KeyString key = new KeyString(path.getPath(), caseSensitive);
+            // direct path 直接注册到 directPathMap 中
             List<Match<T>> matches = directPathMap.computeIfAbsent(key, k -> new ArrayList<>());
             for (int i = 0, size = matches.size(); i < size; i++) {
                 Match<T> match = matches.get(i);
@@ -73,15 +76,20 @@ public final class RadixTree<T> {
                     return match.getValue();
                 }
             }
+            // 存放 PathExpression 和 Registration（ Match 封装）
             matches.add(new Match<>(path, value));
+            // 之前没有注册过则返回 null , 如果直接注册过则返回 value(Registration)
             return null;
         }
-
+        // 非 direct path 的注册逻辑（包含路径变量或者正则变量的 path）
         Node<T> current = root;
         PathSegment[] segments = path.getSegments();
         for (int i = 0, len = segments.length; i < len; i++) {
+            // LITERAL 类型的 PathSegment 直接注册到 current.children 中
+            // VARIABLE 以及 PATTERN 等其他类型的 PathSegment 注册到 current.fuzzyChildren
             Node<T> child = getChild(current, segments[i]);
             if (i == len - 1) {
+                // 最后在叶子节点中存放 PathExpression 和 Registration（ Pair 封装）
                 List<Pair<PathExpression, T>> values = child.values;
                 for (int j = 0, size = values.size(); j < size; j++) {
                     if (values.get(j).getLeft().equals(path)) {
@@ -119,6 +127,11 @@ public final class RadixTree<T> {
     private Node<T> getChild(Node<T> current, PathSegment segment) {
         Node<T> child;
         if (segment.getType() == Type.LITERAL) {
+            // LITERAL 类型的 PathSegment 直接注册到 current.children 中
+            // KeyString 为 PathSegment 的 value
+            // node 为路径在 RadixTree 中的节点
+            // /demo/get/muchParam
+            // root node -> demo node -> get node -> mushParam node（ children 一条线）
             Map<KeyString, Node<T>> children = current.children;
             KeyString key = new KeyString(segment.getValue(), caseSensitive);
             child = children.get(key);
@@ -127,6 +140,10 @@ public final class RadixTree<T> {
                 children.put(key, child);
             }
         } else {
+            // VARIABLE 以及 PATTERN 等其他类型的 PathSegment 注册到 current.fuzzyChildren
+            // /demo/get/head/{id}
+            // head node 的 fuzzyChildren 中存放 {id} node
+            // 注意 key 为 PathSegment
             Map<PathSegment, Node<T>> children = current.fuzzyChildren;
             child = children.get(segment);
             if (child == null) {
@@ -191,16 +208,30 @@ public final class RadixTree<T> {
      * Ensure that the path is normalized using {@link PathUtils#normalize(String)} before matching.
      */
     public void match(KeyString path, List<Match<T>> matches) {
+        // 对于 directPath 来说，比如 /demo/post/list
+        // 可以直接在 directPathMap 中找到映射关系 Match
         List<Match<T>> directMatches = directPathMap.get(path);
         if (directMatches != null) {
             for (int i = 0, size = directMatches.size(); i < size; i++) {
                 matches.add(directMatches.get(i));
             }
         }
-
+        // 如果 root 是叶子节点，那么就直接 return , 不会到 radixTree 中继续查找
         if (root.isLeaf()) {
             return;
         }
+        /**
+         * 对于 /demo/post/list 路径来说既然已经在 directPathMap 中找到了映射了，那为什么还要去 radixTree 中查找
+         * matchRecursive 主要处理的是带有路径变量或者正则变量的 path，比如 /demo/post/{list}
+         * 所以需要到 radixTree 中按照 demo -> post 逐级查找，如果 post 的 fuzzyChildren 是空的
+         * 那么就说明，工程中没有 /demo/post/{list} 的路径映射，直接返回
+         *
+         * 注意只有 directpath 才会直接注册到 directPathMap 中
+         * 对于带有路径变量或者正则变量的 path ，比如 /demo/get/head/{id} 才会注册到 radixTree 中
+         * radixTree 中的结果如下：root -> demo(LITERA PathSegment) -> get(LITERA PathSegment) -> head(LITERA PathSegment) -> {id}(VARIABLE PathSegment)
+         * 而 LITERA PathSegment 全部在上一级 node 中的 child 中存储，比如 ： root.children -> demo , demo.children -> get , get.children -> head,
+         * VARIABLE PathSegment 则是在上一级 node 中的 fuzzyChildren 中存储，比如：head.fuzzyChildren -> {id}
+         * */
         matchRecursive(root, path, 1, new HashMap<>(), matches);
     }
 
@@ -262,37 +293,77 @@ public final class RadixTree<T> {
         return matches;
     }
 
+    /**
+     * 示例：/demo/get/muchVariable/{id}/{name} -- /demo/get/muchVariable/345/muchvalue
+     *
+     * 关于 /demo/get/muchVariable/{id}/{name} 中对于 PathSegment 的解析，see:
+     * org.apache.dubbo.rpc.protocol.tri.rest.mapping.condition.PathParser#parseSegments(java.lang.String)
+     *
+     * 路径变量 variableMap 最终会添加进 Match 中， see:
+     * org.apache.dubbo.rpc.protocol.tri.rest.mapping.RadixTree#addMatch(org.apache.dubbo.rpc.protocol.tri.rest.mapping.RadixTree.Node, java.util.Map, java.util.List)
+     * */
     private void matchRecursive(
             Node<T> current, KeyString path, int start, Map<String, String> variableMap, List<Match<T>> matches) {
         int end = -2;
+        // 直到遇到 muchVariable node 的 children 为空
+        // id node 的 children 为空
         if (!current.children.isEmpty()) {
+            // /demo/post/list 使用 / 将 path 逐级切分，demo , post 递归查找他的 child
             end = path.indexOf(separator, start);
+            // 第一次先找 demo 的 child （LITERAL 类型的 PathSegment）
+
+            // 依次获取 demo ,get, muchVariable node （LITERAL 类型的 PathSegment）
+            // 直到遇到 muchVariable node 的 children 为空
             Node<T> child = current.children.get(path.subSequence(start, end));
             if (child != null) {
                 if (end == -1) {
                     addMatch(child, variableMap, matches);
                 } else {
+                    // 逐级递归查找当前 child 的下一级
                     matchRecursive(child, path, end + 1, variableMap, matches);
                 }
             }
         }
+        // VARIABLE 以及 PATTERN 等其他类型的 PathSegment 注册到 current.fuzzyChildren
+        // /demo/get/head/{id}
+        // see : org.apache.dubbo.rpc.protocol.tri.rest.mapping.RadixTree.getChild
 
+        // muchVariable node 的 children 为空，但是 fuzzyChildren 并不为空，里面包含了一个元素
+        // key : PathSegment{type=VARIABLE, value=id, variables=[id]}, value: node(id)
+
+        // id node 的 children 为空,同样 fuzzyChildren 里面也包含一个元素
+        // key : {type=VARIABLE, value=name, variables=[name]} , value: node(name)
         if (current.fuzzyChildren.isEmpty()) {
             return;
         }
+        // 当前 node 的 children 为空， end = -2
         if (end == -2) {
+            // [start , end] 之间则为路径变量的值
+            // 当前 current 为 name node 时， end = -1 已经到了 path 末尾
             end = path.indexOf(separator, start);
         }
         Map<String, String> workVariableMap = new LinkedHashMap<>();
         for (Map.Entry<PathSegment, Node<T>> entry : current.fuzzyChildren.entrySet()) {
+            // {type=VARIABLE, value=id, variables=[id]}
+            // {type=VARIABLE, value=name, variables=[name]}
             PathSegment segment = entry.getKey();
+            // 对于 VARIABLE 来说，这里会按照路径变量名，path 中提取的对应变量值，加入到 workVariableMap 中
+            // key : id , value: 123
+            // key : name , value: muchvalue
             if (segment.match(path, start, end, workVariableMap)) {
+                // 将 variableMap 中的内容填充到 workVariableMap 中，此时 workVariableMap 包含连个 key value
+                // key : id , value: 123
+                // key : name , value: muchvalue
                 workVariableMap.putAll(variableMap);
+                // 获取 id node
+                // 获取 name node
                 Node<T> child = entry.getValue();
                 if (segment.isTailMatching()) {
                     addMatch(child, workVariableMap, matches);
                 } else {
+                    // 当前 current 为 name node 时， end = -1 已经到了 path 末尾
                     if (end == -1) {
+                        // 此时 child 为叶子节点，注册信息全部保存在叶子结点中（node.values）
                         addMatch(child, workVariableMap, matches);
                     } else {
                         matchRecursive(child, path, end + 1, workVariableMap, matches);
@@ -306,6 +377,8 @@ public final class RadixTree<T> {
     }
 
     private static <T> void addMatch(Node<T> node, Map<String, String> variableMap, List<Match<T>> matches) {
+        // 对于 fuzzyChildren 的叶子节点来说值为 Pair(PathExpression, Registration)
+        // 对于 Children 的叶子节点来说值为 Match
         List<Pair<PathExpression, T>> values = node.values;
         if (values.isEmpty()) {
             if (node.fuzzyChildren.isEmpty()) {
@@ -318,6 +391,8 @@ public final class RadixTree<T> {
             }
             return;
         }
+        // key : id , value: 123
+        // key : name , value: muchvalue
         variableMap = variableMap.isEmpty() ? Collections.emptyMap() : Collections.unmodifiableMap(variableMap);
         for (int i = 0, size = values.size(); i < size; i++) {
             Pair<PathExpression, T> pair = values.get(i);
@@ -335,9 +410,13 @@ public final class RadixTree<T> {
     }
 
     public static final class Match<T> implements Comparable<Match<T>> {
-
+        // /demo/get/muchVariable/{id}/{name}
         private final PathExpression expression;
+        // Registration
         private final T value;
+        // 路径变量中的值
+        // key : id , value: 123
+        // key : name , value: muchvalue
         private final Map<String, String> variableMap;
 
         Match(PathExpression expression, T value, Map<String, String> variableMap) {

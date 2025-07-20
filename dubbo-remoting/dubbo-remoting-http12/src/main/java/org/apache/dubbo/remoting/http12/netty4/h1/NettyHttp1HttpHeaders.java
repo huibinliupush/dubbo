@@ -36,6 +36,8 @@ public final class NettyHttp1HttpHeaders implements HttpHeaders {
     private final io.netty.handler.codec.http.HttpHeaders headers;
 
     public NettyHttp1HttpHeaders(io.netty.handler.codec.http.HttpHeaders headers) {
+        // http 请求中的 handler
+        // FullHttpRequest 中的 headers
         this.headers = headers;
     }
 

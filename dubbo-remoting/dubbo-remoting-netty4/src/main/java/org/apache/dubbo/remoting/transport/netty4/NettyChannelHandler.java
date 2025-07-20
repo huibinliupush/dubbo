@@ -31,10 +31,11 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 
 public class NettyChannelHandler extends ChannelInboundHandlerAdapter {
     private static final Logger logger = LoggerFactory.getLogger(NettyChannelHandler.class);
-
+    // remoteAddress -> NettyChannel
     private final Map<String, Channel> dubboChannels;
 
     private final URL url;
+    // NettyPortUnificationServer -> MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
     private final ChannelHandler handler;
 
     public NettyChannelHandler(Map<String, Channel> dubboChannels, URL url, ChannelHandler handler) {
@@ -50,6 +51,7 @@ public class NettyChannelHandler extends ChannelInboundHandlerAdapter {
         NettyChannel channel = NettyChannel.getOrAddChannel(ch, url, handler);
         if (channel != null) {
             dubboChannels.put(NetUtils.toAddressString((InetSocketAddress) ch.remoteAddress()), channel);
+            // org.apache.dubbo.remoting.transport.AbstractServer.connected
             handler.connected(channel);
 
             if (logger.isInfoEnabled()) {

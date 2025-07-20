@@ -34,8 +34,9 @@ import java.util.Collection;
 import java.util.List;
 
 public class NettyConfigOperator implements ChannelOperator {
-
+    // NettyChannel
     private final Channel channel;
+    // MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
     private ChannelHandler handler;
 
     private ProtocolDetector.Result detectResult;
@@ -65,12 +66,14 @@ public class NettyConfigOperator implements ChannelOperator {
                     .getExtensionLoader(Codec.class)
                     .getExtension(codecName));
         } else {
+            // 对于 triple 协议来说，这里为 DefaultCodec （空实现）
             codec2 = url.getOrDefaultFrameworkModel()
                     .getExtensionLoader(Codec2.class)
                     .getExtension("default");
         }
 
         if (!(codec2 instanceof DefaultCodec)) {
+            // dubbo 协议走这里，就是传统的 dubbo pipeline 设置
             ((NettyChannel) channel).setCodec(codec2);
             NettyCodecAdapter codec = new NettyCodecAdapter(codec2, channel.getUrl(), handler);
             ((NettyChannel) channel)

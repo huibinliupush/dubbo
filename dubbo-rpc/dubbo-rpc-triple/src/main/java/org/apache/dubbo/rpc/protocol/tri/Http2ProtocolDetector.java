@@ -26,6 +26,7 @@ import io.netty.handler.codec.http2.Http2CodecUtil;
 import static java.lang.Math.min;
 
 public class Http2ProtocolDetector implements ProtocolDetector {
+    // "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
     private final ChannelBuffer clientPrefaceString = new ByteBufferBackedChannelBuffer(
             Http2CodecUtil.connectionPrefaceBuf().nioBuffer());
 

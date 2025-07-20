@@ -21,7 +21,8 @@ import org.apache.dubbo.remoting.http12.message.ListeningDecoder;
 import java.io.InputStream;
 
 public class DefaultHttpMessageListener implements HttpMessageListener {
-
+    // see : org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.buildHttpMessageListener
+    // DefaultListeningDecoder 封装了 HttpMessageDecoder , 方法的请求参数类型。以及 serverCallListener::onMessage 回调函数
     private ListeningDecoder listeningDecoder;
 
     public DefaultHttpMessageListener() {}
@@ -33,7 +34,7 @@ public class DefaultHttpMessageListener implements HttpMessageListener {
     public void setListeningDecoder(ListeningDecoder listeningDecoder) {
         this.listeningDecoder = listeningDecoder;
     }
-
+    // org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.buildHttpMessageListener
     @Override
     public void onMessage(InputStream inputStream) {
         listeningDecoder.decode(inputStream);

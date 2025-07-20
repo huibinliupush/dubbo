@@ -25,6 +25,7 @@ import org.apache.dubbo.remoting.http12.netty4.h1.NettyHttp1HttpHeaders;
 public class Http1ServerChannelObserver extends AbstractServerHttpChannelObserver<HttpChannel> {
 
     public Http1ServerChannelObserver(HttpChannel httpChannel) {
+        // NettyHttp1Channel
         super(httpChannel);
     }
 

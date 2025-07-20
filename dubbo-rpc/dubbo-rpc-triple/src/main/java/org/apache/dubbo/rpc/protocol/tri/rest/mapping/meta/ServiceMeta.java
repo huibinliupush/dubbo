@@ -28,14 +28,17 @@ import java.util.Collection;
 import java.util.List;
 
 public final class ServiceMeta extends AnnotationSupport {
-
+    // 暴露 service 的继承关系类
+    // serviceImpl -> 父类 -> 接口
     private final List<Class<?>> hierarchy;
+    // 实现类：serviceImpl
     private final Class<?> type;
+    // 实现类：serviceImpl 对象
     private final Object service;
     private final ServiceDescriptor serviceDescriptor;
     private final URL url;
     private final String contextPath;
-
+    // @ExceptionHandler 标注的方法
     private List<MethodMeta> exceptionHandlers;
 
     public ServiceMeta(

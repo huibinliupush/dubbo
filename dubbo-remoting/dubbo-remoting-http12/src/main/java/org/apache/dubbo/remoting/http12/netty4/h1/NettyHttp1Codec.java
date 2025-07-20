@@ -51,6 +51,9 @@ public class NettyHttp1Codec extends ChannelDuplexHandler {
         // decode FullHttpRequest
         if (msg instanceof FullHttpRequest) {
             FullHttpRequest request = (FullHttpRequest) msg;
+            // 1.header 中的 connection 不为 close
+            // 2. HttpVersion 中的 KeepAliveDefault 为 true 或者 header 中的 connection 为 keep-alive
+            // 同时满足以上两个条件，keepAlive = true
             keepAlive = HttpUtil.isKeepAlive(request);
             super.channelRead(
                     ctx,
@@ -64,14 +67,20 @@ public class NettyHttp1Codec extends ChannelDuplexHandler {
         }
         super.channelRead(ctx, msg);
     }
-
+    // http 响应的发送过程由 org.apache.dubbo.rpc.protocol.tri.h12.http1.Http1UnaryServerChannelObserver.doOnNext 负责
+    // 先发送 headers , 在发送 body
+    // org.apache.dubbo.rpc.protocol.tri.h12.UnaryServerCallListener.onReturn(处理 http 响应)
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (msg instanceof HttpMetadata) {
+            // 发送 http header
+            // 由 org.apache.dubbo.remoting.http12.AbstractServerHttpChannelObserver.sendMetadata 触发
             doWriteHeader(ctx, ((HttpMetadata) msg), promise);
             return;
         }
         if (msg instanceof HttpOutputMessage) {
+            // 发送 http body
+            // 由 org.apache.dubbo.remoting.http12.AbstractServerHttpChannelObserver.sendMessage 触发
             doWriteMessage(ctx, ((HttpOutputMessage) msg), promise);
             return;
         }
@@ -92,10 +101,13 @@ public class NettyHttp1Codec extends ChannelDuplexHandler {
             headers.add(HttpHeaderNames.CONNECTION.getKey(), String.valueOf(HttpHeaderValues.CLOSE));
         }
         // process normal headers
+        // DefaultHttpResponse 只用来发送 http 响应头，后面的 body 部分由 doWriteMessage 发送（分开，直接发送 body,以 EMPTY_LAST_CONTENT 结束）
         ctx.writeAndFlush(new DefaultHttpResponse(HttpVersion.HTTP_1_1, status, headers.getHeaders()), promise);
     }
 
     private void doWriteMessage(ChannelHandlerContext ctx, HttpOutputMessage msg, ChannelPromise promise) {
+        // 当发送完 headers , body 之后就会发送一个 EMPTY_MESSAGE 表示 http 响应消息结束
+        // 由 org.apache.dubbo.remoting.http12.h1.Http1ServerChannelObserver.doOnCompleted 触发
         if (HttpOutputMessage.EMPTY_MESSAGE == msg) {
             if (keepAlive) {
                 ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, promise);

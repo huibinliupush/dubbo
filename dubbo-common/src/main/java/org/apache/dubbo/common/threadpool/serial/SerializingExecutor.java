@@ -42,7 +42,7 @@ public final class SerializingExecutor implements Executor, Runnable {
      * Use false to stop and true to run
      */
     private final AtomicBoolean atomicBoolean = new AtomicBoolean();
-
+    // 服务暴露时创建的线程池
     private final Executor executor;
 
     private final Queue<Runnable> runQueue = new ConcurrentLinkedQueue<>();

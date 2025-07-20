@@ -37,12 +37,16 @@ public class PortUnificationExchanger {
 
     private static final ErrorTypeAwareLogger log =
             LoggerFactory.getErrorTypeAwareLogger(PortUnificationExchanger.class);
+    // url.getAddress() -> NettyPortUnificationServer
+    // 一个端口对应一个 server
     private static final ConcurrentMap<String, RemotingServer> servers = new ConcurrentHashMap<>();
 
     public static RemotingServer bind(URL url, ChannelHandler handler) {
         ConcurrentHashMapUtils.computeIfAbsent(servers, url.getAddress(), addr -> {
             final AbstractPortUnificationServer server;
             try {
+                // url : tri://192.168.2.101:50052/org.example.RestTestService?anyhost=true&application=dubbo-springboot-triple-rest-springmvc&background=false&bind.ip=192.168.2.101&bind.port=50052&deprecated=false&dubbo=2.0.2&dynamic=true&executor-management-mode=isolation&file-cache=true&generic=false&interface=org.example.RestTestService&methods=getHead,getMuchParam,getMuchVariable,getReg,patchById,postList,postUseConsumesUser,postUseParams&pid=7809&prefer.serialization=hessian2,fastjson2&qos.enable=false&register=false&release=3.3.4&side=provider&timestamp=1752387447880&triple.rest.enable.default.mapping=false&triple.verbose=true
+                // handler -> DefaultPuHandler(空实现)
                 server = getTransporter(url).bind(url, handler);
             } catch (RemotingException e) {
                 throw new RuntimeException(e);
@@ -50,8 +54,11 @@ public class PortUnificationExchanger {
             // server.bind();
             return server;
         });
-
+        // 必须在这里添加 addSupportedProtocol，因为不同的协议这里都会用同一端口，也就是都对应一个 server
+        // 所以只能在这里添加，不能在创建 server 的时候添加，server 只会创建一次
+        // 不同的协议可以 bind 多次
         servers.computeIfPresent(url.getAddress(), (addr, server) -> {
+            // see : org.apache.dubbo.remoting.transport.netty4.NettyPortUnificationServer.addSupportedProtocol
             ((AbstractPortUnificationServer) server).addSupportedProtocol(url, handler);
             return server;
         });

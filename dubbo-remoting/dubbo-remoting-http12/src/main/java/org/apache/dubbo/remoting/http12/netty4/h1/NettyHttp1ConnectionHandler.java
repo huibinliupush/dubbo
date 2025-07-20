@@ -44,13 +44,18 @@ public class NettyHttp1ConnectionHandler extends SimpleChannelInboundHandler<Htt
         this.url = url;
         this.frameworkModel = frameworkModel;
         this.tripleConfig = tripleConfig;
+        // DefaultHttp11ServerTransportListenerFactory.INSTANCE
         this.http1ServerTransportListenerFactory = http1ServerTransportListenerFactory;
     }
 
     /**
      * process h1 request
+     *
+     * 参数 http1Request 为 DefaultHttp1Request，由 NettyHttp1Codec 进行封装
      */
     protected void channelRead0(ChannelHandlerContext ctx, Http1Request http1Request) {
+        // DefaultHttp11ServerTransportListener 里面封装 requestRouter ， responseObserver
+        // 负责处理 rest 请求以及发送响应
         Http1ServerTransportListener http1TransportListener = http1ServerTransportListenerFactory.newInstance(
                 new NettyHttp1Channel(ctx.channel(), tripleConfig), url, frameworkModel);
         http1TransportListener.onMetadata(http1Request);

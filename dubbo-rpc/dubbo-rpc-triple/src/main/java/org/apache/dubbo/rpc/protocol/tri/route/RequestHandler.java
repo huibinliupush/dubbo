@@ -35,6 +35,7 @@ public final class RequestHandler implements RpcInvocationBuildContext {
     private MethodDescriptor methodDescriptor;
     private MethodMetadata methodMetadata;
     private ServiceDescriptor serviceDescriptor;
+    // RestHttpMessageCodec (消息请求，响应体的编解码)
     private HttpMessageDecoder httpMessageDecoder;
     private HttpMessageEncoder httpMessageEncoder;
     private Map<String, Object> attributes = new HashMap<>();

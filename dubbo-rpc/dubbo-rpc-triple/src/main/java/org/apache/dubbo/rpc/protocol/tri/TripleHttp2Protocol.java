@@ -122,6 +122,7 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
 
     @Override
     public void configServerProtocolHandler(URL url, ChannelOperator operator) {
+        // 获取探测到的 http 版本  http1 or http2 ?
         String httpVersion = operator.detectResult().getAttribute(TripleProtocolDetector.HTTP_VERSION);
         List<ChannelHandler> channelHandlerPretenders = new ArrayList<>();
         try {
@@ -136,6 +137,8 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
                 configurerHttp2Handlers(url, channelHandlerPretenders);
             }
         } finally {
+            // 无论是 h1 还是 h2 最终都会走到这里，来配置通用的 channelhandler
+            // see : org.apache.dubbo.rpc.protocol.dubbo.pu.DubboWireProtocol.configServerProtocolHandler
             operator.configChannelHandler(channelHandlerPretenders);
         }
     }
@@ -144,6 +147,7 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
     @SuppressWarnings("deprecation")
     private void configurerHttp1Handlers(URL url, List<ChannelHandler> handlers) {
         TripleConfig tripleConfig = ConfigManager.getProtocolOrDefault(url).getTripleOrDefault();
+        // 处理 http 的 decode and encode
         HttpServerCodec sourceCodec = new HttpServerCodec(
                 tripleConfig.getMaxInitialLineLengthOrDefault(),
                 tripleConfig.getMaxHeaderSizeOrDefault(),
@@ -152,9 +156,11 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
                 tripleConfig.getInitialBufferSizeOrDefault());
         handlers.add(new ChannelHandlerPretender(sourceCodec));
         // Triple protocol http1 upgrade support
+        // 也是一个 inbound ， 不会响应 outbound 事件
         handlers.add(new ChannelHandlerPretender(new HttpServerUpgradeHandler(
                 sourceCodec,
                 protocol -> {
+                    // h2c : tcp 上 http1 升级 http2
                     if (AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol)) {
                         return new Http2ServerUpgradeCodec(
                                 buildHttp2FrameCodec(tripleConfig),
@@ -163,7 +169,7 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
                                 new TripleServerConnectionHandler(),
                                 buildHttp2MultiplexHandler(url, tripleConfig),
                                 new TripleTailHandler());
-                    } else if (AsciiString.contentEquals(HttpHeaderValues.WEBSOCKET, protocol)) {
+                    } else if (AsciiString.contentEquals(HttpHeaderValues.WEBSOCKET, protocol)) { // http1 升级 websocket
                         return new WebSocketServerUpgradeCodec(
                                 Arrays.asList(
                                         HttpObjectAggregator.class,
@@ -186,6 +192,7 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
         // If the upgrade was successful, remove the message from the output list
         // so that it's not propagated to the next handler. This request will
         // be propagated as a user event instead.
+        // HttpObjectAggregator 是 inbound 不响应 outbound 事件
         handlers.add(new ChannelHandlerPretender(new HttpObjectAggregator(tripleConfig.getMaxBodySizeOrDefault())));
         handlers.add(new ChannelHandlerPretender(new NettyHttp1Codec()));
         handlers.add(new ChannelHandlerPretender(new NettyHttp1ConnectionHandler(

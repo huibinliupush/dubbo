@@ -29,7 +29,11 @@ public class UnaryServerCallListener extends AbstractServerCallListener {
 
     @Override
     public void onReturn(Object value) {
+        // 发送 headers
+        // 发送 body
         responseObserver.onNext(value);
+        // 发送 empty message 表示 body 的结束
+        // org.apache.dubbo.remoting.http12.h1.Http1ServerChannelObserver.doOnCompleted
         responseObserver.onCompleted();
     }
 

@@ -29,8 +29,19 @@ import java.util.regex.Pattern;
 public final class PathSegment implements Comparable<PathSegment> {
 
     private Type type;
+    // 对于 LITERAL 来说， value 就是字面上的路径
+    // 对于 VARIABLE 来说， value 就是 PathVariable 参数名称 /{name} -- value = name ， variables 中也是 name
+    // 对于 PATTERN 来说， value 就是正则表达式 ， variables 存放的则是正则变量名
+
+    // path : /demo/get/reg/{name:[a-z-]+}-{version:\d\.\d\.\d}{ext:\.[a-z]+}
+    // /demo/get/reg 对应三个 LITERAL 的 PathSegment
+    // 最后一个正则表达式对应的  PathSegment 如下
+    // {type=PATTERN, value=(?<name>[a-z-]+)-(?<version>\d\.\d\.\d)(?<ext>\.[a-z]+), variables=[name, version, ext]}
     private String value;
+    // 用于存放 path 中正则表达式中的变量
     private List<String> variables;
+    // 对于 PATTERN segment 来说，这里会将 value 编译为 pattern
+    // see : org.apache.dubbo.rpc.protocol.tri.rest.mapping.condition.PathSegment.initPattern
     private Pattern pattern;
 
     private KeyString keyValue;

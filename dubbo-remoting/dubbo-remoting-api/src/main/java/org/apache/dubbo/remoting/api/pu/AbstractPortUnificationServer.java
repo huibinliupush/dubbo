@@ -37,6 +37,7 @@ public abstract class AbstractPortUnificationServer extends AbstractServer {
 
     /**
      * extension name -> activate WireProtocol
+     * 自动激活的 WireProtocol 以及在 EXT_PROTOCOL 配置的 WireProtocol
      */
     private volatile Map<String, WireProtocol> protocols;
 
@@ -51,6 +52,7 @@ public abstract class AbstractPortUnificationServer extends AbstractServer {
     wire protocol will get handler to config server pipeline for channel
     (for triple protocol, it's a default handler that do nothing)
      */
+    // handler : MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
     private final Map<String, ChannelHandler> supportedHandlers = new ConcurrentHashMap<>();
 
     public AbstractPortUnificationServer(URL url, ChannelHandler handler) throws RemotingException {
@@ -66,16 +68,22 @@ public abstract class AbstractPortUnificationServer extends AbstractServer {
         ExtensionLoader<WireProtocol> loader =
                 getUrl().getOrDefaultFrameworkModel().getExtensionLoader(WireProtocol.class);
         // 自动激活的
+        // WireProtocol 用于后续构建对应协议的 pipeline
+        // dubbo 协议 DubboWireProtocol
+        // tri 协议 TripleHttp2Protocol
+        // grpc 协议 GrpcHttp2Protocol
         Map<String, WireProtocol> protocols = loader.getActivateExtension(getUrl(), new String[0]).stream()
                 .collect(Collectors.toConcurrentMap(loader::getExtensionName, Function.identity()));
         // load extra protocols
-        // 明确配置的
+        // EXT_PROTOCOL 用于配置多协议同端口暴露，多协议用逗号分隔
+        // see : org.apache.dubbo.config.ProtocolConfig.extProtocol
         String extraProtocols = getUrl().getParameter(EXT_PROTOCOL);
         if (StringUtils.isNotEmpty(extraProtocols)) {
             Arrays.stream(extraProtocols.split(COMMA_SEPARATOR)).forEach(p -> {
                 protocols.put(p, loader.getExtension(p));
             });
         }
+        // 自动激活的 WireProtocol 以及在 EXT_PROTOCOL 配置的 WireProtocol
         this.protocols = protocols;
         doOpen0();
     }
@@ -87,7 +95,9 @@ public abstract class AbstractPortUnificationServer extends AbstractServer {
     In PuServerExchanger.bind, this method is called with ConcurrentHashMap.computeIfPresent to register messages to
     this supportedUrls and supportedHandlers
      */
+    // 由 org.apache.dubbo.remoting.exchange.PortUnificationExchanger.bind 调用
     public void addSupportedProtocol(URL url, ChannelHandler handler) {
+        // handler : MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
         this.supportedUrls.put(url.getProtocol(), url);
         this.supportedHandlers.put(url.getProtocol(), handler);
     }

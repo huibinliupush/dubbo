@@ -30,7 +30,9 @@ public final class DefaultHttp1Request implements Http1Request {
     private final HttpInputMessage httpInputMessage;
 
     public DefaultHttp1Request(RequestMetadata httpMetadata, HttpInputMessage httpInputMessage) {
+        // Http1RequestMetadata 封装 http headers , method , uri
         this.httpMetadata = httpMetadata;
+        // Http1InputMessage 封装 http body
         this.httpInputMessage = httpInputMessage;
     }
 

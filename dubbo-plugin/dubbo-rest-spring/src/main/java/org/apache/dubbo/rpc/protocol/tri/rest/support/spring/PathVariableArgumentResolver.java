@@ -52,8 +52,14 @@ public class PathVariableArgumentResolver implements AnnotationBaseArgumentResol
             AnnotationMeta<Annotation> annotation,
             HttpRequest request,
             HttpResponse response) {
+        // 由 org.apache.dubbo.rpc.protocol.tri.rest.mapping.DefaultRequestMappingRegistry.lookup 进行设置
+        // 对于 /demo/get/muchVariable/{id}/{name} -- /demo/get/muchVariable/345/muchvalue 来说
+        // 这里会存放提取到的路径变量
+        // see : org.apache.dubbo.rpc.protocol.tri.rest.mapping.RadixTree.matchRecursive
         Map<String, String> variableMap = request.attribute(RestConstants.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+        // 首先通过 @PathVariable 中的 value 属性获取 path variable name
         String name = annotation.getValue();
+        // @PathVariable 没有指定则默认按照参数名称来
         if (StringUtils.isEmpty(name)) {
             name = parameter.getRequiredName();
         }
@@ -63,6 +69,7 @@ public class PathVariableArgumentResolver implements AnnotationBaseArgumentResol
             }
             return null;
         }
+        // 根据 name 到 variableMap 中获取 path variable
         String value = variableMap.get(name);
         if (value == null) {
             return null;

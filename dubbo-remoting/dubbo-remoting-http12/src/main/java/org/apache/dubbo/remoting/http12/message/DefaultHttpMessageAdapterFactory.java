@@ -27,6 +27,7 @@ public final class DefaultHttpMessageAdapterFactory
 
     @Override
     public DefaultHttpRequest adaptRequest(HttpMetadata rawRequest, HttpChannel channel) {
+        // rawRequest : DefaultHttp1Request 封装 rest 请求的元数据（headers , method , uri , body）
         return new DefaultHttpRequest(rawRequest, channel);
     }
 

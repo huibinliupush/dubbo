@@ -49,9 +49,9 @@ public class NettyServerHandler extends ChannelDuplexHandler {
     private final Map<String, Channel> channels = new ConcurrentHashMap<>();
 
     private static final AttributeKey<SSLSession> SSL_SESSION_KEY = AttributeKey.valueOf(Constants.SSL_SESSION_KEY);
-
+    // server 端 url
     private final URL url;
-
+    // triple: MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
     private final ChannelHandler handler;
 
     public NettyServerHandler(URL url, ChannelHandler handler) {
@@ -69,6 +69,9 @@ public class NettyServerHandler extends ChannelDuplexHandler {
         return channels;
     }
 
+    // 对于 NettyPortUnificationServer 来说这里的 channelActive 事件不会触发
+    // 因为一开始触发 channelActive 的时候，NettyServerHandler 还未加入到 pipeline 中
+    // channelActive 事件由 NettyChannelHandler 响应
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         io.netty.channel.Channel ch = ctx.channel();
@@ -86,7 +89,8 @@ public class NettyServerHandler extends ChannelDuplexHandler {
                     channel.getRemoteAddressKey());
         }
     }
-
+    // channelInactive 的时候， NettyServerHandler 已经在 pipeline 中了
+    // 所以 NettyServerHandler 以及 NettyChannelHandler 都会响应
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         io.netty.channel.Channel ch = ctx.channel();
@@ -106,7 +110,9 @@ public class NettyServerHandler extends ChannelDuplexHandler {
                     channel.getLocalAddressKey());
         }
     }
-
+    // 对于 triple rest 来说不会触发到这里
+    // rest 请求由 NettyHttp1ConnectionHandler 处理
+    // see : org.apache.dubbo.remoting.http12.netty4.h1.NettyHttp1ConnectionHandler.channelRead0
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
@@ -114,14 +120,16 @@ public class NettyServerHandler extends ChannelDuplexHandler {
         // trigger qos handler
         ctx.fireChannelRead(msg);
     }
-
+    // triple rest 发送 http 响应的时候会先走到这里
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         super.write(ctx, msg, promise);
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
+        // 主要是 HeartBeatHandler 响应（设计的有问题，直接用 netty 的 idleHandler 多好）
+        // 好像 3.0 ，dubbo 的心跳全部由自己的 HeartBeatHandler 负责了
         handler.sent(channel, msg);
     }
-
+    // 同理对于 NettyPortUnificationServer 来说，这里也不会响应
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         // server will close channel when server don't receive any heartbeat from client util timeout.

@@ -43,7 +43,8 @@ public abstract class AbstractServerCallListener implements ServerCallListener {
     protected final RpcInvocation invocation;
 
     protected final Invoker<?> invoker;
-
+    // 负责数据的处理
+    // see : org.apache.dubbo.rpc.protocol.tri.h12.http1.DefaultHttp11ServerTransportListener.DefaultHttp11ServerTransportListener
     protected final StreamObserver<Object> responseObserver;
 
     public AbstractServerCallListener(
@@ -58,21 +59,27 @@ public abstract class AbstractServerCallListener implements ServerCallListener {
             RpcContext.restoreCancellationContext(
                     ((Http2CancelableStreamObserver<Object>) responseObserver).getCancellationContext());
         }
-
+        // 获取并填充 RpcContext
         RpcServiceContext serviceContext = RpcContext.getServiceContext();
+        // 设置远端地址
         serviceContext.setRemoteAddress((InetSocketAddress) invocation.remove(REMOTE_ADDRESS_KEY));
+        // 设置 consumer 应用名称
         String remoteApp = (String) invocation.remove(TripleHeaderEnum.CONSUMER_APP_NAME_KEY);
         if (remoteApp != null) {
             serviceContext.setRemoteApplicationName(remoteApp);
             invocation.setAttachmentIfAbsent(REMOTE_APPLICATION_KEY, remoteApp);
         }
+        // 设置 request and  response
         if (serviceContext.getRequest() == null) {
+            // 在路由的时候由 org.apache.dubbo.rpc.protocol.tri.route.DefaultRequestRouter.route 设置
             serviceContext.setRequest(invocation.get(TripleConstants.HTTP_REQUEST_KEY));
             serviceContext.setResponse(invocation.get(TripleConstants.HTTP_RESPONSE_KEY));
         }
 
         try {
             long stInMillis = System.currentTimeMillis();
+            // 调用后端 invoker , 经过 filter 链 ，abstractProxyInvoker
+            // AsyncRpcResult
             Result response = invoker.invoke(invocation);
             if (response.hasException()) {
                 responseObserver.onError(response.getException());
@@ -90,7 +97,9 @@ public abstract class AbstractServerCallListener implements ServerCallListener {
                     responseObserver.onError(r.getException());
                     return;
                 }
+                // dubbo 调用耗时（包含 filter 链）
                 long cost = System.currentTimeMillis() - stInMillis;
+                // 获取超时时间
                 Long timeout = (Long) invocation.get("timeout");
                 if (timeout != null && timeout < cost) {
                     LOGGER.error(
@@ -101,9 +110,11 @@ public abstract class AbstractServerCallListener implements ServerCallListener {
                                     "Invoke timeout at server side, ignored to send response. service=%s method=%s cost=%s",
                                     invocation.getTargetServiceUniqueName(), invocation.getMethodName(), cost));
                     HttpRequestTimeout serverSideTimeout = HttpRequestTimeout.serverSide();
+                    // 发送超时信息
                     responseObserver.onError(serverSideTimeout);
                     return;
                 }
+                // 发送 http response
                 onReturn(r.getValue());
             });
         } catch (Exception e) {
