@@ -161,6 +161,8 @@ public class TripleHttp2Protocol extends AbstractWireProtocol implements ScopeMo
                 sourceCodec,
                 protocol -> {
                     // h2c : tcp 上 http1 升级 http2
+                    // http1 使用头字段 Connection:Upgrade 升级到 http2 , 服务端返回状态码 101 切换协议
+                    // h2 : tls 上升级 http2 通过 ALPN, see : org.apache.dubbo.remoting.transport.netty4.NettyPortUnificationServerHandler.enableSsl
                     if (AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol)) {
                         return new Http2ServerUpgradeCodec(
                                 buildHttp2FrameCodec(tripleConfig),

@@ -189,6 +189,9 @@ public class NettyPortUnificationServerHandler extends ByteToMessageDecoder {
              * ALPN设计目标是支持任意应用层协议的协商，不仅限于HTTP/2。
              * 其工作原理是在TLS握手阶段（ClientHello/ServerHello）通过扩展字段交换协议标识符列表，由双方选择共同支持的协议
              *
+             * h2c : tcp 上明文升级到 http2 ,http1 使用头字段 Connection:Upgrade 升级到 http2 , 服务端返回状态码 101 切换协议
+             * see : org.apache.dubbo.rpc.protocol.tri.TripleHttp2Protocol#configurerHttp1Handlers(org.apache.dubbo.common.URL, java.util.List)
+             *
              * */
             @Override
             protected void configurePipeline(ChannelHandlerContext ctx, String protocol) throws Exception {
