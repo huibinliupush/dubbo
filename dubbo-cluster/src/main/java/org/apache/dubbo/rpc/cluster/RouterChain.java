@@ -61,7 +61,7 @@ public class RouterChain<T> {
     private RouterChain(URL url) {
         List<RouterFactory> extensionFactories = ExtensionLoader.getExtensionLoader(RouterFactory.class)
                 .getActivateExtension(url, "router");
-        // 构建内置：MockRouter , TagRouter , AppRouter , ServiceRouter
+        // 构建内置：MockRouter（MockInvokersSelector） , TagRouter , AppRouter , ServiceRouter
         List<Router> routers = extensionFactories.stream()
                 .map(factory -> factory.getRouter(url))
                 .collect(Collectors.toList());

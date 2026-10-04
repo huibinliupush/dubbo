@@ -247,7 +247,10 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
             connectLock.lock();
             try {
                 if (!isConnected()) {
+                    // close channel
                     disconnect();
+                    // 关闭后重建Socket是最规范的做法
+                    // 调用 bootStrap 重新 connect
                     connect();
                 }
             } finally {

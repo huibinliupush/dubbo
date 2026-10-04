@@ -79,6 +79,11 @@ public class DefaultExecutorRepository implements ExecutorRepository {
         // 第二维度按照: provider port 划分 executors，每个 port 分配一个 executors
         Map<Integer, ExecutorService> executors = data.computeIfAbsent(componentKey, k -> new ConcurrentHashMap<>());
         // 无论是 consumer 端还是 provider 端，线程池都是跟着 port 端口走，每一个端口分配一个线程池
+        // 错误理解：consumer 端就是一个连接 client 一个线程池 (因为不同连接对于客户端来说占用不同的 port,port是指占用客户端的 port)
+        // 站在 consumer 的角度这里的 port 为 provider 的 port（从注册中心拉取下来的）
+        // consumer 要连接远端的哪个 port(remote)
+        // 一个 reference 可能对应多个 provider 实例，一个 provider 会被封装成一个 dubboInvoker
+        // 一个 dubboInvoker 可以创建多条连接连接一个 provider, provider 端暴露几个端口，这里就有几个线程池
         Integer portKey = url.getPort();
         // provider 端对应的线程池为 FixedThreadPool
         // consumer 端对应的线程池为 CachedThreadPool
@@ -97,6 +102,7 @@ public class DefaultExecutorRepository implements ExecutorRepository {
         if (CONSUMER_SIDE.equalsIgnoreCase(url.getParameter(SIDE_KEY))) {
             componentKey = CONSUMER_SIDE;
         }
+        // provider 端的线程池还是 consumer 端的线程池？
         Map<Integer, ExecutorService> executors = data.get(componentKey);
 
         /**
@@ -108,7 +114,8 @@ public class DefaultExecutorRepository implements ExecutorRepository {
                     "before coming to here.");
             return null;
         }
-
+        // 每个 port 对应一个线程池
+        // 对于 consumer 来说就是一个连接对应一个线程池，不同连接占用客户端的不同 port
         Integer portKey = url.getPort();
         ExecutorService executor = executors.get(portKey);
         if (executor != null) {

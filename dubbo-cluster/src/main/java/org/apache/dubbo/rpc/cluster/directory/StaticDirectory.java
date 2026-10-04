@@ -33,7 +33,9 @@ import java.util.List;
  */
 public class StaticDirectory<T> extends AbstractDirectory<T> {
     private static final Logger logger = LoggerFactory.getLogger(StaticDirectory.class);
-
+    // 封装多个注册中心的 ClusterInvoker ，一般情况下这里只有一个注册中心
+    // 也就是只有一个 ClusterInvoker
+    // 多个注册中心的 ClusterInvoker + 直连的 dubboInvoker(如果配置直连的话)
     private final List<Invoker<T>> invokers;
 
     public StaticDirectory(List<Invoker<T>> invokers) {

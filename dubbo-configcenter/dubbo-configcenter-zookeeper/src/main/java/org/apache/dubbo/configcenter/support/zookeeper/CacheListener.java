@@ -41,6 +41,7 @@ public class CacheListener implements DataListener {
     private static final int MIN_PATH_DEPTH = 5;
 
     //key: 配置中心path   value: 监听该path下配置的监听器集合
+    // ConfigurationListener 为 dubbo 框架配置的监听器，用于监听配置文件路径 path 的变化
     private Map<String, Set<ConfigurationListener>> keyListeners = new ConcurrentHashMap<>();
     // 用于等待 TreeCache 初始化成功
     private CountDownLatch initializedLatch;

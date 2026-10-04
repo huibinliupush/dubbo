@@ -38,8 +38,8 @@ public class Request {
     private boolean mEvent = false;
 
     private boolean mBroken = false;
-    // invocation
-    private Object mData;
+    // DecodeableRpcInvocation 未解码。后续会在 decodeHandler 中解码 body 也就是 RpcInvocation
+    private Object mData; // body 数据
 
     public Request() {
         mId = newId();
@@ -118,7 +118,7 @@ public class Request {
     }
 
     public boolean isHeartbeat() {
-        return mEvent && HEARTBEAT_EVENT == mData;
+        return mEvent && HEARTBEAT_EVENT == mData;// 心跳报文中的消息体 mData 是空的
     }
 
     public void setHeartbeat(boolean isHeartbeat) {

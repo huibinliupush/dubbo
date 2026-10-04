@@ -59,7 +59,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
         List<Invoker<T>> copyInvokers = invokers;
         checkInvokers(copyInvokers, invocation);
         String methodName = RpcUtils.getMethodName(invocation);
-        // consumer 端配置优先, 这里的 consumerUrl 已经在 config 层被 providerURL 覆盖
+        // consumer 端配置优先, 这里的 consumerUrl 已经在 config 层和 providerURL 合并 merge
         // org.apache.dubbo.common.URL.getMethodParameter(java.lang.String, java.lang.String) 的实现逻辑
         // 1 : 先从 method 配置中取  2： method 没有配置则从 service 配置中取
         int len = getUrl().getMethodParameter(methodName, RETRIES_KEY, DEFAULT_RETRIES) + 1;

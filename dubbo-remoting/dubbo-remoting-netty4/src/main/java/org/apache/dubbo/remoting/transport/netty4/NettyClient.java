@@ -98,7 +98,7 @@ public class NettyClient extends AbstractClient {
         // 每个 client 创建一个 Bootstrap 也是合理的，毕竟每个 client 它的连接参数可能配置的都不一样
         // 只要这里的 NIO_EVENT_LOOP_GROUP 是一个静态的就 OK，IO 线程是跟着进程走的
         bootstrap = new Bootstrap();
-        bootstrap.group(NIO_EVENT_LOOP_GROUP)
+        bootstrap.group(NIO_EVENT_LOOP_GROUP) // 客户端对应的 io 线程，处理 consumer 进程多个连接上的 connect, read, write
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)

@@ -87,7 +87,7 @@ public class Response {
     private boolean mEvent = false;
 
     private String mErrorMsg;
-
+    // AppResponse
     private Object mResult;
 
     public Response() {
@@ -151,10 +151,12 @@ public class Response {
     }
 
     public Object getResult() {
+        // AppResponse
         return mResult;
     }
 
     public void setResult(Object msg) {
+        // AppResponse
         mResult = msg;
     }
 

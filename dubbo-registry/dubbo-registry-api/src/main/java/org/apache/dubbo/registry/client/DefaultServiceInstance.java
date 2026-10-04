@@ -30,7 +30,7 @@ public class DefaultServiceInstance implements ServiceInstance {
     private static final long serialVersionUID = 1149677083747278100L;
 
     private String id;
-
+    // appName
     private String serviceName;
 
     private String host;
@@ -52,6 +52,7 @@ public class DefaultServiceInstance implements ServiceInstance {
             throw new IllegalArgumentException("The port must be greater than zero!");
         }
         this.id = id; // host:port
+        // appName
         this.serviceName = serviceName;
         this.host = host;
         this.port = port;

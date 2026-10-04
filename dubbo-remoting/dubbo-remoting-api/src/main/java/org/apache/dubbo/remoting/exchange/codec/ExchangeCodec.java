@@ -332,6 +332,7 @@ public class ExchangeCodec extends TelnetCodec {
                 } else {
                     // 对于正常的响应来说，res.getResult() = AppResponse（value 里存放的是响应结果）
                     // org.apache.dubbo.rpc.protocol.dubbo.DubboCodec.encodeResponseData(org.apache.dubbo.remoting.Channel, org.apache.dubbo.common.serialize.ObjectOutput, java.lang.Object, java.lang.String)
+                    // 响应体为 AppResponse
                     encodeResponseData(channel, out, res.getResult(), res.getVersion());
                 }
             } else {

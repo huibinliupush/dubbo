@@ -59,6 +59,7 @@ public abstract class AbstractProtocol implements Protocol {
     protected final Map<String, ProtocolServer> serverMap = new ConcurrentHashMap<>();
 
     //TODO SoftReference
+    // consumer 进程中所有的 refenece invoker
     protected final Set<Invoker<?>> invokers = new ConcurrentHashSet<Invoker<?>>();
 
     protected static String serviceKey(URL url) {

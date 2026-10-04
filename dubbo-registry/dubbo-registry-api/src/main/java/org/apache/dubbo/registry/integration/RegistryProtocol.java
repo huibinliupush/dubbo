@@ -141,6 +141,7 @@ public class RegistryProtocol implements Protocol {
     private final ConcurrentMap<String, ExporterChangeableWrapper<?>> bounds = new ConcurrentHashMap<>();
     // 依赖注入相关扩展点的 adaptive 实例
     private Cluster cluster;
+    // adaptive 实例(被 wrapper 包装) ProtocolListenerWrapper
     private Protocol protocol;
     private RegistryFactory registryFactory;
     private ProxyFactory proxyFactory;
@@ -223,6 +224,9 @@ public class RegistryProtocol implements Protocol {
         // 缓存订阅动态配置 url 与动态配置监听器
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
         //在服务暴露之前，加载配置中心中关于provider应用级的配置 和 service级的配置 对providerUrl进行一次覆盖（配置中心配置源优先级）
+        // dubbo 中的配置分为静态配置 dubbo.properties, 和动态配置：相关 configurators 文件在配置中心保存
+        // 之前在 config 层按照配置源整理的最终配置是整理的静态配置 dubbo.properties
+        // 那么在这里还需要将配置中心的动态配置在整理一遍形成最终配置（动态配置覆盖）
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         //export invoker
         //protocol层服务暴露入口，进行本地dubbo协议的暴露
@@ -529,8 +533,8 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
-        // 如果是应用级服务发现，这里的 url 还是原来的 service-discovery-registry:// （原样返回）
-        // 如果是接口级服务发现，这里的 url 协议会从 registry 变为具体的注册协议，如：zooKeeper , nacos 等
+        // 接口级服务发现，这里的 url 协议会从 registry 变为具体的注册协议，如：zooKeeper , nacos 等
+        // 应用级服务发现走的是 ServiceDiscoveryRegistryProtocol
         url = getRegistryUrl(url);
         // ServiceDiscoveryRegistry(启用应用级服务发现)
         // ZookeeperRegistry(接口级服务发现)
@@ -584,7 +588,7 @@ public class RegistryProtocol implements Protocol {
         // routers 下的 URL 被封装成 routers 加入到 RouterChain 中
         // 一起被封装在 directory 中
         directory.subscribe(toSubscribeUrl(subscribeUrl));
-        // 获取具体的 clusterInvoker，负责路由，负载均衡，容错处理，获取远程调用结果
+        // MockClusterWrapper -> 获取具体的 clusterInvoker(带有 ClusterInterceptors)，负责路由，负载均衡，容错处理，获取远程调用结果
         Invoker<T> invoker = cluster.join(directory);
         List<RegistryProtocolListener> listeners = findRegistryProtocolListeners(url);
         if (CollectionUtils.isEmpty(listeners)) {
@@ -786,6 +790,8 @@ public class RegistryProtocol implements Protocol {
             // 用 providerConfigurationListener 的 Configurators 覆盖 newUrl
             newUrl = getConfigedInvokerUrl(providerConfigurationListener.getConfigurators(), newUrl);
             // 用 serviceConfigurationListeners 的 Configurators 覆盖 newUrl
+            // 这里的目的是防止 providerConfiguration 中的配置覆盖了 serviceConfiguration 中的配置
+            // 因为 serviceConfiguration 的优先级更高一些，所以这里需要重新用 serviceConfiguration 覆盖
             newUrl = getConfigedInvokerUrl(serviceConfigurationListeners.get(originUrl.getServiceKey())
                     .getConfigurators(), newUrl);
             if (!currentUrl.equals(newUrl)) {

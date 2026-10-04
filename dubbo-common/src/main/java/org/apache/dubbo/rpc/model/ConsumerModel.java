@@ -38,7 +38,8 @@ public class ConsumerModel {
     private final ReferenceConfigBase<?> referenceConfig;
 
     private Object proxyObject;
-
+    // 异步 method 信息，缓存事件回调信息，oninvoke，onreturn，onthrow
+    // org.apache.dubbo.config.ReferenceConfig.init
     private Map<String, AsyncMethodInfo> methodConfigs = new HashMap<>();
 
     /**

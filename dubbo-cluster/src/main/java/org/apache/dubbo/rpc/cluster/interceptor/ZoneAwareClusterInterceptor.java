@@ -32,6 +32,8 @@ import static org.apache.dubbo.common.constants.RegistryConstants.REGISTRY_ZONE_
  *
  * active only when url has key 'cluster=zone-aware'
  *
+ * see : org.apache.dubbo.config.ReferenceConfig#createProxy(java.util.Map) 最后
+ *
  * // 加载于普通 ZoneAwareCluster 前面
  */
 @Activate(value = "cluster:zone-aware")

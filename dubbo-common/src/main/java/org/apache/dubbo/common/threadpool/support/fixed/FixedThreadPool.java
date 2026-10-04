@@ -53,6 +53,7 @@ public class FixedThreadPool implements ThreadPool {
 
         // https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/util/concurrent/SynchronousQueue.html
         // IO 线程提交任务，提交一个任务创建一个 dubbo 线程，直到创建好 200 个 dubbo 线程
+        // 因为 SynchronousQueue 的容量为0 ， 所以来一个任务创建一个线程
         // IO 线程调用 boolean offer(E e) 向 SynchronousQueue 中添加元素，如果此时正好有 dubbo 线程在调用  take() 等待
         // 那么 IO 线程中的 offer 返回 true，dubbo 线程直接 take() 走任务
         // 如果此时 dubbo 线程全部在执行任务，那么 IO 线程的 offer 返回 false, 直接执行 AbortPolicyWithReport
@@ -63,6 +64,11 @@ public class FixedThreadPool implements ThreadPool {
 /**
  *         但是这里请注意 IO 线程永远不会在这里阻塞，因为使用的是 offer , 没有 dubbo 线程等待就返回 false
  *         但 IO 线程会执行 AbortPolicyWithReport 中的 dump 操作
+ *
+ *         在 SynchronousQueue 上阻塞的线程用 QNode 结构描述，其中 Thread waiter 表示阻塞在 SynchronousQueue 上的线程
+ *          Object item 用于存放其他线程 offer 进来的元素
+ *          如果线程调用 offer , 发现 SynchronousQueue 中有 waiter，那么就将 offer 的元素设置到 waiter 对应的 QNode item中
+ *          线程唤醒获取 item
  * */
         // SynchronousQueue 的所有操作都是无锁的，只不过 take 不到会将自己阻塞
         // LinkedBlockingQueue 的所有操作是要加锁的，offer 的时候也要加锁判断队列容量，成功返回 true, 失败返回 false

@@ -63,6 +63,9 @@ public class RpcInvocation implements Invocation, Serializable {
 
     /**
      * Passed to the remote server during RPC call
+     * 来源于  RpcContext.getContext()
+     * org.apache.dubbo.rpc.cluster.support.AbstractClusterInvoker#invoke(org.apache.dubbo.rpc.Invocation)
+     *
      */
     private Map<String, Object> attachments;
 
@@ -74,7 +77,13 @@ public class RpcInvocation implements Invocation, Serializable {
     private transient Invoker<?> invoker;
 
     private transient Class<?> returnType;
-
+    // 返回真实的泛型类型
+    // 比如 CompleteFuture<String>
+    // 这里的 returnTypes 就是 String 类型
+    // 在解码 CompleteFuture<String> 类型的返回值时，客户端会使用 String 类型来反序列化
+    // 因为 server 端在序列化的时候设置的就是 value, 客户端反序列化的也是 value, 然后将 value 设置到 requestFuture 中
+    // org.apache.dubbo.rpc.protocol.dubbo.DecodeableRpcResult.handleValue
+    // org.apache.dubbo.common.utils.ReflectUtils.getReturnTypes
     private transient Type[] returnTypes;
 
     private transient InvokeMode invokeMode;

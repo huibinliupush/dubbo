@@ -84,6 +84,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
             //Javassit代理：该方法调用代理给wrapper.invokeMethod方法，在wrapper中直接调用服务实现类ref的目标方法
             //JdkProxy代理：该方法中直接反射调用服务实现类ref中的目标方法
             // 这里会通过 Wrapper 调用到真正的 ServiceImpl ， 返回真正的结果
+            // proxy 为服务实例
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
             //将方法返回结果包装成CompletableFuture<AppResponse>
             // 同步异步在这里封装支持

@@ -35,7 +35,7 @@ public class CustomizableServiceInstanceListener implements EventListener<Servic
      * ServiceInstanceMetadataCustomizer 为所有初始化 metadataCustomizer 的基类
      *
      * ExportedServicesRevisionMetadataCustomizer 负责添加 dubbo.exported-services.revision
-     * 将元数据中心中所有暴露的 exportedURLs （MetadataService除外）计算出一个 revision 值
+     * 将元数据中心中所有暴露的 exportedURLs （MetadataService除外）计算出一个 revision 值 (hashcode,用来唯一标识本次暴露的所有服务)
      *
      * ServiceInstancePortCustomizer 逻辑很简单，如果 serviceInstance 中没有设置 port , 那么就从 ProtocolConfig 中选取一个 port (rest协议优先)
      *

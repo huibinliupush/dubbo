@@ -166,11 +166,14 @@ final class NettyChannel extends AbstractChannel {
         try {
             // netty native channel
             // 这里会调用 pipine 中的 NettyServerHandler write
+            // 把 write 操作提交给 IO 线程
             ChannelFuture future = channel.writeAndFlush(message);
             if (sent) {
                 // wait timeout ms
                 timeout = getUrl().getPositiveParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
                 // 等待 message 被 flush 到 socket 中（注意此时还未到 remote）
+                // 这里仍然是由用户线程执行，所以在这里等待是没有问题的
+                // 但是如何在 channelHandler 中 await 那就把 IO 线程阻塞了
                 success = future.await(timeout);
             }
             Throwable cause = future.cause();

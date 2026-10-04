@@ -45,6 +45,8 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
 
         // invokerInvocationHandler.invoke(methodname , paramType , param) 静态在 Proxy 对应方法体中写死
         // 这样在运行时就不需要通过反射获取方法名以及参数类型信息系了
+        // newInstance 方法中会创建代理类，其中将 InvokerInvocationHandler 传入代理类的构造函数中
+        // 代理类实现了接口的所有方法，在方法体中，直接调用 InvokerInvocationHandler 的 invoke 方法
         return (T) Proxy.getProxy(interfaces).newInstance(new InvokerInvocationHandler(invoker));
     }
 

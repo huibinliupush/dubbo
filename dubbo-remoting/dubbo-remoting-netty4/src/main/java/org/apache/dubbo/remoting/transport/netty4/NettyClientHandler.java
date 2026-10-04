@@ -100,6 +100,8 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         promise.addListener(future -> {
             if (future.isSuccess()) {
                 // if our future is success, mark the future to sent.
+                // 向 request future 设置发送时间戳
+                // org.apache.dubbo.remoting.exchange.support.DefaultFuture.doSent
                 handler.sent(channel, msg);
                 return;
             }
@@ -109,6 +111,8 @@ public class NettyClientHandler extends ChannelDuplexHandler {
                 Request request = (Request) msg;
                 Response response = buildErrorResponse(request, t);
                 // 向用户返回错误响应
+                // 设置 complete request future
+                // org.apache.dubbo.remoting.exchange.support.DefaultFuture.received(org.apache.dubbo.remoting.Channel, org.apache.dubbo.remoting.exchange.Response, boolean)
                 handler.received(channel, response);
             }
         });

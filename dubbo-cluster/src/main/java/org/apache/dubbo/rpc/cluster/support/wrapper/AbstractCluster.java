@@ -48,7 +48,7 @@ public abstract class AbstractCluster implements Cluster {
         }
         return last;
     }
-
+    // 这里有一个 MockClusterWrapper 切面，用 MockClusterInvoker 封装 ClusterInvoker
     @Override
     public <T> Invoker<T> join(Directory<T> directory) throws RpcException {
         // doJoin 返回具体的 Cluster 比如 FailoverCluster

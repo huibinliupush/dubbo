@@ -49,6 +49,10 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
     // regsitryUrl
     private final URL url;
     // 连接状态监听器集合
+    // 调用来自于 curator 客户端的 stateLisenter -> CuratorConnectionStateListener
+    // org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorConnectionStateListener.stateChanged
+    // CuratorConnectionStateListener 会在创建客户端 CuratorZookeeperClient 的时候被添加
+    // org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorZookeeperClient
     private final Set<StateListener> stateListeners = new CopyOnWriteArraySet<StateListener>();
     /**
      * dubbo框架内的监听模型 到 zk客户端监听模型实现的 转换
@@ -181,7 +185,10 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
             }
         }
     }
-
+    // 调用来自于 curator 客户端的 stateLisenter -> CuratorConnectionStateListener
+    // org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorConnectionStateListener.stateChanged
+    // CuratorConnectionStateListener 会在创建客户端 CuratorZookeeperClient 的时候被添加
+    // org.apache.dubbo.remoting.zookeeper.curator.CuratorZookeeperClient.CuratorZookeeperClient
     protected void stateChanged(int state) {
         //在zk客户端具体实现中包裹 dubbo内部 连接状态监听器
         // 创建 ZookeeperRegistry 的时候添加 sessionListener

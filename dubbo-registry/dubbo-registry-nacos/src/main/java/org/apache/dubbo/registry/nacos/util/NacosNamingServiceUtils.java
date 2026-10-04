@@ -72,7 +72,7 @@ public class NacosNamingServiceUtils {
     public static Instance toInstance(ServiceInstance serviceInstance) {
         Instance instance = new Instance();
         instance.setInstanceId(serviceInstance.getId());
-        instance.setServiceName(serviceInstance.getServiceName());
+        instance.setServiceName(serviceInstance.getServiceName()); // application name
         instance.setIp(serviceInstance.getHost());
         instance.setPort(serviceInstance.getPort());
         instance.setMetadata(serviceInstance.getMetadata());

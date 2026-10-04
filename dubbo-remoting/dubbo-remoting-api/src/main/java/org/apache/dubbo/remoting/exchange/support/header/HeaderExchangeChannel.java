@@ -44,7 +44,7 @@ final class HeaderExchangeChannel implements ExchangeChannel {
     private static final Logger logger = LoggerFactory.getLogger(HeaderExchangeChannel.class);
 
     private static final String CHANNEL_KEY = HeaderExchangeChannel.class.getName() + ".CHANNEL";
-    // NettyClient
+    // NettyChannel(dubbo抽象) NettyClient
     private final Channel channel;
 
     private volatile boolean closed = false;
@@ -53,8 +53,8 @@ final class HeaderExchangeChannel implements ExchangeChannel {
         if (channel == null) {
             throw new IllegalArgumentException("channel == null");
         }
-        // NettyClient
-        this.channel = channel;
+        //  NettyChannel(dubbo抽象) NettyClient
+        this.channel = channel;// NettyChannel(dubbo抽象) NettyClient
     }
 
     static HeaderExchangeChannel getOrAddChannel(Channel ch) {

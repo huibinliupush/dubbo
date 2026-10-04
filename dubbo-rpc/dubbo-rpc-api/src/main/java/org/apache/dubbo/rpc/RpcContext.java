@@ -721,9 +721,11 @@ public class RpcContext {
     public <T> CompletableFuture<T> asyncCall(Callable<T> callable) {
         try {
             try {
+                // xml 配置可以对 method 配置 async = true
+                // 如果 xml 没有配置，可以利用 RpcContext 这里的 asyncCall 进行异步调用
                 setAttachment(ASYNC_KEY, Boolean.TRUE.toString());
                 // 同步方法异步调用，这里返回 null
-                final T o = callable.call();
+                final T o = callable.call(); // dubbo 框架层异步执行，不等待返回结果， AsyncToSyncInvoker
                 //local invoke will return directly
                 if (o != null) {
                     if (o instanceof CompletableFuture) {
@@ -759,6 +761,7 @@ public class RpcContext {
      */
     public void asyncCall(Runnable runnable) {
         try {
+            // oneway
             setAttachment(RETURN_KEY, Boolean.FALSE.toString());
             runnable.run();
         } catch (Throwable e) {

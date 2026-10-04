@@ -72,6 +72,8 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
      *
      * 在 spring 中 getBean 的时候，首先会通过 BeanFactory 去 getBean，如果通过 beanId 获取到的是一个正常的 bean 那么就直接返回
      * 如果获取到的是一个 FactoryBean（beanId），那么就需要调用 FactoryBean 的 getObject 方法获取 bean
+     *
+     * see : org.apache.dubbo.demo.consumer.Application#main(java.lang.String[])
      */
     @Override
     public Object getObject() {

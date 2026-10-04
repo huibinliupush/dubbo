@@ -107,6 +107,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
     /**
      * The {@link Cluster}'s implementation with adaptive functionality, and actually it will get a {@link Cluster}'s
      * specific implementation who is wrapped with <b>MockClusterInvoker</b>
+     * 带切面（MockClusterInvoker）的 ClusterAdaptiveExtension
      */
     private static final Cluster CLUSTER = ExtensionLoader.getExtensionLoader(Cluster.class).getAdaptiveExtension();
 
@@ -149,12 +150,12 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         super(reference);
         this.repository = ApplicationModel.getServiceRepository();
     }
-
+    // see : org.apache.dubbo.config.spring.ReferenceBean.getObject
     public synchronized T get() {
         if (destroyed) {
             throw new IllegalStateException("The invoker of ReferenceConfig(" + url + ") has already destroyed!");
         }
-        if (ref == null) {
+        if (ref == null) { // 在注解注入的时候已经生成 ref 代理了
             init();
         }
         return ref;
@@ -333,14 +334,24 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             if (urls.size() == 1) {
                 // 一个注册中心，对应一个 invoker
                 // 或者是直连情况
+                // 直连情况直接生成的 dubboInvoker
+                // 注册中心情况下生成 clusterInvoker(带有 ClusterInterceptors)
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
+                // 多个注册中心的 ClusterInvoker + 直连的 dubboInvoker(如果配置直连的话)
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;
                 for (URL url : urls) {
                     // 多个注册中心对应多个 clusterInvoker(封装每个具体注册中心下的 providers , route,loanbalance)
+                    // clusterInvoker(带有 ClusterInterceptors)，负责路由，负载均衡，容错处理，获取远程调用结果
+                    // 这里有一个 MockClusterWrapper 切面(Cluster扩展点)，用 MockClusterInvoker 封装 ClusterInvoker
                     invokers.add(REF_PROTOCOL.refer(interfaceClass, url));
                     if (UrlUtils.isRegistry(url)) {
+                        // 因为 urls 中有直连的 url 也有配置注册中心的 url
+                        // 多个注册中心对应多个 registryURL
+                        // 这里的语义是只要有一个注册中心，那么前面 refer 出来的 clusterInvoker 前面就需要被 ZoneAwareClusterInvoker 包装
+                        // ZoneAwareClusterInvoker 中封装了多个 clusterInvoker （一个注册中心对应一个clusterInvoker）
+                        // ZoneAwareClusterInvoker 目的是选取指定的 REGISTRY_ZONE 对应的注册中心 clusterInvoker
                         registryURL = url; // use last registry url
                     }
                 }
@@ -385,6 +396,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             metadataService.publishServiceDefinition(consumerURL);
         }
         // create service proxy
+        // 被 StubProxyFactoryWrapper 包装，ProxyFactory 的 切面
         return (T) PROXY_FACTORY.getProxy(invoker, ProtocolUtils.isGeneric(generic));
     }
 

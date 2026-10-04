@@ -100,14 +100,16 @@ public class DubboProtocol extends AbstractProtocol {
 
     /**
      * <host:port,Exchanger>
+     * 缓存共享连接
      */
     private final Map<String, List<ReferenceCountExchangeClient>> referenceClientMap = new ConcurrentHashMap<>();
+    // 分段锁，用于创建 provider ip:port 对应的共享连接
     private final ConcurrentMap<String, Object> locks = new ConcurrentHashMap<>();
     //SerializationOptimizer类的缓存集合，缓存 className
     private final Set<String> optimizers = new ConcurrentHashSet<>();
 
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
-
+        // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
         @Override
         public CompletableFuture<Object> reply(ExchangeChannel channel, Object message) throws RemotingException {
             // message 为 request.getData()
@@ -448,6 +450,7 @@ public class DubboProtocol extends AbstractProtocol {
         ExchangeServer server;
         try {
             //Exchange层入口 启动nettyServer
+            // HeaderExchangeServer -> nettyServer
             server = Exchangers.bind(url, requestHandler);
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
@@ -531,6 +534,10 @@ public class DubboProtocol extends AbstractProtocol {
 
         boolean useShareConnect = false;
         // consumer 到对应 provider 的连接数 , 默认为 0 表示共享一条连接
+        // 不为 0 的话表示，reference 独享 connections 个连接
+        // 所谓共享连接就是一个远端进程可以暴露多个服务，而对应于 consumer 来说就会相应有多个 reference 来引用这些服务
+        // 但引用的这些服务都属于同一个远端进程 ip:port(remoteAddress相同)，所以 consumer 的这些 reference 底层共享这些连接
+        // 因为连接的都是同一个 remoteAddress
         int connections = url.getParameter(CONNECTIONS_KEY, 0);
         List<ReferenceCountExchangeClient> shareClients = null;
         // if not configured, connection is shared, otherwise, one connection for one service
@@ -548,6 +555,7 @@ public class DubboProtocol extends AbstractProtocol {
             // consumer 中的所有 reference 的共享连接
             // 共享连接类型 ReferenceCountExchangeClient
             // 当 reference 对应的 invoker 封装引用的时候，ReferenceCountExchangeClient 引用计数加 1
+            // 从缓存中获取 remoteAddress 对应的连接缓存，这些连接在 reference 之间共享
             shareClients = getSharedClient(url, connections);
         }
         // consumer 的连接个数
@@ -606,7 +614,7 @@ public class DubboProtocol extends AbstractProtocol {
             // If the clients is empty, then the first initialization is
             if (CollectionUtils.isEmpty(clients)) {
                 // 创建 connectNum 个数的连接
-                // 只要 comsumer 中的 reference 引用的是该 provider 的相关服务
+                // 只要 comsumer 中的 reference 引用的是该 ip:port 进程的相关服务
                 // 那么这些 references 就共享这些连接
                 clients = buildReferenceCountExchangeClientList(url, connectNum);
                 referenceClientMap.put(key, clients);
@@ -731,7 +739,7 @@ public class DubboProtocol extends AbstractProtocol {
                 client = new LazyConnectExchangeClient(url, requestHandler);
 
             } else {
-                // HeaderExchangeClient
+                // HeaderExchangeClient 表示一条网络连接
                 client = Exchangers.connect(url, requestHandler);
             }
 

@@ -37,6 +37,8 @@ public class AllChannelHandler extends WrappedChannelHandler {
 
     @Override
     public void connected(Channel channel) throws RemotingException {
+        // 因为这里需要根据线程模型将 pipeline 中的任务提交给不同的线程：dubbo线程 or 用户线程
+        // 所以不能直接在 io 线程中执行
         ExecutorService executor = getExecutorService();
         try {
             executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.CONNECTED));
@@ -59,11 +61,14 @@ public class AllChannelHandler extends WrappedChannelHandler {
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         // 通过是同步调用之后，响应回来的 response, 这里的是 ThreadlessExecutor
+        // see : https://cn.dubbo.apache.org/zh-cn/overview/mannual/java-sdk/tasks/framework/threading-model/
         ExecutorService executor = getPreferredExecutorService(message);
         try {
             // 由 Netty 的 IO 线程传递给 Dubbo 线程 executor 执行
             executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.RECEIVED, message));
         } catch (Throwable t) {
+            // dubbo 线程已经满了，全部忙碌状态，由于使用的是 SynchronousQueue ，所以直接拒绝
+            // SynchronousQueue 中没有等待的线程
         	if(message instanceof Request && t instanceof RejectedExecutionException){
                 sendFeedback(channel, (Request) message, t);
                 return;

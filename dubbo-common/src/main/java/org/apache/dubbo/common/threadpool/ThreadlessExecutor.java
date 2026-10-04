@@ -46,11 +46,12 @@ import java.util.concurrent.TimeoutException;
  */
 public class ThreadlessExecutor extends AbstractExecutorService {
     private static final Logger logger = LoggerFactory.getLogger(ThreadlessExecutor.class.getName());
-
+    // 业务线程在 queue 上等待，直到 execute 方法添加了 runnable 任务
     private final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
-
+    // consumer 端按照对应 remote port 分配的 cache executor
     private ExecutorService sharedExecutor;
-
+    // 线程需要处理的 future
+    // org.apache.dubbo.remoting.exchange.support.DefaultFuture.newFuture
     private CompletableFuture<?> waitingFuture;
 
     private boolean finished = false;
@@ -60,6 +61,7 @@ public class ThreadlessExecutor extends AbstractExecutorService {
     private final Object lock = new Object();
 
     public ThreadlessExecutor(ExecutorService sharedExecutor) {
+        // consumer 端按照对应 remote port 分配的 cache executor
         this.sharedExecutor = sharedExecutor;
     }
 
@@ -168,10 +170,10 @@ public class ThreadlessExecutor extends AbstractExecutorService {
      *
      * */
     @Override
-    public void execute(Runnable runnable) {
+    public void execute(Runnable runnable) { // runnable 封装执行 decodeHandle, HeaderExchangeHandler 任务
         synchronized (lock) {
             if (!waiting) {
-                // 没有线程 wait ,交给  sharedExecutor 执行
+                // 没有线程 wait ,交给  sharedExecutor（cacheExecutor） 执行
                 sharedExecutor.execute(runnable);
             } else {
                 // 有线程正在 waiting,将任务放入 queue 中,由等待线程执行

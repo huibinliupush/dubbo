@@ -42,6 +42,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.READONLY_EVENT;
 /**
  * ExchangeReceiver
  * 实现request-response语义
+ * 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
  */
 public class HeaderExchangeHandler implements ChannelHandlerDelegate {
 
@@ -103,6 +104,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         Object msg = req.getData();
         try {
             // DubboProtocol.requestHandler
+            // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
             CompletionStage<Object> future = handler.reply(channel, msg);
             // 如果是异步任务，当 dubbo thread 调用这里，任务已经执行完成，那么 whenComplete 继续由 dubbo thread 执行
             // 如果异步任务还未没有执行，dubbo thread 执行返回，whenComplete 后续由异步线程执行
@@ -111,7 +113,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
                     // appResult 类型为 AppResponse
                     if (t == null) {
                         res.setStatus(Response.OK);
-                        res.setResult(appResult);
+                        res.setResult(appResult);// AppResponse
                     } else {
                         res.setStatus(Response.SERVICE_ERROR);
                         res.setErrorMessage(StringUtils.toString(t));
@@ -128,7 +130,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             channel.send(res);
         }
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     @Override
     public void connected(Channel channel) throws RemotingException {
         // NettyChannel 转化为 ExchangeChannel(处理 request ， response 语义)
@@ -137,7 +139,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         // 调用 interface 接口的 onConnect 方法
         handler.connected(exchangeChannel);
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     @Override
     public void disconnected(Channel channel) throws RemotingException {
         ExchangeChannel exchangeChannel = HeaderExchangeChannel.getOrAddChannel(channel);
@@ -150,7 +152,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             HeaderExchangeChannel.removeChannel(channel);
         }
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     @Override
     public void sent(Channel channel, Object message) throws RemotingException {
         Throwable exception = null;
@@ -178,7 +180,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             }
         }
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         // DubboChannel （NettyChannel实现）转换为 HeaderExchangeChannel
@@ -221,7 +223,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
             handler.received(exchangeChannel, message);
         }
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     @Override
     public void caught(Channel channel, Throwable exception) throws RemotingException {
         if (exception instanceof ExecutionException) {

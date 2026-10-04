@@ -60,14 +60,16 @@ public class DefaultFuture extends CompletableFuture<Object> {
 
     // invoke id.
     private final Long id;
+    // NettyChannel(NettyClient)
     private final Channel channel;
     private final Request request;
     private final int timeout;
     private final long start = System.currentTimeMillis();
     // 设置发送的时间戳（调用send的时间戳，还未到 socket）
     private volatile long sent;
+    // 用于检查该 future 是否超时的延时任务
     private Timeout timeoutCheckTask;
-
+    // cache executor or threadLessExecutor
     private ExecutorService executor;
 
     public ExecutorService getExecutor() {
@@ -79,7 +81,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     private DefaultFuture(Channel channel, Request request, int timeout) {
-        // NettyChannel
+        // NettyChannel(NettyClient)
         this.channel = channel;
         this.request = request;
         this.id = request.getId();
@@ -220,7 +222,7 @@ public class DefaultFuture extends CompletableFuture<Object> {
             throw new IllegalStateException("response cannot be null");
         }
         if (res.getStatus() == Response.OK) {
-            this.complete(res.getResult());
+            this.complete(res.getResult()); // decodeHandler 解码出来的是 appResponse
         } else if (res.getStatus() == Response.CLIENT_TIMEOUT || res.getStatus() == Response.SERVER_TIMEOUT) {
             this.completeExceptionally(new TimeoutException(res.getStatus() == Response.SERVER_TIMEOUT, channel, res.getErrorMessage()));
         } else {
@@ -263,7 +265,9 @@ public class DefaultFuture extends CompletableFuture<Object> {
     }
 
     private void doSent() {
-        // 设置发送的时间戳（调用send的时间戳，还未到 socket）
+        // 设置发送的时间戳
+        // 当 request 写入到 socket 之后设置这里的时间戳
+        // org.apache.dubbo.remoting.transport.netty4.NettyClientHandler.write
         sent = System.currentTimeMillis();
     }
 

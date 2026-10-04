@@ -90,6 +90,7 @@ public class AppResponse implements Result {
         }
         // 异步调用，这里的 result 是空的
         // 客户端需要从 RpcContext 中获取 future
+        // org.apache.dubbo.rpc.AsyncRpcResult.getAppResponse
         return result;
     }
 

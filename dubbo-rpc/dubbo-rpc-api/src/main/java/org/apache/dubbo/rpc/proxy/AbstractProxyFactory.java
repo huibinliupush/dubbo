@@ -35,6 +35,7 @@ import static org.apache.dubbo.rpc.Constants.INTERFACES;
 
 /**
  * AbstractProxyFactory
+ * 被 StubProxyFactoryWrapper 包装，ProxyFactory 的 切面
  */
 public abstract class AbstractProxyFactory implements ProxyFactory {
     // 销毁 reference 代理的时候会调用 Destroyable
@@ -47,7 +48,7 @@ public abstract class AbstractProxyFactory implements ProxyFactory {
     public <T> T getProxy(Invoker<T> invoker) throws RpcException {
         return getProxy(invoker, false);
     }
-
+    // 被 StubProxyFactoryWrapper 包装，ProxyFactory 的 切面
     @Override
     public <T> T getProxy(Invoker<T> invoker, boolean generic) throws RpcException {
         Set<Class<?>> interfaces = new HashSet<>();

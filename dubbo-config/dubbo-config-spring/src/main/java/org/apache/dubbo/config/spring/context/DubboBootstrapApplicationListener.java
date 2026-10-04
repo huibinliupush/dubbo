@@ -28,6 +28,8 @@ import org.springframework.core.Ordered;
  * The {@link ApplicationListener} for {@link DubboBootstrap}'s lifecycle when the {@link ContextRefreshedEvent}
  * and {@link ContextClosedEvent} raised
  *
+ * 注解驱动下注册时机： org.apache.dubbo.config.spring.beans.factory.annotation.ServiceClassPostProcessor#postProcessBeanDefinitionRegistry(org.springframework.beans.factory.support.BeanDefinitionRegistry)
+ * XML 驱动下注册时机：org.apache.dubbo.config.spring.schema.DubboNamespaceHandler#registerApplicationListeners(org.springframework.beans.factory.support.BeanDefinitionRegistry)
  * @since 2.7.5
  */
 public class DubboBootstrapApplicationListener extends OneTimeExecutionApplicationContextEventListener

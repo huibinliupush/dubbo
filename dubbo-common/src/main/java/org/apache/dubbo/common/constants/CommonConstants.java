@@ -179,7 +179,7 @@ public interface CommonConstants {
 
     String VERSION_KEY = "version";
 
-    String REVISION_KEY = "revision";
+    String REVISION_KEY = "revision";// Dubbo 当前版本号
 
     String METADATA_KEY = "metadata-type";
 

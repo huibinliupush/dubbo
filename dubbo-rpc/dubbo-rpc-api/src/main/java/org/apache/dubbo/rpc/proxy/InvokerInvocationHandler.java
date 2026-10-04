@@ -32,6 +32,8 @@ import java.lang.reflect.Method;
  */
 public class InvokerInvocationHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);
+    // ZoneAwareClusterInvoker 中封装了多个 clusterInvoker （一个注册中心对应一个clusterInvoker）
+    // clusterInvoker 中封装了路由，负载均衡，集群容错策略
     private final Invoker<?> invoker;
     private ConsumerModel consumerModel;
 
@@ -43,6 +45,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
         }
     }
     // proxy 为 javassist 生成的代理类实例（运行过程中无任何反射开销）
+    // 生成 proxy 过程：org.apache.dubbo.common.bytecode.Proxy.getProxy(java.lang.ClassLoader, java.lang.Class<?>...)
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (method.getDeclaringClass() == Object.class) {
@@ -83,6 +86,9 @@ public class InvokerInvocationHandler implements InvocationHandler {
         // 异步方法直接放回 future (方法签名中的返回值就是 furure)
         // 同步方法异步模式（xml中配置 Async 或者调用 RpcContext AsyncCall），这里就直接返回 null
         // 用户需要从 RpcContext 中去获取 future
+
+        // ZoneAwareClusterInvoker 中封装了多个 clusterInvoker （一个注册中心对应一个clusterInvoker）
+        // clusterInvoker 中封装了路由，负载均衡，集群容错策略
         return invoker.invoke(rpcInvocation).recreate();
     }
 }

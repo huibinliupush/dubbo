@@ -105,6 +105,9 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                 "NettyServerWorker");
         // Netty 的 ChannelHandler(NettyServerHandler) 来包装内部 handler(this)
         // Dubbo 层面的 pipeline,第一个 handler 就是 NettyServer,NettyServer里包装了其他 handler
+        // 用 netty 原生的 channelHandler(NettyServerHandler) 去驱动 dubbo 自定义的 channelHandler
+        // 为什么不直接用 netty 原生的 channelHandler, 而是抽象一个 dubbo 层面的 channelHandler ?
+        // 因为要屏蔽底层网络框架，这和配置中心，注册中心抽象的 lisenter 一个道理，都是屏蔽底层具体实现
         final NettyServerHandler nettyServerHandler = new NettyServerHandler(getUrl(), this);
         // <ip:port, dubbo channel>
         channels = nettyServerHandler.getChannels();
@@ -119,6 +122,7 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                     protected void initChannel(SocketChannel ch) throws Exception {
                         // FIXME: should we use getTimeout()?
                         int idleTimeout = UrlUtils.getIdleTimeout(getUrl());
+                        // 不同 pipeline 不同的实例
                         NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyServer.this);
                         if (getUrl().getParameter(SSL_ENABLED_KEY, false)) {
                             // https://cn.dubbo.apache.org/zh-cn/blog/2020/05/18/dubbo-java-2.7.5-%E5%8A%9F%E8%83%BD%E8%A7%A3%E6%9E%90/
@@ -126,11 +130,11 @@ public class NettyServer extends AbstractServer implements RemotingServer {
                                     SslHandlerInitializer.sslServerHandler(getUrl(), nettyServerHandler));
                         }
                         ch.pipeline() // netty pipeine
-                                .addLast("decoder", adapter.getDecoder())
-                                .addLast("encoder", adapter.getEncoder())
-                                .addLast("server-idle-handler", new IdleStateHandler(0, 0, idleTimeout, MILLISECONDS))
+                                .addLast("decoder", adapter.getDecoder())  // 不同 pipeline 不同的实例
+                                .addLast("encoder", adapter.getEncoder())  // 不同 pipeline 不同的实例
+                                .addLast("server-idle-handler", new IdleStateHandler(0, 0, idleTimeout, MILLISECONDS))  // 不同 pipeline 不同的实例
                                 .addLast("handler", nettyServerHandler); // dubbo pipeline (最开始是 NettyServer),而 NettyServer 本身包装了其他 DubboHandler
-                        
+                                // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
                     }
                 });
         // bind

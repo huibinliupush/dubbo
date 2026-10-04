@@ -44,7 +44,7 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
  * DefaultMessageClient
  * 处理心跳，重连，以及提供 request send 操作
  */
-public class HeaderExchangeClient implements ExchangeClient {
+public class HeaderExchangeClient implements ExchangeClient { // 一个连接对应一个 client
 
     private final Client client;
     private final ExchangeChannel channel;
@@ -62,6 +62,13 @@ public class HeaderExchangeClient implements ExchangeClient {
 
         if (startTimer) { // true
             URL url = client.getUrl();
+            // close channel
+            // 关闭后重建Socket是最规范的 reconnect 做法
+            // 调用 bootStrap 重新 connect
+            // 不存在无需重建Socket即可优雅重置并成功重连的方法。
+            // 强制断开后的Socket已经失去了可用的底层资源和有效状态，必须先调用Close()释放资源，
+            // 再创建新的Socket实例发起重连，这是最标准的处理方式。
+            // Socket 的生命周期是单向的，一旦关闭就不可恢复。close() 方法会释放底层资源（文件描述符、缓冲区等），并标记该 socket 为已关闭状态。
             startReconnectTask(url);
             startHeartBeatTask(url);
         }

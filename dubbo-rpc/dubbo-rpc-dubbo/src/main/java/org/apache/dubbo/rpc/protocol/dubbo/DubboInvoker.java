@@ -73,11 +73,13 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
 
     public DubboInvoker(Class<T> serviceType, URL url, ExchangeClient[] clients, Set<Invoker<?>> invokers) {
         super(serviceType, url, new String[]{INTERFACE_KEY, GROUP_KEY, TOKEN_KEY});
-        // 一个 provider 一个 invoker, 里边对应多个 clients (连接的抽象)（默认情况下是共享连接）
+        // 一个 provider 一个 invoker, 里边对应多个 clients (连接的抽象)（默认情况下是共享连接,针对同一 remoteAddress）
+        // invoker 下的网络连接
         this.clients = clients;
         // get version.
         this.version = url.getParameter(VERSION_KEY, "0.0.0");
         // DubboProtocal 中缓存的所有 providerUrl 对应的 invoker (一个 provider 对应一个 invoker)
+        // consumer 进程所有的 reference invoker
         this.invokers = invokers;
     }
 
@@ -110,11 +112,14 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
                 // request future 正常通知是在 dubbo 线程中进行
                 // 同步模式使用 ThreadlessExecutor，异步模式使用 sharedExecutor （url 中配置的线程池）
                 // 一次 RPC 请求，创建一个 ThreadlessExecutor（同步调用）
+                // 异步调用则使用 consumer 端按照对应 remote port 分配的 cache executor
                 ExecutorService executor = getCallbackExecutor(getUrl(), inv);
                 // 发送 request 请求，response 回来之后会通知 CompletableFuture
-                // 如果 reference 设置了异步请求，那会在
+                // 如果 reference 设置了异步请求，那会在 cache executor 中解码 response,通知 CompletableFuture
+                // 如果是同步请求那会在 ThreadlessExecutor 中解码 response,通知 CompletableFuture
+                // 因为同步请求，业务线程反正也是阻塞等待结果，还不如让他起来执行下解码，通知的任务
                 CompletableFuture<AppResponse> appResponseFuture =
-                        currentClient.request(inv, timeout, executor).thenApply(obj -> (AppResponse) obj);
+                        currentClient.request(inv, timeout, executor).thenApply(obj -> (AppResponse) obj); // decodeHandler 解码出来的是 appResponse,所以可以强转
                 // save for 2.6.x compatibility, for example, TraceFilter in Zipkin uses com.alibaba.xxx.FutureAdapter
                 FutureContext.getContext().setCompatibleFuture(appResponseFuture);
                 // 在 org.apache.dubbo.rpc.protocol.AbstractInvoker.invoke 中

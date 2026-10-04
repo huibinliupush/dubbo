@@ -193,7 +193,7 @@ public abstract class Wrapper {
         Map<String, Method> ms = new LinkedHashMap<>(); // <method desc, Method instance>
         //方法名称集合
         List<String> mns = new ArrayList<>(); // method names.
-        //declaring method names集合
+        //declaring method names集合，在 DemoServiceImpl 接口类中实现的方法，父类中实现的方法不在这里缓存
         List<String> dmns = new ArrayList<>(); // declaring method names.
 
         // get all public field.
@@ -210,6 +210,8 @@ public abstract class Wrapper {
             // if( $2.equals("name") ) { return ($w)w.name; }
             // https://www.javassist.org/tutorial/tutorial2.html
             // $w : The wrapper type. It is used in a cast expression.
+            // $w 代表包装类型（Wrapper type），它用于在表达式中进行类型转换，将基本类型（primitive type）转换为对应的包装器类型（如 int 转为 Integer）
+            // 仅此而已
             c2.append(" if( $2.equals(\"").append(fn).append("\") ){ return ($w)w.").append(fn).append("; }");
             pts.put(fn, ft);
         }
@@ -269,7 +271,7 @@ public abstract class Wrapper {
                         }
                     }
                 }
-
+                // 如果没有重载方法，那么就只需要前两个判断条件就可以了，不需要判断参数类型是否一致
                 c3.append(" ) { ");
 
                 //根据返回类型的不同 拼接 调用目标方法代码
@@ -287,6 +289,7 @@ public abstract class Wrapper {
                 mns.add(mn);
                 // 找到方法的是在哪个类中实现的
                 if (m.getDeclaringClass() == c) {
+                    // 在 DemoServiceImpl 接口类中实现的方法，父类中实现的方法不在这里缓存
                     dmns.add(mn);
                 }
                 ms.put(ReflectUtils.getDesc(m), m);
@@ -389,7 +392,7 @@ public abstract class Wrapper {
          *                 w.wrapperReturnVoid((java.lang.String)$4[0]); return null;
          *             }
          *
-         *             if( "setWrapperField".equals( $2 )  &&  $3.length == 1 ) {
+         *             if( "setWrapperField".equals( $2 )  &&  $3.length == 1 ) { // 类中如果没有重载的方法，那么无需比较参数类型是否一致
          *                 w.setWrapperField((java.lang.String)$4[0]);
          *                 return null;
          *             }
@@ -459,6 +462,7 @@ public abstract class Wrapper {
             wc.getField("dmns").set(null, dmns.toArray(new String[0]));
             int ix = 0;
             for (Method m : ms.values()) {
+                // 设置类中第 i 个方法的参数类型集合
                 wc.getField("mts" + ix++).set(null, m.getParameterTypes());
             }
             //返回包装了ref的Wrapper实例

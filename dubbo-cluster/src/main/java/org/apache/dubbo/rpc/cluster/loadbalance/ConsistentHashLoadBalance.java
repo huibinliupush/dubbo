@@ -146,8 +146,8 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
         // digest 为 16 个字节 提取某 4 个字节生成一个 32 位整数
         // number = 0 提到 0 到 3 个字节
         // number = 1 提到 4 到 7 个字节
-        // number = 0 提到 8 到 11 个字节
-        // number = 0 提到 12 到 16 个字节
+        // number = 2 提到 8 到 11 个字节
+        // number = 3 提到 12 到 16 个字节
         // digest是一个字节数组，number参数可能用来选择不同的四字节块。
         // 比如当number=0时，取digest[0]到digest[3]，当number=1时，取digest[4]到digest[7]，
         // 依此类推。每个字节通过位操作组合成一个32位的值。

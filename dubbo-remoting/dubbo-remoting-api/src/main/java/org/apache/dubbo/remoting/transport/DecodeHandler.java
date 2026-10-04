@@ -37,7 +37,7 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
     public DecodeHandler(ChannelHandler handler) {
         super(handler);
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         // message -  DecodeableRpcInvocation(解码 request) or DecodeableRpcResult(解码 response)
@@ -48,16 +48,14 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
         if (message instanceof Decodeable) {
             decode(message);
         }
-        // 反序列化请求或者响应内容，已经在 io 线程中通过 DubboCodec 解码了
-        // 此时内容已经被解码出来但是还未被反序列化
+        // 反序列化 Request 中的 DecodeableRpcInvocation
         if (message instanceof Request) {
             decode(((Request) message).getData());
         }
-
+        // 反序列化 Response 中的 DecodeableRpcResult
         if (message instanceof Response) {
             decode(((Response) message).getResult());
         }
-
         handler.received(channel, message);
     }
 

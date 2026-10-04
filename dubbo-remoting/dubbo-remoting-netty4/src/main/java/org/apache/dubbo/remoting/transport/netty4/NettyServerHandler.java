@@ -35,13 +35,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * NettyServerHandler.
+ * 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
  */
 @io.netty.channel.ChannelHandler.Sharable
 public class NettyServerHandler extends ChannelDuplexHandler {
     private static final Logger logger = LoggerFactory.getLogger(NettyServerHandler.class);
     /**
      * the cache for alive worker channel.
-     * <ip:port, dubbo channel>
+     * <客户端ip:port, dubbo channel>
      */
     private final Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
 
@@ -51,7 +52,8 @@ public class NettyServerHandler extends ChannelDuplexHandler {
     // Dubbo 层面的 pipeline
 
     // NettyServer 本身就是一个 ChannelHandler,位于整个 dubbo pipeline 的第一个
-    private final ChannelHandler handler;
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
+    private final ChannelHandler handler;// 多个 IO 线程并发执行
 
     public NettyServerHandler(URL url, ChannelHandler handler) {
         if (url == null) {
@@ -103,7 +105,7 @@ public class NettyServerHandler extends ChannelDuplexHandler {
             logger.info("The connection of " + channel.getRemoteAddress() + " -> " + channel.getLocalAddress() + " is disconnected.");
         }
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         // 通过 native channel 映射获取 dubbo channel
@@ -111,7 +113,7 @@ public class NettyServerHandler extends ChannelDuplexHandler {
         // org.apache.dubbo.remoting.transport.AbstractPeer.received (开始走后面的 dubbo pipeline)
         handler.received(channel, msg);
     }
-
+    // 不同 pipeline 同一个实例 nettyServerHandler，多个 IO 线程并发执行
     // 由这里 org.apache.dubbo.remoting.transport.netty4.NettyChannel.send 发起调用
     // 当 msg 被 flush 到 socket 之后, promise 会被通知
     @Override

@@ -57,6 +57,7 @@ public class AsyncRpcResult implements Result {
     private RpcContext storedServerContext;
 
     // 同步调用这里的是 ThreadlessExecutor
+    // 异步调用这里就是 cacheExecutor
     private Executor executor;
 
     private Invocation invocation;
@@ -64,8 +65,8 @@ public class AsyncRpcResult implements Result {
     private CompletableFuture<AppResponse> responseFuture;
 
     public AsyncRpcResult(CompletableFuture<AppResponse> future, Invocation invocation) {
-        // CompletableFuture<AppResponse>
-        this.responseFuture = future;
+        // CompletableFuture<AppResponse> <--- decodeHandler 解码出来的是 appResponse
+        this.responseFuture = future;// 来自于 defaultFuture
         this.invocation = invocation;
         // dubbo thread context
         this.storedContext = RpcContext.getContext();
@@ -154,7 +155,9 @@ public class AsyncRpcResult implements Result {
             logger.error("Got exception when trying to fetch the underlying result from AsyncRpcResult.");
             throw new RpcException(e);
         }
-
+        // 异步，因为 responseFuture 中的 AppResponse 需要等待服务端的响应回来之后，反序列化 AppResponse 之后才能设置到 responseFuture 中
+        // 但是 consumer 异步调用的话，是直接返回，不会等待服务端响应，因此此时 consumer 这里的 AppResponse 是没有的
+        // 创建一个 mock 的 AppResponse，它的 result 是 null
         return createDefaultValue(invocation);
     }
 
@@ -179,10 +182,16 @@ public class AsyncRpcResult implements Result {
 
     @Override
     public Result get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        // 同步调用这里的是 ThreadlessExecutor
+        // 异步调用这里就是 cacheExecutor
         if (executor != null && executor instanceof ThreadlessExecutor) {
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
+            // 业务线程在 queue 上阻塞，等待服务端响应
             threadlessExecutor.waitAndDrain();
         }
+        // 注意这里是业务线程执行 decodeHandler(解码 appResponse)
+        // 然后又在 headExchangeHandler 中通知 requestFuture complete(appResponse)
+        // 这里可以直接获取到 appResponse
         return responseFuture.get(timeout, unit);
     }
 
@@ -191,11 +200,16 @@ public class AsyncRpcResult implements Result {
         RpcInvocation rpcInvocation = (RpcInvocation) invocation;
         // 异步方法直接返回 future
         if (InvokeMode.FUTURE == rpcInvocation.getInvokeMode()) {
-            return RpcContext.getContext().getFuture();
+            return RpcContext.getContext().getFuture();// 在 abstractInvoker 中进行设置
         }
         // 如果是同步方法异步模式，这里的返回值就是 null，用户需要从 RpcContext 中获取 future
         // see : org.apache.dubbo.rpc.RpcContext.asyncCall(java.util.concurrent.Callable<T>)
         // org.apache.dubbo.samples.async.AsyncConsumer.main
+
+        // 同步直接返回 responseFuture AppResponse 中的 result
+        // 异步，因为 responseFuture 中的 AppResponse 需要等待服务端的响应回来之后，反序列化 AppResponse 之后才能设置到 responseFuture 中
+        // 但是 consumer 异步调用的话，是直接返回，不会等待服务端响应，因此此时 consumer 这里的 AppResponse 是没有的,responseFuture is not done
+        // 创建一个 mock 的 AppResponse，它的 result 是 null
         return getAppResponse().recreate();
     }
 

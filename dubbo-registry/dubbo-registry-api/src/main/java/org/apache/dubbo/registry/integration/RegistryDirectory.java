@@ -102,6 +102,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     private final String serviceKey; // Initialization at construction time, assertion not null
     private final Class<T> serviceType; // Initialization at construction time, assertion not null
+    // consumer 参数
     private final Map<String, String> queryMap; // Initialization at construction time, assertion not null
     // 只保留 Consumer 属性的 registerURL(其他 registry 属性全部删除)，也就是由 queryMap 集合重新生成的 URL。
     // zookeeper 协议
@@ -133,6 +134,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private volatile List<Configurator> configurators; // The initial value is null and the midway may be assigned to null, please use the local variable reference
 
     // Map<url, Invoker> cache service url to invoker mapping.
+    // key 的 url 这里是 由 providerUrl 和 consumerUrl 以及配置中心的配置一起合并之后的最终 URL
+    // value 对应为 invoker
+    // see : org.apache.dubbo.registry.integration.RegistryDirectory.mergeUrl
     private volatile Map<String, Invoker<T>> urlInvokerMap; // The initial value is null and the midway may be assigned to null, please use the local variable reference
     private volatile List<Invoker<T>> invokers;
 
@@ -141,7 +145,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private volatile Set<URL> cachedInvokerUrls; // The initial value is null and the midway may be assigned to null, please use the local variable reference
     // 对比于发布过程中的 providerConfigurationListener
     // 注意 ConsumerConfigurationListener 是静态的
-    // 它们监听的是同一配置文件： appName.configurators
+    // 它们监听的是各自的应用级配置： appName.configurators， consumer 应用 or provider 应用
     private static final ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER = new ConsumerConfigurationListener();
     // 对比于发布过程中的 serviceConfigurationListener
     // ReferenceConfigurationListener 是实例级别（一个注册中心一个）
@@ -343,6 +347,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 invokerUrls = new ArrayList<>();
             }
             if (invokerUrls.isEmpty() && this.cachedInvokerUrls != null) { // 空推保护
+                // 只是配置中心，consumer , reference 相关配置变动，推进来的 invokerUrls 集合是空
+                // 这里要做的就是根据配置变动，重新覆盖原来的 providerUrl,  see : toInvokers 方法
                 invokerUrls.addAll(this.cachedInvokerUrls);
             } else {
                 this.cachedInvokerUrls = new HashSet<>();

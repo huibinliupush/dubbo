@@ -39,6 +39,8 @@ public interface Cluster {
      * @param directory
      * @return cluster invoker
      * @throws RpcException
+     *
+     * 这里有一个 MockClusterWrapper 切面，用 MockClusterInvoker 封装 ClusterInvoker
      */
     @Adaptive
     <T> Invoker<T> join(Directory<T> directory) throws RpcException;

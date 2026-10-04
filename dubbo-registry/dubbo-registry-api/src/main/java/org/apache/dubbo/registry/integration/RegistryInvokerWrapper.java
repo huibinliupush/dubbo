@@ -31,8 +31,11 @@ class RegistryInvokerWrapper<T> implements Invoker<T> {
 
     public RegistryInvokerWrapper(RegistryDirectory<T> directory, Cluster cluster, Invoker<T> invoker, URL url) {
         this.directory = directory;
+        // ClusterAdaptive 实例
         this.cluster = cluster;
+        //  clusterInvoker(带有 ClusterInterceptors)，负责路由，负载均衡，容错处理，获取远程调用结果
         this.invoker = invoker;
+        // subscribeUrl
         this.url = url;
     }
 

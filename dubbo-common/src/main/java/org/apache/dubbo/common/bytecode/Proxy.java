@@ -49,6 +49,8 @@ public abstract class Proxy {
     };
     private static final AtomicLong PROXY_CLASS_COUNTER = new AtomicLong(0);
     private static final String PACKAGE_NAME = Proxy.class.getPackage().getName();
+    // use interface class name list as key.
+    // see : org.apache.dubbo.common.bytecode.Proxy.getProxy(java.lang.ClassLoader, java.lang.Class<?>...)
     private static final Map<ClassLoader, Map<String, Object>> PROXY_CACHE_MAP = new WeakHashMap<ClassLoader, Map<String, Object>>();
 
     private static final Object PENDING_GENERATION_MARKER = new Object();
@@ -152,7 +154,7 @@ public abstract class Proxy {
                     }
                 }
                 ccp.addInterface(ics[i]);
-
+                // 实现代理类的所有方法，在方法体中直接调用 InvocationHandler. invoke
                 for (Method method : ics[i].getMethods()) {
                     String desc = ReflectUtils.getDesc(method);
                     if (worked.contains(desc) || Modifier.isStatic(method.getModifiers())) {
@@ -169,6 +171,9 @@ public abstract class Proxy {
 
                     StringBuilder code = new StringBuilder("Object[] args = new Object[").append(pts.length).append("];");
                     for (int j = 0; j < pts.length; j++) {
+                        // 获取方法传入的参数
+                        // $w 代表包装类型（Wrapper type），它用于在表达式中进行类型转换，将基本类型（primitive type）转换为对应的包装器类型（如 int 转为 Integer）
+                        // 仅此而已
                         code.append(" args[").append(j).append("] = ($w)$").append(j + 1).append(";");
                     }
                     // 直接将 Method 传入 invocationHandler

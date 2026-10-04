@@ -22,11 +22,12 @@ import org.apache.dubbo.remoting.RemotingServer;
 import org.apache.dubbo.rpc.ProtocolServer;
 
 public class DubboProtocolServer implements ProtocolServer {
-
+    // HeaderExchangeServer -> nettyServer
     private RemotingServer server;
     private String address;
 
     public DubboProtocolServer(RemotingServer server) {
+        // HeaderExchangeServer -> nettyServer
         this.server = server;
     }
 

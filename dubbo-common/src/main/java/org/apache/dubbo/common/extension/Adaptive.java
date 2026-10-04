@@ -56,7 +56,9 @@ public @interface Adaptive {
      * @return parameter names in URL
      *
      * 指定参数名，利用该参数名到 url 中去获取具体的值（扩展名）
+     * 如果没有指定，则默认用扩展类的类名作为参数取 url 中查找 key
+     * YyyInvokerWrapper -> yyy.invoker.wrapper
      */
-    String[] value() default {};
+    String[] value() default {}; // 根据 url 中的哪个参数来自适应，默认为类名
 
 }

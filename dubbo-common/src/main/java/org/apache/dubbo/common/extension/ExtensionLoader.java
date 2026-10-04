@@ -92,7 +92,7 @@ public class ExtensionLoader<T> {
     // 对应的扩展接口
     private final Class<?> type;
     // ExtensionFactory#AdaptiveExtension ——  AdaptiveExtensionFactory
-    // 在依赖注入阶段，利用 objectFactory 获取 SPI ,spring bean
+    // 在依赖注入阶段，利用 objectFactory 获取 SPI 扩展,spring bean
     private final ExtensionFactory objectFactory;
     // key : 扩展实现类 ， value : 扩展名称
     private final ConcurrentMap<Class<?>, String> cachedNames = new ConcurrentHashMap<>();
@@ -126,6 +126,9 @@ public class ExtensionLoader<T> {
      *
      * ProxyFactory 扩展接口的切面实现类
                 stub=org.apache.dubbo.rpc.proxy.wrapper.StubProxyFactoryWrapper
+
+       Cluster 扩展接口的切面实现类
+               mock=org.apache.dubbo.rpc.cluster.support.wrapper.MockClusterInvoker
      *
      * */
     private Set<Class<?>> cachedWrapperClasses;

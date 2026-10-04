@@ -346,9 +346,9 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
     private String getProperty(String name, String defaultValue) {
         return nacosProperties.getProperty(name, defaultValue);
     }
-
+    // 一个配置文件对应一个 NacosConfigListener
     public class NacosConfigListener extends AbstractSharedListener {
-
+        // dubbo 框架内部监听某个配置文件的 ConfigurationListener
         private Set<ConfigurationListener> listeners = new CopyOnWriteArraySet<>();
         /**
          * cache data to store old value

@@ -53,6 +53,7 @@ public class ChannelEventRunnable implements Runnable {
 
     @Override
     public void run() {
+        // fast path
         if (state == ChannelState.RECEIVED) {
             try {
                 handler.received(channel, message);

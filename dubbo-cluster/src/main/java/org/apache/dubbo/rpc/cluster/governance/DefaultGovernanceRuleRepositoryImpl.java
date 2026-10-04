@@ -20,7 +20,7 @@ import org.apache.dubbo.common.config.configcenter.ConfigurationListener;
 import org.apache.dubbo.common.config.configcenter.DynamicConfiguration;
 
 public class DefaultGovernanceRuleRepositoryImpl implements GovernanceRuleRepository {
-
+    // 配置中心的创建： org.apache.dubbo.config.bootstrap.DubboBootstrap.prepareEnvironment
     private DynamicConfiguration dynamicConfiguration = DynamicConfiguration.getDynamicConfiguration();
 
     @Override

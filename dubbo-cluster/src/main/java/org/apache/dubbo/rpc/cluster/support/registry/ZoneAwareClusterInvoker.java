@@ -56,11 +56,16 @@ public class ZoneAwareClusterInvoker<T> extends AbstractClusterInvoker<T> {
     public ZoneAwareClusterInvoker(Directory<T> directory) {
         super(directory);// StaticDirectory
     }
-
+    // 主要目的是选择哪个区域的注册中心中的 providers
+    // 环境变量，请求中都可以设置 REGISTRY_ZONE，请求上下文中会带进来
+    // 在 <registry > 配置中需要配置 REGISTRY_ZONE ，多个 <registry > 配置 配置不同的 REGISTRY_ZONE
+    // 选取请求 REGISTRY_ZONE 一致的 registry 中的 provider
+    // 也就是说这里实现了从哪个指定的注册中心获取 providers
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(Invocation invocation, final List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         // First, pick the invoker (XXXClusterInvoker) that comes from the local registry, distinguish by a 'preferred' key.
+        // 这里的参数 invokers ： 多个注册中心的 ClusterInvoker + 直连的 dubboInvoker(如果配置直连的话)
         for (Invoker<T> invoker : invokers) {
             // FIXME, the invoker is a cluster invoker representing one Registry, so it will automatically wrapped by MockClusterInvoker.
             // 普通的 ClusterInvoker 会被 MockClusterInvoker 进行包装
@@ -72,8 +77,9 @@ public class ZoneAwareClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 return mockClusterInvoker.invoke(invocation);
             }
         }
-
+        // 走到这里表示所有的 <registry > 配置，都没有配置 preferred
         // providers in the registry with the same zone
+        // 由 ZoneAwareClusterInterceptor 设置
         String zone = (String) invocation.getAttachment(REGISTRY_ZONE);
         if (StringUtils.isNotEmpty(zone)) {
             // 选择与 invocation 中的 registry_zone 配置与注册中心 <registry > 相同的 zone 配置

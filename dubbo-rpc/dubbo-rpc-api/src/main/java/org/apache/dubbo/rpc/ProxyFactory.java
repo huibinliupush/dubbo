@@ -39,7 +39,7 @@ public interface ProxyFactory {
 
     /**
      * create proxy.
-     *
+     * 被 StubProxyFactoryWrapper 包装，ProxyFactory 的 切面
      * @param invoker
      * @return proxy
      */

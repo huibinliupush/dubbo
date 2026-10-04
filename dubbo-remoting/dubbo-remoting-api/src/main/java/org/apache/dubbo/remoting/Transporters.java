@@ -49,6 +49,7 @@ public class Transporters {
         }
         ChannelHandler handler;
         if (handlers.length == 1) {
+            // DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
             handler = handlers[0];
         } else {
             // 多个 handlers 伪装成一个 handler
@@ -56,7 +57,7 @@ public class Transporters {
         }
 
         // NettyTransporter bind 返回 NettyServer
-        return getTransporter().bind(url, handler); // ChannelHandlerDispatcher
+        return getTransporter().bind(url, handler); // DecodeHandler->HeaderExchangeHandler->DubboProtocol.requestHandler
     }
 
     public static Client connect(String url, ChannelHandler... handler) throws RemotingException {

@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
  * @param <T>
  */
 public class AsyncToSyncInvoker<T> implements Invoker<T> {
-
+    // dubboInvoker ，里边封装底层网络连接
     private Invoker<T> invoker;
 
     public AsyncToSyncInvoker(Invoker<T> invoker) {
@@ -53,6 +53,7 @@ public class AsyncToSyncInvoker<T> implements Invoker<T> {
 
         try {
             // 异步转同步，因为底层全部都是异步的，如果我们设置了 SYNC，需要在这里将异步转为同步
+            // 注意这里会调用
             if (InvokeMode.SYNC == ((RpcInvocation) invocation).getInvokeMode()) {
                 /**
                  * NOTICE!

@@ -49,6 +49,7 @@ final public class NettyCodecAdapter {
         // DubboCountCodec -> DubboCodec
         this.codec = codec;
         this.url = url;
+        // NettyServer
         this.handler = handler;
     }
 

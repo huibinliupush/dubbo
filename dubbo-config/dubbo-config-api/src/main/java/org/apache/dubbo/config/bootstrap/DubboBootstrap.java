@@ -505,6 +505,12 @@ public class DubboBootstrap extends GenericEventListener {
         }
         // 初始化 ConfigManager , Environment , ServiceRepository
         // 主要是初始化 Environment ， 封装多种配置源
+        // 主要针对静态配置 dubbo.properties, 静态配置的意思就是在运行过程中是不会改变的
+        // 但是不同环境，可能值会不同，但是一旦启动就不会改变了
+        // 比如 注册中心，配置中心的地址，这些均是静态配置 dubbo.properties 中的
+        // 这里主要是做静态配置的集中管理，按照配置源的优先级排序，重新覆盖
+        // 而动态配置主要针对的是 service ,referecne ，将会在 export , refer 的过程中初始化相关的 lisenters
+        // 配置中心的动态配置文件以 configutor 后缀结尾
         ApplicationModel.initFrameworkExts();
         // 启动配置中心，将 ConfigCenterConfig 转换为 DynamicConfiguration，并加载外部化配置
         // 加载所有配置源，并按照优先级重新覆盖 configManager 中的 config bean
@@ -704,7 +710,7 @@ public class DubboBootstrap extends GenericEventListener {
                 });
         startConfigCenter();
     }
-
+    // 增加本地配置中没有，但是配置中心却有的配置
     private void loadRemoteConfigs() {
         // registry ids to registry configs
         List<RegistryConfig> tmpRegistries = new ArrayList<>();
@@ -803,7 +809,10 @@ public class DubboBootstrap extends GenericEventListener {
                 //3. Register the local ServiceInstance if required
                 registerServiceInstance();
             }
-
+            // 注解驱动下，在自动注入 DubboReference 的时候就会 refer 生成代理并设置到相应的字段中
+            // com.alibaba.spring.beans.factory.annotation.AbstractAnnotationBeanPostProcessor.AnnotatedFieldElement.inject
+            // xml 配置下，getBean 获取的时候由于 ReferenceBean 是一个 FactoryBean, 所以获取到之后 spring 调用 FactoryBean 的 getBean 方法
+            // 来获取代理返回
             referServices();
             if (asyncExportingFutures.size() > 0) {
                 new Thread(() -> {
@@ -1037,7 +1046,7 @@ public class DubboBootstrap extends GenericEventListener {
         if (cache == null) {
             cache = ReferenceConfigCache.getCache();
         }
-
+        // ReferenceBean
         configManager.getReferences().forEach(rc -> {
             // TODO, compatible with  ReferenceConfig.refer()
             ReferenceConfig referenceConfig = (ReferenceConfig) rc;
