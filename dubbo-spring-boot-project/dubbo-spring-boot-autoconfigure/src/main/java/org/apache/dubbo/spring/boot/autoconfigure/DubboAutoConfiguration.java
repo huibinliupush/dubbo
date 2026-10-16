@@ -87,6 +87,14 @@ public class DubboAutoConfiguration {
             @Qualifier(BASE_PACKAGES_BEAN_NAME) Set<String> packagesToScan) {
         // BASE_PACKAGES_BEAN_NAME 的注册
         // see : org.apache.dubbo.spring.boot.autoconfigure.DubboRelaxedBindingAutoConfiguration.dubboBasePackages
+
+        // 其实在 @enbaleDubbo 注解中 ServiceAnnotationPostProcessor，ReferenceAnnotationBeanPostProcessor 都会被注册
+        // ServiceAnnotationPostProcessor 主要针对我们指定的 dubbo.scan.package 路径下扫描 @dubboService 注解并注册为 bean
+        // 但是之前是针对 dubbo.properties 外部配置文件的，在 spring boot 环境中，外部配置文件是特定的 application.yml 或者 application.properties
+        // application.yml 中指定的 dubbo.scan.package 路径也需要被考虑进来，而且优先级比 dubbo.properties 高
+        // 这里主要针对的是 spring boot 环境下 application.yml 中的配置项（dubbo.scan.package）
+        // ReferenceAnnotationBeanPostProcessor 还是一样，spring boot 这里不会注册，由 @enbaleDubbo 来注册，它主要是扫描 spring bean
+        // 中的 @DubboReference 注解
         ServiceAnnotationPostProcessor serviceAnnotationPostProcessor;
         try {
             serviceAnnotationPostProcessor =

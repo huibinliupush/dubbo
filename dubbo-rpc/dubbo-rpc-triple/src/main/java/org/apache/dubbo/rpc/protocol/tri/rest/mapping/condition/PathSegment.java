@@ -151,13 +151,17 @@ public final class PathSegment implements Comparable<PathSegment> {
     }
 
     private boolean matchPattern(String path, Map<String, String> variableMap) {
+        // pattern : (?<name>[a-z-]+)-(?<version>\d\.\d\.\d)(?<ext>\.[a-z]+)
         Matcher matcher = getPattern().matcher(path);
         if (matcher.matches()) {
             if (variables == null) {
                 return true;
             }
+            // variables=[name, version, ext], 正则变量，也是捕获组的名称
             for (int i = 0, size = variables.size(); i < size; i++) {
                 String variable = variables.get(i);
+                // https://chat.deepseek.com/a/chat/s/1f24ec0f-5bd8-476b-a6f4-ed2b20305e87
+                // 匹配捕获组，匹配到的值就是对应 variable 的值，variable 为正则捕获组名称，也是我们需要的参数名称
                 variableMap.put(variable, matcher.group(variable));
             }
             return true;

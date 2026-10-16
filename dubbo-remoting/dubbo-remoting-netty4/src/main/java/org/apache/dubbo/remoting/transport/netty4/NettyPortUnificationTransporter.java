@@ -33,6 +33,8 @@ public class NettyPortUnificationTransporter implements PortUnificationTransport
     public AbstractPortUnificationServer bind(URL url, ChannelHandler handler) throws RemotingException {
         // url : tri://192.168.2.101:50052/org.example.RestTestService?anyhost=true&application=dubbo-springboot-triple-rest-springmvc&background=false&bind.ip=192.168.2.101&bind.port=50052&deprecated=false&dubbo=2.0.2&dynamic=true&executor-management-mode=isolation&file-cache=true&generic=false&interface=org.example.RestTestService&methods=getHead,getMuchParam,getMuchVariable,getReg,patchById,postList,postUseConsumesUser,postUseParams&pid=7809&prefer.serialization=hessian2,fastjson2&qos.enable=false&register=false&release=3.3.4&side=provider&timestamp=1752387447880&triple.rest.enable.default.mapping=false&triple.verbose=true
         // handler -> DefaultPuHandler(空实现)
+        // triple 协议 handler : DefaultPuHandler(空实现)
+        // dubbo 协议 ： decodeHandler -> HeaderExchangeHandler -> requestHandler
         return new NettyPortUnificationServer(url, handler);
     }
 

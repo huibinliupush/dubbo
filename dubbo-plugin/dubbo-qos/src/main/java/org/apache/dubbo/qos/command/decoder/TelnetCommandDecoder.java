@@ -26,7 +26,7 @@ public class TelnetCommandDecoder {
         if (!StringUtils.isBlank(str)) {
             str = str.trim();
             // commandName 空格 targetArgs
-            String[] array = str.split("(?<![\\\\]) ");
+            String[] array = str.split("(?<![\\\\]) "); // 各个参数前面不能有反斜杠 \\
             if (array.length > 0) {
                 String[] targetArgs = new String[array.length - 1];
                 System.arraycopy(array, 1, targetArgs, 0, array.length - 1);

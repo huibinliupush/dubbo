@@ -260,7 +260,7 @@ public class NettyPortUnificationServerHandler extends ByteToMessageDecoder {
                 case RECOGNIZED:
                     // handler 这里是一连串的 dubbo channel handler , 后续会由 netty channel handler 进行驱动
                     // 不同协议对应不同的处理 handler,通常最后一个 dubbo channel handler 负责处理协议请求
-                    // triple : MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
+                    // triple : DefaultPuHandler(空实现)
                     ChannelHandler localHandler = this.handlerMapper.getOrDefault(name, handler);
                     // 协议对应的 server 端 url, 以最后一个暴露的 service url 为准，里面包含了 server 端的相关配置
                     // 其实每个暴露的 service url 里面包含的 server 配置都是一样的，随便选一个就可以
@@ -270,6 +270,7 @@ public class NettyPortUnificationServerHandler extends ByteToMessageDecoder {
                     operator.setDetectResult(result);
                     // channel 中配置对应协议的 pipeline
                     protocol.configServerProtocolHandler(url, operator);
+                    // ByteToMessageDecoder 的 handlerRemove 回调中会继续 fireChannelRead
                     ctx.pipeline().remove(this);
                 case NEED_MORE_DATA:
                     return;

@@ -76,6 +76,8 @@ public class NettyPortUnificationServer extends AbstractPortUnificationServer {
     // handler -> DefaultPuHandler(空实现)
     public NettyPortUnificationServer(URL url, ChannelHandler handler) throws RemotingException {
         // 经过 wrap 之后 handler 变为 ：MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
+        // triple 协议 handler : DefaultPuHandler(空实现)
+        // dubbo 协议 ： decodeHandler -> HeaderExchangeHandler -> requestHandler
         super(url, ChannelHandlers.wrap(handler, url));
 
         // you can customize name and type of client thread pool by THREAD_NAME_KEY and THREADPOOL_KEY in

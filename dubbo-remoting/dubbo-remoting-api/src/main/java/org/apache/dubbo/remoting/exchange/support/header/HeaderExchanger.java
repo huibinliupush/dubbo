@@ -46,6 +46,7 @@ public class HeaderExchanger implements Exchanger {
     @Override
     public ExchangeServer bind(URL url, ExchangeHandler handler) throws RemotingException {
         ExchangeServer server;
+        // 当指定多个协议的时候，IS_PU_SERVER_KEY = true , 多协议将会在同一端口暴露
         boolean isPuServerKey = url.getParameter(IS_PU_SERVER_KEY, false);
         if (isPuServerKey) {
             server = new HeaderExchangeServer(

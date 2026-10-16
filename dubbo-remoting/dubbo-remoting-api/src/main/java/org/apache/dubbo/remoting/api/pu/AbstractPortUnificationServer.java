@@ -97,7 +97,8 @@ public abstract class AbstractPortUnificationServer extends AbstractServer {
      */
     // 由 org.apache.dubbo.remoting.exchange.PortUnificationExchanger.bind 调用
     public void addSupportedProtocol(URL url, ChannelHandler handler) {
-        // handler : MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DefaultPuHandler(空实现)
+        // triple 协议 handler : DefaultPuHandler(空实现)
+        // dubbo 协议 ： decodeHandler -> HeaderExchangeHandler -> requestHandler
         this.supportedUrls.put(url.getProtocol(), url);
         this.supportedHandlers.put(url.getProtocol(), handler);
     }

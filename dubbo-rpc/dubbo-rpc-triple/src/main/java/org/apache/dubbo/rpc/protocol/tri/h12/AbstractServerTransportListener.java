@@ -95,6 +95,7 @@ public abstract class AbstractServerTransportListener<HEADER extends RequestMeta
             // radixTree 中查找 rest request 映射 handler(处理元信息)
             // 根据 mediaType 获取 rest 请求体，响应体的 codec
             // 初始化 RpcInvocationBuildContext （封装处理 rest 请求的所有元数据）
+            // 这里是空实现，后续会交给 SerializingExecutor 执行，onPrepareMetadata
             onBeforeMetadata(metadata);
         } catch (Throwable t) {
             logError(t);
@@ -108,7 +109,7 @@ public abstract class AbstractServerTransportListener<HEADER extends RequestMeta
              * org.apache.dubbo.remoting.transport.AbstractServer#AbstractServer(org.apache.dubbo.common.URL, org.apache.dubbo.remoting.ChannelHandler)
              *
              * 用 SerializingExecutor 封装 executor, SerializingExecutor 的目的就是按照 task 的提交顺序严格串行执行（同时只能执行一个任务）
-             * 保证 task 的顺序执行
+             * 保证 task 的顺序执行，一个请求对应一个 SerializingExecutor，但是其背后的线程资源是不变的，仍然是 protocol executor
              * */
             executor = initializeExecutor(url, metadata);
         } catch (Throwable t) {
@@ -124,6 +125,9 @@ public abstract class AbstractServerTransportListener<HEADER extends RequestMeta
         // SerializingExecutor 保证先提交的任务一定会被先执行，后提交的任务后执行，保证任务的执行顺序，不会并发执行
         executor.execute(() -> {
             try {
+                // radixTree 中查找 rest request 映射 handler(处理元信息)
+                // 根据 mediaType 获取 rest 请求体，响应体的 codec
+                // 初始化 RpcInvocationBuildContext （封装处理 rest 请求的所有元数据）
                 onPrepareMetadata(metadata);
                 // DefaultHttpMessageListener 封装了 HttpMessageDecoder , 方法的请求参数类型。以及 serverCallListener::onMessage 回调函数
                 setHttpMessageListener(buildHttpMessageListener());

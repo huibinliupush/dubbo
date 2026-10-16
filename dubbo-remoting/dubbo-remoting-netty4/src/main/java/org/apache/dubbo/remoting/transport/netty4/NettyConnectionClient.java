@@ -86,6 +86,7 @@ public final class NettyConnectionClient extends AbstractNettyConnectionClient {
                 pipeline.addLast(Constants.CONNECTION_HANDLER_NAME, connectionHandler);
 
                 NettyConfigOperator operator = new NettyConfigOperator(nettyChannel, getChannelHandler());
+                // triple 协议客户端默认为 HTTP2 : TripleHttp2Protocol
                 protocol.configClientPipeline(getUrl(), operator, nettySslContextOperator);
                 // set null but do not close this client, it will be reconnecting in the future
                 ch.closeFuture().addListener(channelFuture -> clearNettyChannel());

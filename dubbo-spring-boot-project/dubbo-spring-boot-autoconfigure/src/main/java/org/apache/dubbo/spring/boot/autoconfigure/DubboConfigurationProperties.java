@@ -49,6 +49,14 @@ public class DubboConfigurationProperties {
 
     /**
      * Configuration properties for the application.
+     *
+     * @NestedConfigurationProperty 它本身不参与实际的属性绑定过程。是一个元数据增强注解，
+     * 服务于 IDE 智能提示和 GraalVM 原生镜像支持，而非运行时绑定。对于非内部类的嵌套配
+     * 无论标不标注该注解，只要都有公共对应的 get set 方法， sping boot 都会执行动态绑定（在 @ConfigurationProperties 标注的类中）
+     *
+     * 它的真正作用对象是 spring-boot-configuration-processor。该处理器将 @NestedConfigurationProperty 作为一个提示（hint）
+     * ，表明这个字段不是简单的单值，而是一个需要被“探索”的嵌套结构。处理器会为这个嵌套结构生成一个子属性组，并收集其内部所有属性的元数据，
+     * 最终生成 spring-configuration-metadata.json 文件，以便在 IDE（如 IntelliJ IDEA）中提供智能提示和文档。
      */
     @NestedConfigurationProperty
     private ApplicationConfig application = new ApplicationConfig();

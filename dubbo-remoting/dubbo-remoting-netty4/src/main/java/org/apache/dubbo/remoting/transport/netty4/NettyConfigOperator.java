@@ -84,6 +84,7 @@ public class NettyConfigOperator implements ChannelOperator {
         }
 
         for (ChannelHandler handler : handlerList) {
+            // tri 协议会走这里
             if (handler instanceof ChannelHandlerPretender) {
                 Object realHandler = ((ChannelHandlerPretender) handler).getRealHandler();
                 addRealHandler(realHandler);

@@ -146,7 +146,7 @@ public class SslContexts {
         try {
             return sslClientContextBuilder
                     .sslProvider(findSslProvider())
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE) // 加密套件
                     .applicationProtocolConfig(new ApplicationProtocolConfig(
                             ApplicationProtocolConfig.Protocol.ALPN,
                             ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE, // 如果选择失败，不发送任何协议

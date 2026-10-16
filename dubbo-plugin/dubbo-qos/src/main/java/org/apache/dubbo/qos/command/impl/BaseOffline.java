@@ -110,6 +110,11 @@ public class BaseOffline implements BaseCommand {
                 .getExtensionLoader(RegistryFactory.class)
                 .getAdaptiveExtension();
         Registry registry = registryFactory.getRegistry(statedURL.getRegistryUrl());
+        // 在采用应用级服务发现时，online . offline 操作都只是在元数据中心里边增删改查
+        // 只是元数据中心中的 metadata 变了而已，但是注册中心的应用实例 serverInstance 还没有变
+        // 此时消费者并不会感知到，在执行完一些列的 online.offline 命令之后，最后还需要执行 publishMetadata 命令
+        // 重新注册新的 serverInstance 实例，这样消费者才能感知到
+        // org.apache.dubbo.qos.command.impl.PublishMetadata
         registry.unregister(statedURL.getProviderUrl());
         statedURL.setRegistered(false);
     }

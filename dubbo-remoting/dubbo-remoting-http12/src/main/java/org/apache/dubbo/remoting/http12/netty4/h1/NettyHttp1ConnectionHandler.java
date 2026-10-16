@@ -52,6 +52,9 @@ public class NettyHttp1ConnectionHandler extends SimpleChannelInboundHandler<Htt
      * process h1 request
      *
      * 参数 http1Request 为 DefaultHttp1Request，由 NettyHttp1Codec 进行封装
+     *
+     * triple 协议 piepine 中 inbound 方向的终极 channelHandler
+     * 因为 SimpleChannelInboundHandler 中，触发 channelRead0 之后并不会向后 fire 传播 channelRead
      */
     protected void channelRead0(ChannelHandlerContext ctx, Http1Request http1Request) {
         // DefaultHttp11ServerTransportListener 里面封装 requestRouter ， responseObserver
