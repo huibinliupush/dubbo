@@ -1181,7 +1181,8 @@ public class DubboBootstrap extends GenericEventListener {
                      * 1. unRegister consumerurl
                      * 2. 移除对 provider 的监听， unSubscribe (subscribeURL , RegistryDirectory)
                      * 3. 移除对 consumerAppName.configurators 配置的监听
-                     * 4. 销毁所有 invokers , 关闭底层连接
+                     * 4. 销毁所有 invokers , 关闭底层连接: 1.设置挡板 closing=true 2.查看channel上是否有future,有的话等待 10ms
+                     * 超时的话直接 fail future. 3. 关闭 channel
                      * */
                     unreferServices();
                     /**

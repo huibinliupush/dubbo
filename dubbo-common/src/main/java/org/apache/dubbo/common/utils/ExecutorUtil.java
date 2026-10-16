@@ -59,6 +59,9 @@ public class ExecutorUtil {
         final ExecutorService es = (ExecutorService) executor;
         try {
             // Disable new tasks from being submitted
+            // 非阻塞
+            // 停止接受新任务（后续提交的任务会触发 RejectedExecutionException）。
+            // 继续执行已提交的任务：包括正在执行的任务和队列中等待的任务。
             es.shutdown();
         } catch (SecurityException ex2) {
             return;
@@ -68,7 +71,11 @@ public class ExecutorUtil {
         try {
             // Wait a while for existing tasks to terminate
             if (!es.awaitTermination(timeout, TimeUnit.MILLISECONDS)) {
-                es.shutdownNow();
+                // 非阻塞
+                // 立即停止接受新任务（同上）。
+                // 尝试中断所有正在执行的任务：通过调用线程的 interrupt() 方法（需任务响应中断）。
+                // 清空任务队列：返回所有未执行的等待任务（List<Runnable>）。
+                es.shutdownNow(); // 结合 awaitTermination() 使用：
             }
         } catch (InterruptedException ex) {
             es.shutdownNow();
